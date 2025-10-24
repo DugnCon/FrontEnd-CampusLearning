@@ -1,22 +1,14 @@
-/*-----------------------------------------------------------------
-* File: CourseLearning.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon, CheckCircleIcon, DocumentTextIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import axios from 'axios';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useDispatch } from 'react-redux';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import remarkGfm from 'remark-gfm';
 import courseApi from '../../api/courseApi';
 import { useAuth } from '../../contexts/AuthContext';
-import { Avatar } from '../../components';
-import axios from 'axios';
-import { CheckCircleIcon, XCircleIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import CodeServerEditor from '../AiTestLocal/components/CodeServerEditor';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 // CSS cho Markdown được thêm vào component
 const markdownStyles = {
@@ -127,8 +119,8 @@ const CourseLearning = () => {
     }
     
     // Ensure Modules is an array
-    if (!Array.isArray(formattedData.Modules)) {
-      formattedData.Modules = [];
+    if (!Array.isArray(formattedData.modules)) {
+      formattedData.modules = [];
     }
     
     return formattedData;
@@ -167,7 +159,7 @@ const CourseLearning = () => {
         const formattedCourse = formatCourseData(courseResponse.data);
         
         setCourse(formattedCourse);
-        document.title = `Học: ${formattedCourse.Title} | CampusLearning`;
+        document.title = `Học: ${formattedCourse.title} | CampusLearning`;
         
         // Get user progress for this course
         try {
@@ -182,16 +174,16 @@ const CourseLearning = () => {
             const urlLessonId = searchParams.get('lessonId');
             
             // Find and set current lesson and module
-            if (formattedCourse.Modules && formattedCourse.Modules.length > 0) {
+            if (formattedCourse.modules && formattedCourse.modules.length > 0) {
               // If we have a specific lesson from URL, find it
               if (urlLessonId) {
                 let foundLesson = null;
                 let foundModule = null;
                 
                 // Search through modules and lessons to find the requested lesson
-                for (const module of formattedCourse.Modules) {
-                  if (module.Lessons) {
-                    const lesson = module.Lessons.find(l => l.LessonID === urlLessonId || l.LessonID === parseInt(urlLessonId));
+                for (const module of formattedCourse.modules) {
+                  if (module.lessons) {
+                    const lesson = module.lessons.find(l => l.lessonID === urlLessonId || l.lessonID === parseInt(urlLessonId));
                     if (lesson) {
                       foundLesson = lesson;
                       foundModule = module;
@@ -223,7 +215,7 @@ const CourseLearning = () => {
             const urlLessonId = searchParams.get('lessonId');
             
             // Set up a default lesson using empty progress
-            if (formattedCourse.Modules && formattedCourse.Modules.length > 0) {
+            if (formattedCourse.modules && formattedCourse.modules.length > 0) {
               if (urlLessonId) {
                 handleLessonFromUrl(formattedCourse, urlLessonId);
               } else {
@@ -243,7 +235,7 @@ const CourseLearning = () => {
           const urlLessonId = searchParams.get('lessonId');
           
           // Find and set current lesson and module
-          if (formattedCourse.Modules && formattedCourse.Modules.length > 0) {
+          if (formattedCourse.modules && formattedCourse.modules.length > 0) {
             // If we have a specific lesson from URL, find it
             if (urlLessonId) {
               handleLessonFromUrl(formattedCourse, urlLessonId);
@@ -308,13 +300,13 @@ const CourseLearning = () => {
 
   // Set the default current lesson (first non-completed or first lesson)
   const setDefaultCurrentLesson = (courseData, completedLessonIds = []) => {
-    if (!courseData.Modules || courseData.Modules.length === 0) return;
+    if (!courseData.modules || courseData.modules.length === 0) return;
     
     // Find first incomplete lesson
-    for (const module of courseData.Modules) {
-      if (module.Lessons && module.Lessons.length > 0) {
-        for (const lesson of module.Lessons) {
-          if (!completedLessonIds.includes(lesson.LessonID)) {
+    for (const module of courseData.modules) {
+      if (module.lessons && module.lessons.length > 0) {
+        for (const lesson of module.lessons) {
+          if (!completedLessonIds.includes(lesson.lessonID)) {
             setCurrentModule(module);
             setCurrentLesson(lesson);
             setContentType(determineContentType(lesson));
@@ -325,11 +317,11 @@ const CourseLearning = () => {
     }
     
     // If all lessons are completed, just show the first one
-    const firstModule = courseData.Modules[0];
-    if (firstModule.Lessons && firstModule.Lessons.length > 0) {
+    const firstModule = courseData.modules[0];
+    if (firstModule.lessons && firstModule.lessons.length > 0) {
       setCurrentModule(firstModule);
-      setCurrentLesson(firstModule.Lessons[0]);
-      setContentType(determineContentType(firstModule.Lessons[0]));
+      setCurrentLesson(firstModule.lessons[0]);
+      setContentType(determineContentType(firstModule.lessons[0]));
     }
   };
 
@@ -339,11 +331,11 @@ const CourseLearning = () => {
     let foundModule = null;
     
     // Search through modules and lessons to find the requested lesson
-    for (const module of courseData.Modules) {
-      if (module.Lessons) {
-        const lesson = module.Lessons.find(l => 
-          l.LessonID === urlLessonId || 
-          l.LessonID === parseInt(urlLessonId)
+    for (const module of courseData.modules) {
+      if (module.lessons) {
+        const lesson = module.lessons.find(l => 
+          l.lessonID === urlLessonId || 
+          l.lessonID === parseInt(urlLessonId)
         );
         if (lesson) {
           foundLesson = lesson;
@@ -369,23 +361,23 @@ const CourseLearning = () => {
     
     try {
       // Check if already completed
-      if (completedLessons.includes(currentLesson.LessonID)) {
+      if (completedLessons.includes(currentLesson.lessonID)) {
         toast.info('Bài học này đã được đánh dấu hoàn thành');
         return;
       }
       
-      const response = await courseApi.markLessonAsComplete(courseId, currentLesson.LessonID);
+      const response = await courseApi.markLessonAsComplete(courseId, currentLesson.lessonID);
       
       if (response && response.success) {
         // Update completed lessons
-        const updatedCompletedLessons = [...completedLessons, currentLesson.LessonID];
+        const updatedCompletedLessons = [...completedLessons, currentLesson.lessonID];
         setCompletedLessons(updatedCompletedLessons);
         
         // Update progress
-        if (course && course.Modules) {
+        if (course && course.modules) {
           let totalLessons = 0;
-          course.Modules.forEach(module => {
-            totalLessons += module.Lessons ? module.Lessons.length : 0;
+          course.modules.forEach(module => {
+            totalLessons += module.lessons ? module.lessons.length : 0;
           });
           
           const newProgress = Math.round((updatedCompletedLessons.length / totalLessons) * 100);
@@ -409,24 +401,24 @@ const CourseLearning = () => {
   const navigateToNextLesson = () => {
     if (!course || !currentModule || !currentLesson) return;
     
-    const currentModuleIndex = course.Modules.findIndex(m => m.ModuleID === currentModule.ModuleID);
+    const currentModuleIndex = course.modules.findIndex(m => m.moduleID === currentModule.moduleID);
     if (currentModuleIndex === -1) return;
     
-    const currentLessonIndex = currentModule.Lessons.findIndex(l => l.LessonID === currentLesson.LessonID);
+    const currentLessonIndex = currentModule.lessons.findIndex(l => l.lessonID === currentLesson.lessonID);
     if (currentLessonIndex === -1) return;
     
     // Check if there's another lesson in this module
-    if (currentLessonIndex < currentModule.Lessons.length - 1) {
-      const nextLesson = currentModule.Lessons[currentLessonIndex + 1];
-      navigate(`/courses/${courseId}/learn?lessonId=${nextLesson.LessonID}`);
+    if (currentLessonIndex < currentModule.lessons.length - 1) {
+      const nextLesson = currentModule.lessons[currentLessonIndex + 1];
+      navigate(`/courses/${courseId}/learn?lessonId=${nextLesson.lessonID}`);
       return;
     }
     
     // Check if there's another module
-    if (currentModuleIndex < course.Modules.length - 1) {
-      const nextModule = course.Modules[currentModuleIndex + 1];
-      if (nextModule.Lessons && nextModule.Lessons.length > 0) {
-        navigate(`/courses/${courseId}/learn?lessonId=${nextModule.Lessons[0].LessonID}`);
+    if (currentModuleIndex < course.modules.length - 1) {
+      const nextModule = course.modules[currentModuleIndex + 1];
+      if (nextModule.lessons && nextModule.lessons.length > 0) {
+        navigate(`/courses/${courseId}/learn?lessonId=${nextModule.lessons[0].lessonID}`);
         return;
       }
     }
@@ -439,25 +431,25 @@ const CourseLearning = () => {
   const navigateToPrevLesson = () => {
     if (!course || !currentModule || !currentLesson) return;
     
-    const currentModuleIndex = course.Modules.findIndex(m => m.ModuleID === currentModule.ModuleID);
+    const currentModuleIndex = course.modules.findIndex(m => m.moduleID === currentModule.moduleID);
     if (currentModuleIndex === -1) return;
     
-    const currentLessonIndex = currentModule.Lessons.findIndex(l => l.LessonID === currentLesson.LessonID);
+    const currentLessonIndex = currentModule.lessons.findIndex(l => l.LessonID === currentLesson.lessonID);
     if (currentLessonIndex === -1) return;
     
     // Check if there's a previous lesson in this module
     if (currentLessonIndex > 0) {
-      const prevLesson = currentModule.Lessons[currentLessonIndex - 1];
-      navigate(`/courses/${courseId}/learn?lessonId=${prevLesson.LessonID}`);
+      const prevLesson = currentModule.lessons[currentLessonIndex - 1];
+      navigate(`/courses/${courseId}/learn?lessonId=${prevLesson.lessonID}`);
       return;
     }
     
     // Check if there's a previous module
     if (currentModuleIndex > 0) {
-      const prevModule = course.Modules[currentModuleIndex - 1];
-      if (prevModule.Lessons && prevModule.Lessons.length > 0) {
-        const lastLesson = prevModule.Lessons[prevModule.Lessons.length - 1];
-        navigate(`/courses/${courseId}/learn?lessonId=${lastLesson.LessonID}`);
+      const prevModule = course.modules[currentModuleIndex - 1];
+      if (prevModule.lessons && prevModule.lessons.length > 0) {
+        const lastLesson = prevModule.lessons[prevModule.lessons.length - 1];
+        navigate(`/courses/${courseId}/learn?lessonId=${lastLesson.lessonID}`);
         return;
       }
     }
@@ -468,7 +460,7 @@ const CourseLearning = () => {
     setCurrentModule(module);
     setCurrentLesson(lesson);
     setContentType(determineContentType(lesson));
-    navigate(`/courses/${courseId}/learn?lessonId=${lesson.LessonID}`);
+    navigate(`/courses/${courseId}/learn?lessonId=${lesson.lessonID}`);
   };
 
   // Toggle fullscreen mode
@@ -490,13 +482,13 @@ const CourseLearning = () => {
     
     try {
       // Get video context from lesson
-      const videoContext = currentLesson.Content || currentLesson.Description || 
-                          `Video about ${currentLesson.Title} from ${course.Title}`;
+      const videoContext = currentLesson.content || currentLesson.description || 
+                          `Video about ${currentLesson.title} from ${course.title}`;
       
       // Create prompt for Gemini - explicitly requesting Markdown format
       const prompt = `
-        Tôi đang xem một video về: "${currentLesson.Title}" 
-        từ khóa học "${course.Title}".
+        Tôi đang xem một video về: "${currentLesson.title}" 
+        từ khóa học "${course.title}".
         
         Nội dung video:
         ${videoContext}
@@ -604,8 +596,8 @@ const CourseLearning = () => {
     const directUrl = lesson.VideoUrl || lesson.videoUrl || lesson.VideoURL;
     if (directUrl) return directUrl;
     // If URL is embedded inside content, extract first YouTube link
-    if (typeof lesson.Content === 'string') {
-      const match = lesson.Content.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/[\w\-?=&%#./]+|youtu\.be\/[\w\-?=&%#./]+)/i);
+    if (typeof lesson.content === 'string') {
+      const match = lesson.content.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/[\w\-?=&%#./]+|youtu\.be\/[\w\-?=&%#./]+)/i);
       if (match) return match[0];
     }
     return null;
@@ -673,7 +665,7 @@ const CourseLearning = () => {
             </Link>
             <span className="text-gray-400 mx-2">/</span>
             <Link to={`/courses/${courseId}`} className="text-gray-500 hover:text-blue-600 text-sm">
-              {course?.Title}
+              {course?.title}
             </Link>
           </div>
           <div className="flex items-center space-x-4">
@@ -699,7 +691,7 @@ const CourseLearning = () => {
         >
           <div className="flex flex-col h-full">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="font-bold text-lg truncate">{course.Title}</h2>
+              <h2 className="font-bold text-lg truncate">{course.title}</h2>
               <div className="mt-2 flex items-center">
                 <div className="mr-4">
                   <div className="bg-blue-50 rounded-full h-2 w-24">
@@ -714,21 +706,21 @@ const CourseLearning = () => {
             </div>
             
             <div className="overflow-y-auto flex-1 py-2">
-              {course.Modules.map((module, moduleIndex) => (
-                <div key={module.ModuleID || moduleIndex} className="mb-2">
+              {course.modules.map((module, moduleIndex) => (
+                <div key={module.moduleID || moduleIndex} className="mb-2">
                   <div className="px-4 py-2 font-medium text-gray-700 flex items-center">
-                    <span>{moduleIndex + 1}. {module.Title}</span>
+                    <span>{moduleIndex + 1}. {module.title}</span>
                   </div>
                   
                   <div className="space-y-1">
-                    {module.Lessons && module.Lessons.map((lesson, lessonIndex) => {
-                      const isActive = currentLesson && currentLesson.LessonID === lesson.LessonID;
-                      const isCompleted = completedLessons.includes(lesson.LessonID);
-                      const isPracticeExercise = lesson.CodeExercise && (lesson.Type === 'coding' || lesson.Type === 'exercise');
+                    {module.lessons && module.lessons.map((lesson, lessonIndex) => {
+                      const isActive = currentLesson && currentLesson.lessonID === lesson.lessonID;
+                      const isCompleted = completedLessons.includes(lesson.lessonID);
+                      const isPracticeExercise = lesson.codeExercise && (lesson.type === 'coding' || lesson.type === 'exercise');
                       
                       return (
                         <button
-                          key={lesson.LessonID || lessonIndex}
+                          key={lesson.lessonID || lessonIndex}
                           onClick={() => handleSelectLesson(module, lesson)}
                           className={`pl-8 pr-4 py-2 w-full text-left flex items-center ${
                             isActive ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600 pl-7' : 'text-gray-600 hover:bg-gray-50'
@@ -747,12 +739,12 @@ const CourseLearning = () => {
                             )}
                           </div>
                           <div className="flex-1 truncate text-sm">
-                            {lesson.Title}
+                            {lesson.title}
                             <span className="text-xs text-gray-400 ml-1">
-                              ({lesson.Duration || 0} phút)
+                              ({lesson.duration || 0} phút)
                             </span>
                           </div>
-                          {lesson.Quiz && (
+                          {lesson.quiz && (
                             <span className="ml-2 flex-shrink-0">
                               <svg className="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -765,7 +757,7 @@ const CourseLearning = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
                             </span>
-                          ) : lesson.CodeExercise ? (
+                          ) : lesson.codeExercise ? (
                             <span className="ml-2 flex-shrink-0">
                               <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -802,26 +794,26 @@ const CourseLearning = () => {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 max-w-7xl mx-auto">
                 <div>
                   <h1 className="text-2xl font-bold mb-2">
-                    {currentLesson?.Title}
-                    {currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise' ? (
+                    {currentLesson?.title}
+                    {currentLesson?.type === 'coding' || currentLesson?.type === 'exercise' ? (
                       <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         Bài thực hành
                       </span>
                     ) : null}
                   </h1>
                   <div className="flex items-center text-sm text-gray-500">
-                    <span>Module {course?.Modules?.findIndex(m => m.ModuleID === currentModule?.ModuleID) + 1}: {currentModule?.Title}</span>
+                    <span>Module {course?.modules?.findIndex(m => m.moduleID === currentModule?.moduleID) + 1}: {currentModule?.Title}</span>
                     <span className="mx-2">•</span>
-                    <span>{currentLesson?.Duration || 0} phút</span>
-                    {currentLesson?.Type && (
+                    <span>{currentLesson?.duration || 0} phút</span>
+                    {currentLesson?.type && (
                       <>
                         <span className="mx-2">•</span>
                         <span className="capitalize">{
-                          currentLesson?.Type === 'video' ? 'Video' :
-                          currentLesson?.Type === 'text' ? 'Bài đọc' :
-                          currentLesson?.Type === 'quiz' ? 'Trắc nghiệm' :
-                          currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise' ? 'Thực hành' :
-                          currentLesson?.Type === 'assignment' ? 'Bài tập' :
+                          currentLesson?.type === 'video' ? 'Video' :
+                          currentLesson?.type === 'text' ? 'Bài đọc' :
+                          currentLesson?.type === 'quiz' ? 'Trắc nghiệm' :
+                          currentLesson?.type === 'coding' || currentLesson?.type === 'exercise' ? 'Thực hành' :
+                          currentLesson?.type === 'assignment' ? 'Bài tập' :
                           'Bài học'
                         }</span>
                       </>
@@ -830,7 +822,7 @@ const CourseLearning = () => {
                 </div>
                 
                 <div className="mt-4 md:mt-0">
-                  {completedLessons.includes(currentLesson?.LessonID) ? (
+                  {completedLessons.includes(currentLesson?.lessonID) ? (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                       <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -865,7 +857,7 @@ const CourseLearning = () => {
                 ) : contentType === 'video' && getLessonVideoUrl(currentLesson) ? (
                   <div className={`${isFullScreen ? 'w-full h-full' : 'w-full aspect-video'} relative mx-auto`} ref={videoContainerRef}>
                     <iframe
-                      title={currentLesson.Title}
+                      title={currentLesson.title}
                       src={toYouTubeEmbed(getLessonVideoUrl(currentLesson))}
                       className="w-full h-full rounded-lg"
                       frameBorder="0"
@@ -907,6 +899,21 @@ const CourseLearning = () => {
                         <ArrowsPointingInIcon className="h-5 w-5" />
                       </button>
                     )}
+                    
+                    {/* Practice Button for Code Exercise */}
+                    {!isFullScreen && (currentLesson?.CodeExercise || currentLesson?.codeExercise || currentLesson?.Exercise) && (
+                      <div className="mt-4 flex justify-center">
+                        <Link
+                          to={`/courses/${courseId}/edit-code/${currentLesson.lessonID}`}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none"
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Thực hành bài tập code
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 ) : contentType === 'code' ? (
                   <div className="mb-6">
@@ -914,19 +921,19 @@ const CourseLearning = () => {
                     {/* Embedded Code Editor */}
                     <CodeExerciseEditor 
                       courseId={courseId} 
-                      lessonId={currentLesson.LessonID} 
+                      lessonId={currentLesson.lessonID} 
                       codeExercise={currentLesson.CodeExercise || currentLesson.codeExercise || currentLesson.Exercise} 
                       onComplete={() => {
                         // Update the completed lessons after successful completion
-                        if (!completedLessons.includes(currentLesson.LessonID)) {
-                          const updatedCompletedLessons = [...completedLessons, currentLesson.LessonID];
+                        if (!completedLessons.includes(currentLesson.lessonID)) {
+                          const updatedCompletedLessons = [...completedLessons, currentLesson.lessonID];
                           setCompletedLessons(updatedCompletedLessons);
                           
                           // Update progress
-                          if (course && course.Modules) {
+                          if (course && course.modules) {
                             let totalLessons = 0;
-                            course.Modules.forEach(module => {
-                              totalLessons += module.Lessons ? module.Lessons.length : 0;
+                            course.modules.forEach(module => {
+                              totalLessons += module.lessons ? module.lessons.length : 0;
                             });
                             
                             const newProgress = Math.round((updatedCompletedLessons.length / totalLessons) * 100);
@@ -938,7 +945,7 @@ const CourseLearning = () => {
                     />
                   </div>
                 ) : (currentLesson?.CodeExercise || currentLesson?.codeExercise || currentLesson?.Exercise) && 
-                   !(currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise') ? (
+                   !(currentLesson?.type === 'coding' || currentLesson?.type === 'exercise') ? (
                   <div className="mb-6">
                     <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                       <div className="flex">
@@ -957,11 +964,11 @@ const CourseLearning = () => {
                         </div>
                       </div>
                       <div className="mt-3 prose max-w-none" 
-                        dangerouslySetInnerHTML={{ __html: currentLesson.Content || '<p>Không có nội dung cho bài học này.</p>' }} 
+                        dangerouslySetInnerHTML={{ __html: currentLesson.content || '<p>Không có nội dung cho bài học này.</p>' }} 
                       />
                     </div>
                   </div>
-                ) : contentType === 'quiz' && currentLesson?.Quiz ? (
+                ) : contentType === 'quiz' && currentLesson?.quiz ? (
                   <div className="mb-6">
                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
                       <div className="flex">
@@ -980,7 +987,7 @@ const CourseLearning = () => {
                   </div>
                 ) : (
                   <div className="prose max-w-none mb-6" 
-                    dangerouslySetInnerHTML={{ __html: currentLesson.Content || '<p>Không có nội dung cho bài học này.</p>' }} 
+                    dangerouslySetInnerHTML={{ __html: currentLesson.content || '<p>Không có nội dung cho bài học này.</p>' }} 
                   />
                 )}
                 
@@ -1056,11 +1063,11 @@ const CourseLearning = () => {
             </div>
             
             {/* Additional Resources Section - only show when not in fullscreen */}
-            {!isFullScreen && currentLesson?.Resources && currentLesson.Resources.length > 0 && (
+            {!isFullScreen && currentLesson?.resources && currentLesson.resources.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 max-w-7xl mx-auto">
                 <h2 className="text-lg font-bold mb-4">Tài liệu bổ sung</h2>
                 <ul className="space-y-2">
-                  {currentLesson.Resources.map((resource, index) => (
+                  {currentLesson.resources.map((resource, index) => (
                     <li key={index} className="flex items-center">
                       <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1071,7 +1078,7 @@ const CourseLearning = () => {
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
                       >
-                        {resource.Title || 'Tài liệu'}
+                        {resource.title || 'Tài liệu'}
                       </a>
                     </li>
                   ))}
@@ -1184,7 +1191,7 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete, show
     try {
       // Get the exercise ID from potentially different property names
       const exerciseId = codeExercise.ExerciseID || 
-                         codeExercise.exerciseId || 
+                         codeExercise.exerciseID || 
                          codeExercise.id || 
                          null;
                          
@@ -1229,7 +1236,7 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete, show
     try {
       // Get the exercise ID from potentially different property names
       const exerciseId = codeExercise.ExerciseID || 
-                         codeExercise.exerciseId || 
+                         codeExercise.exerciseID || 
                          codeExercise.id || 
                          null;
       
@@ -1306,10 +1313,10 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete, show
 
   return (
     <div style={wrapperStyle}>
-      { (codeExercise?.Title || codeExercise?.Description) && (
+      { (codeExercise?.title || codeExercise?.description) && (
         <div className="mb-4">
-          {codeExercise?.Title && (<h3 className="text-lg font-semibold mb-2">{codeExercise.Title}</h3>)}
-          {codeExercise?.Description && (<p className="text-gray-700">{codeExercise.Description}</p>)}
+          {codeExercise?.title && (<h3 className="text-lg font-semibold mb-2">{codeExercise.title}</h3>)}
+          {codeExercise?.description && (<p className="text-gray-700">{codeExercise.description}</p>)}
         </div>
       )}
 
@@ -1450,4 +1457,3 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete, show
 };
 
 export default CourseLearning;
-

@@ -1,12 +1,10 @@
-/*-----------------------------------------------------------------
-* File: AuthContext.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import axios from 'axios';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+  // Logout function - using clearAuthData helper
+ import { useDispatch } from 'react-redux';
+import { resetCourses } from '@/store/slices/courseSlice';
+
 
 const AuthContext = createContext();
 
@@ -517,22 +515,38 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Logout function - using clearAuthData helper
-  const logout = async () => {
-    try {
-      // Call logout API if needed
-      const token = localStorage.getItem('token');
-      if (token) {
-        await axios.post('http://localhost:8080/api/auth/logout', {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(err => console.log('Logout API error:', err));
-      }
-    } finally {
-      // Clear all auth data
-      clearAuthData();
-      // Redirect to login page will be handled by the components using this method
-    }
-  };
+const dispatch = useDispatch();
+
+const logout = async () => {
+  const token = localStorage.getItem('token');
+  const rawApi = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const API_BASE_URL = String(rawApi).replace(/\/$/, '');
+
+  if (!token) {
+    console.warn('logout: no token found');
+    dispatch(resetCourses()); // ✅ Clear Redux & cache
+    clearAuthData();
+    return;
+  }
+
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  const logoutUrl = `${API_BASE_URL}/auth/logout`;
+  console.log('[AuthContext] Calling logout URL:', logoutUrl);
+
+  try {
+    const response = await axios.post(logoutUrl, {}, { timeout: 10000 });
+    console.log('[AuthContext] Logout response:', response.status);
+
+    dispatch(resetCourses()); // ✅ Clear Redux & cache
+    clearAuthData();
+    return response;
+  } catch (err) {
+    console.error('[AuthContext] Logout API error:', err);
+    dispatch(resetCourses()); // ✅ Clear Redux & cache ngay cả khi lỗi
+    clearAuthData();
+  }
+};
+
 
   // Check authentication status without redirecting - optimized to reduce unnecessary calls
   const checkAuth = useCallback(async () => {
@@ -560,7 +574,7 @@ export function AuthProvider({ children }) {
           // Normalize user ID fields
           const userId = 
             response.data.user.id || 
-            response.data.user.UserID || 
+            response.data.user.userID || 
             response.data.user.userId;
             
           if (!userId) {

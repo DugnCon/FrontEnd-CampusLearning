@@ -56,40 +56,40 @@ const CourseDetail = () => {
     // Xử lý dữ liệu từ API đảm bảo đúng định dạng hiển thị
     let formattedData = { ...courseData };
     
-    if (typeof formattedData.Requirements === 'string') {
+    if (typeof formattedData.requirements === 'string') {
       // Nếu yêu cầu là một chuỗi đơn giản, chuyển thành mảng
-      if (formattedData.Requirements.startsWith('[')) {
+      if (formattedData.requirements.startsWith('[')) {
         try {
-          formattedData.Requirements = JSON.parse(formattedData.Requirements);
+          formattedData.requirements = JSON.parse(formattedData.requirements);
         } catch (e) {
-          formattedData.Requirements = formattedData.Requirements ? [formattedData.Requirements] : [];
+          formattedData.requirements = formattedData.requirements ? [formattedData.requirements] : [];
         }
       } else {
-        formattedData.Requirements = formattedData.Requirements ? [formattedData.Requirements] : [];
+        formattedData.requirements = formattedData.requirements ? [formattedData.requirements] : [];
       }
     }
     
-    if (typeof formattedData.Objectives === 'string') {
+    if (typeof formattedData.objectives === 'string') {
       // Nếu mục tiêu là một chuỗi đơn giản, chuyển thành mảng
-      if (formattedData.Objectives.startsWith('[')) {
+      if (formattedData.objectives.startsWith('[')) {
         try {
-          formattedData.Objectives = JSON.parse(formattedData.Objectives);
+          formattedData.objectives = JSON.parse(formattedData.objectives);
         } catch (e) {
-          formattedData.Objectives = formattedData.Objectives ? [formattedData.Objectives] : [];
+          formattedData.objectives = formattedData.objectives ? [formattedData.objectives] : [];
         }
       } else {
-        formattedData.Objectives = formattedData.Objectives ? [formattedData.Objectives] : [];
+        formattedData.objectives = formattedData.objectives ? [formattedData.objectives] : [];
       }
     }
     
     // Đảm bảo Modules là mảng
-    if (!Array.isArray(formattedData.Modules)) {
-      formattedData.Modules = [];
+    if (!Array.isArray(formattedData.modules)) {
+      formattedData.modules = [];
     }
     
     // Đảm bảo Instructor là object
-    if (!formattedData.Instructor) {
-      formattedData.Instructor = {
+    if (!formattedData.instructor) {
+      formattedData.instructor = {
         Name: "Giảng viên",
         Title: "Chuyên gia",
         Bio: "Thông tin chưa được cập nhật."
@@ -102,19 +102,23 @@ const CourseDetail = () => {
   // Fetch payment history for this course
   const fetchPaymentHistory = async () => {
     if (!isAuthenticated || !courseId) return;
-    
+
     setPaymentHistoryLoading(true);
     try {
       const response = await courseApi.getCoursePaymentHistory(courseId);
-      if (response && response.data && Array.isArray(response.data)) {
-        setPaymentHistory(response.data);
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        setPaymentHistory(response.data.data);
+      } else {
+        setPaymentHistory([]);
       }
     } catch (error) {
       console.error('Error fetching payment history:', error);
+      setPaymentHistory([]);
     } finally {
       setPaymentHistoryLoading(false);
     }
   };
+
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
@@ -228,8 +232,8 @@ const CourseDetail = () => {
     }
     
     try {
-      const price = formatPrice(course.Price);
-      const discountPrice = formatPrice(course.DiscountPrice);
+      const price = formatPrice(course.price);
+      const discountPrice = formatPrice(course.discountPrice);
       const effectivePrice = discountPrice > 0 ? discountPrice : price;
       const isFreeCourse = effectivePrice === 0;
       
@@ -297,8 +301,8 @@ const CourseDetail = () => {
   }
 
   // Format price for display
-  const price = formatPrice(course.Price);
-  const discountPrice = formatPrice(course.DiscountPrice);
+  const price = formatPrice(course.price);
+  const discountPrice = formatPrice(course.discountPrice);
   const isFreeCourse = price === 0;
 
   return (
@@ -342,32 +346,32 @@ const CourseDetail = () => {
           <div className="md:w-3/5 mb-6 md:mb-0 md:pr-6">
             <div className="flex items-center mb-2">
               <span className="bg-blue-500 text-xs font-bold uppercase px-3 py-1 rounded-full mr-2">
-                {course.Level || 'All Levels'}
+                {course.level || 'All Levels'}
               </span>
               <span className="bg-blue-500 text-xs font-bold uppercase px-3 py-1 rounded-full">
-                {course.Category || 'Lập trình'}
+                {course.category || 'Lập trình'}
               </span>
             </div>
             
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">{course.Title}</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-4">{course.title}</h1>
             
             <p className="text-blue-100 mb-6 text-lg">
-              {course.ShortDescription || (typeof course.Description === 'string' ? course.Description.substring(0, 150) : 'Không có mô tả')}
+              {course.shortDescription || (typeof course.description === 'string' ? course.description.substring(0, 150) : 'Không có mô tả')}
             </p>
             
             <div className="flex items-center mb-6">
-              {course.Instructor && (
+              {course.instructor && (
                 <div className="flex items-center mr-8">
                   <Avatar 
-                    src={course.Instructor.AvatarUrl}
-                    name={course.Instructor.Name}
-                    alt={course.Instructor.Name} 
+                    src={course.instructor.avatarUrl}
+                    name={course.instructor.name}
+                    alt={course.instructor.name} 
                     className="mr-2"
                     size="small"
                   />
                   <div>
-                    <p className="font-medium text-sm">{course.Instructor.Name}</p>
-                    <p className="text-blue-200 text-xs">{course.Instructor.Title || 'Giảng viên'}</p>
+                    <p className="font-medium text-sm">{course.instructor.name}</p>
+                    <p className="text-blue-200 text-xs">{course.instructor.title || 'Giảng viên'}</p>
                   </div>
                 </div>
               )}
@@ -377,21 +381,21 @@ const CourseDetail = () => {
                   <svg className="w-5 h-5 text-yellow-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                  <span>{course.Rating || '0'} ({course.RatingCount || 0} đánh giá)</span>
+                  <span>{course.rating || '0'} ({course.ratingCount || 0} đánh giá)</span>
                 </div>
                 
                 <div className="flex items-center">
                   <svg className="w-5 h-5 text-blue-300 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
-                  <span>{course.EnrolledCount || 0} học viên</span>
+                  <span>{course.enrolledCount || 0} học viên</span>
                 </div>
                 
                 <div className="flex items-center">
                   <svg className="w-5 h-5 text-blue-300 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                   </svg>
-                  <span>{course.Duration || 0} phút</span>
+                  <span>{course.duration || 0} phút</span>
                 </div>
               </div>
             </div>
@@ -415,10 +419,10 @@ const CourseDetail = () => {
           
           <div className="md:w-2/5">
             <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-              {course.ImageUrl ? (
+              {course.imageUrl ? (
                 <img 
-                  src={course.ImageUrl} 
-                  alt={course.Title} 
+                  src={`http://localhost:8080${course.imageUrl}`} 
+                  alt={course.title} 
                   className="w-full h-48 md:h-64 object-cover"
                   onError={(e) => {
                     e.target.onerror = null;
@@ -531,35 +535,35 @@ const CourseDetail = () => {
           {activeTab === 'overview' && (
             <div>
               <h2 className="text-xl font-bold mb-4">Mô tả khóa học</h2>
-              {course.Description ? (
+              {course.description ? (
                 <div className="prose max-w-none" 
-                  dangerouslySetInnerHTML={{ __html: course.Description }} 
+                  dangerouslySetInnerHTML={{ __html: course.description }} 
                 />
               ) : (
                 <p className="text-gray-500">Chưa có mô tả chi tiết cho khóa học này.</p>
               )}
               
-              {course.Requirements && (Array.isArray(course.Requirements) ? course.Requirements.length > 0 : false) && (
+              {course.requirements && (Array.isArray(course.requirements) ? course.requirements.length > 0 : false) && (
                 <div className="mt-8">
                   <h3 className="text-lg font-bold mb-3">Yêu cầu</h3>
                   <ul className="list-disc pl-5 space-y-2">
-                    {course.Requirements.map((req, index) => (
+                    {course.requirements.map((req, index) => (
                       <li key={index} className="text-gray-700">{req}</li>
                     ))}
                   </ul>
                 </div>
               )}
               
-              {course.Objectives && (
+              {course.objectives && (
                 <div className="mt-8">
                   <h3 className="text-lg font-bold mb-3">Bạn sẽ học được gì</h3>
-                  {typeof course.Objectives === 'string' ? (
+                  {typeof course.objectives === 'string' ? (
                     // If Objectives is a string (HTML content), render it directly
-                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: course.Objectives }} />
-                  ) : Array.isArray(course.Objectives) && course.Objectives.length > 0 ? (
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: course.objectives }} />
+                  ) : Array.isArray(course.objectives) && course.objectives.length > 0 ? (
                     // If Objectives is an array, map over it
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {course.Objectives.map((obj, index) => (
+                      {course.objectives.map((obj, index) => (
                         <li key={index} className="flex items-start">
                           <svg className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
@@ -580,30 +584,30 @@ const CourseDetail = () => {
             <div>
               <h2 className="text-xl font-bold mb-4">Nội dung khóa học</h2>
               
-              {course.Modules && course.Modules.length > 0 ? (
+              {course.modules && course.modules.length > 0 ? (
                 <div className="space-y-4">
-                  {course.Modules.map((module, moduleIndex) => (
-                    <div key={module.ModuleID || moduleIndex} className="border rounded-2xl overflow-hidden">
+                  {course.modules.map((module, moduleIndex) => (
+                    <div key={module.moduleID || moduleIndex} className="border rounded-2xl overflow-hidden">
                       <div className="bg-gray-50 p-4 flex justify-between items-center">
-                        <h3 className="font-medium">{module.Title}</h3>
+                        <h3 className="font-medium">{module.title}</h3>
                         <div className="text-sm text-gray-500">
-                          {module.Lessons?.length || 0} bài học
+                          {module.lessons?.length || 0} bài học
                         </div>
                       </div>
                       
-                      {module.Lessons && module.Lessons.length > 0 && (
+                      {module.lessons && module.lessons.length > 0 && (
                         <div className="divide-y">
-                          {module.Lessons.map((lesson, lessonIndex) => (
+                          {module.lessons.map((lesson, lessonIndex) => (
                             <div 
-                              key={lesson.LessonID || lessonIndex} 
+                              key={lesson.lessonID || lessonIndex} 
                               className="p-4 pl-6 flex items-center hover:bg-gray-50 cursor-pointer"
                               onClick={() => {
                                 if (isEnrolled) {
                                   // If user is enrolled, navigate to the specific lesson
-                                  navigate(`/courses/${courseId}/learn?lessonId=${lesson.LessonID}`);
+                                  navigate(`/courses/${courseId}/learn?lessonId=${lesson.lessonID}`);
                                 } else if (lesson.IsPreview) {
                                   // If lesson is preview, allow access
-                                  navigate(`/courses/${courseId}/learn?lessonId=${lesson.LessonID}`);
+                                  navigate(`/courses/${courseId}/learn?lessonId=${lesson.lessonID}`);
                                 } else {
                                   // If not enrolled and not preview, prompt to enroll
                                   toast.info('Bạn cần đăng ký khóa học để xem bài học này');
@@ -620,13 +624,13 @@ const CourseDetail = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
-                                <p className="font-medium">{lesson.Title}</p>
-                                <p className="text-sm text-gray-500">{lesson.Duration || 0} phút</p>
+                                <p className="font-medium">{lesson.title}</p>
+                                <p className="text-sm text-gray-500">{lesson.duration || 0} phút</p>
                               </div>
                               
                               {!isEnrolled && (
                                 <div className="ml-auto flex items-center">
-                                  {lesson.IsPreview ? (
+                                  {lesson.isPreview ? (
                                     <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Xem trước</span>
                                   ) : (
                                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -652,20 +656,20 @@ const CourseDetail = () => {
             <div>
               <h2 className="text-xl font-bold mb-6">Thông tin giảng viên</h2>
               
-              {course.Instructor ? (
+              {course.instructor ? (
                 <div className="flex flex-col md:flex-row bg-gray-50 rounded-2xl p-6 shadow-sm">
                   <div className="md:w-1/4 mb-4 md:mb-0 flex justify-center md:justify-start">
                     <Avatar 
-                      src={course.Instructor.Image || course.Instructor.AvatarUrl}
-                      name={course.Instructor.FullName || course.Instructor.Name}
-                      alt={course.Instructor.FullName || course.Instructor.Name} 
+                      src={course.instructor.image || course.instructor.avatarUrl}
+                      name={course.instructor.fullName || course.instructor.name}
+                      alt={course.instructor.fullName || course.instructor.name} 
                       className="border-4 border-white shadow-md"
                       size="xxl"
                     />
                   </div>
                   <div className="md:w-3/4 md:pl-6">
-                    <h3 className="text-xl font-bold mb-2 text-blue-700">{course.Instructor.FullName || course.Instructor.Name}</h3>
-                    <p className="text-gray-600 mb-3 font-medium">{course.Instructor.Title || 'Giảng viên'}</p>
+                    <h3 className="text-xl font-bold mb-2 text-blue-700">{course.instructor.fullName || course.instructor.name}</h3>
+                    <p className="text-gray-600 mb-3 font-medium">{course.instructor.title || 'Giảng viên'}</p>
                     
                     <div className="mb-4 flex items-center text-gray-500">
                       <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -674,9 +678,9 @@ const CourseDetail = () => {
                       <span>Giảng viên khóa học</span>
                     </div>
                     
-                    {course.Instructor.Bio || course.Instructor.Biography ? (
+                    {course.instructor.bio || course.instructor.biography ? (
                       <div className="prose max-w-none border-t border-gray-200 pt-4" 
-                        dangerouslySetInnerHTML={{ __html: course.Instructor.Bio || course.Instructor.Biography }} 
+                        dangerouslySetInnerHTML={{ __html: course.instructor.bio || course.instructor.biography }} 
                       />
                     ) : (
                       <div className="border-t border-gray-200 pt-4">
@@ -716,33 +720,33 @@ const CourseDetail = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {paymentHistory.map((payment) => (
-                        <tr key={payment.TransactionID} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.TransactionCode || 'N/A'}</td>
+                        <tr key={payment.transactionID} className="hover:bg-gray-50">
+                          <td className="py-3 px-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.transactionCode || 'N/A'}</td>
                           <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
-                            {payment.PaymentMethod === 'vnpay' ? 'VNPay' : 
-                             payment.PaymentMethod === 'paypal' ? 'PayPal' : 
-                             payment.PaymentMethod === 'free' ? 'Miễn phí' : payment.PaymentMethod}
+                            {payment.paymentMethod === 'vnpay' ? 'VNPay' : 
+                             payment.paymentMethod === 'paypal' ? 'PayPal' : 
+                             payment.paymentMethod === 'free' ? 'Miễn phí' : payment.paymentMethod}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
-                            {payment.Amount?.toLocaleString()} {payment.Currency || 'VND'}
+                            {payment.amount?.toLocaleString()} {payment.currency || 'VND'}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              payment.PaymentStatus === 'completed' ? 'bg-green-100 text-green-800' : 
-                              payment.PaymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                              payment.PaymentStatus === 'failed' ? 'bg-red-100 text-red-800' : 
-                              payment.PaymentStatus === 'refunded' ? 'bg-blue-100 text-blue-800' : 
+                              payment.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' : 
+                              payment.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                              payment.paymentStatus === 'failed' ? 'bg-red-100 text-red-800' : 
+                              payment.paymentStatus === 'refunded' ? 'bg-blue-100 text-blue-800' : 
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {payment.PaymentStatus === 'completed' ? 'Thành công' : 
-                               payment.PaymentStatus === 'pending' ? 'Đang xử lý' : 
-                               payment.PaymentStatus === 'failed' ? 'Thất bại' : 
-                               payment.PaymentStatus === 'refunded' ? 'Hoàn tiền' : 
-                               payment.PaymentStatus}
+                              {payment.paymentStatus === 'completed' ? 'Thành công' : 
+                               payment.paymentStatus === 'pending' ? 'Đang xử lý' : 
+                               payment.paymentStatus === 'failed' ? 'Thất bại' : 
+                               payment.paymentStatus === 'refunded' ? 'Hoàn tiền' : 
+                               payment.paymentStatus}
                             </span>
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
-                            {formatDate(payment.PaymentDate || payment.CreatedAt)}
+                            {formatDate(payment.paymentDate || payment.createdAt)}
                           </td>
                         </tr>
                       ))}

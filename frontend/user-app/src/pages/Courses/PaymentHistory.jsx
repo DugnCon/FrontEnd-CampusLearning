@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: PaymentHistory.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import courseApi from '../../api/courseApi';
@@ -140,38 +134,38 @@ const PaymentHistory = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {payments.map((payment) => (
-                <tr key={payment.TransactionID} className="hover:bg-gray-50">
+                <tr key={payment.transactionID} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {payment.TransactionCode}
+                    {payment.transactionCode}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <Link 
-                      to={`/courses/${payment.Course?.CourseID}`} 
+                      to={`/courses/${payment.courses?.courseID}`} 
                       className="text-blue-600 hover:text-blue-800"
                     >
-                      {payment.Course?.Title || 'N/A'}
+                      {payment.courses?.title || 'N/A'}
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.Amount.toLocaleString()} {payment.Currency}
+                    {payment.amount.toLocaleString()} {payment.currency}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.PaymentMethod === 'vnpay' ? 'VNPAY'
-                      : payment.PaymentMethod === 'paypal' ? 'PayPal'
-                      : payment.PaymentMethod === 'free' ? 'Free'
-                      : payment.PaymentMethod}
+                    {payment.paymentMethod === 'vnpay' ? 'VNPAY'
+                      : payment.paymentMethod === 'paypal' ? 'PayPal'
+                      : payment.paymentMethod === 'free' ? 'Free'
+                      : payment.paymentMethod}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(payment.PaymentStatus)}`}>
-                      {formatStatus(payment.PaymentStatus)}
+                      {formatStatus(payment.paymentStatus)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(payment.PaymentDate)}
+                    {formatDate(payment.paymentDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.PaymentStatus === 'pending' && (
-                      <Link to={`/payment/${payment.Course?.CourseID}`} className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded">
+                    {payment.paymentStatus === 'pending' && (
+                      <Link to={`/payment/${payment.courses?.courseID}`} className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded">
                         Tiếp tục thanh toán
                       </Link>
                     )}

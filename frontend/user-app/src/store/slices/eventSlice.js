@@ -9,12 +9,40 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { eventServices } from '@/services/api';
 import { getEventDetail } from '@/services/eventServices';
 
+// === HÀM CHUẨN HÓA TÊN TRƯỜNG ===
+const normalizeEvent = (event) => {
+  if (!event) return null;
+
+  return {
+    EventID: event.eventID ?? event.EventID,
+    Title: event.title ?? event.Title,
+    Description: event.description ?? event.Description,
+    Category: event.category ?? event.Category,
+    EventDate: event.eventDate ?? event.EventDate,
+    EventTime: event.eventTime ?? event.EventTime ?? '00:00:00',
+    Location: event.location ?? event.Location,
+    ImageUrl: event.imageUrl ?? event.ImageUrl,
+    Organizer: event.organizer ?? event.Organizer,
+    Difficulty: event.difficulty ?? event.Difficulty,
+    Status: event.status ?? event.Status,
+    Price: parseFloat(event.price ?? event.Price) || 0,
+    MaxAttendees: parseInt(event.maxAttendees ?? event.MaxAttendees) || 0,
+    CurrentAttendees: parseInt(event.currentAttendees ?? event.CurrentAttendees) || 0,
+    // Các trường khác nếu cần
+    createdBy: event.createdBy,
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
+    deletedAt: event.deletedAt,
+  };
+};
+
 export const fetchUpcomingEvents = createAsyncThunk(
   'events/fetchUpcoming',
   async (_, { rejectWithValue }) => {
     try {
       const response = await eventServices.getUpcomingEvents();
-      return response.data;
+      const rawEvents = Array.isArray(response.data) ? response.data : [];
+      return rawEvents.map(normalizeEvent).filter(Boolean);
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Không thể tải sự kiện sắp diễn ra' });
     }
@@ -32,16 +60,22 @@ export const fetchEvents = createAsyncThunk(
         throw new Error('No data received from API');
       }
 
-      // Validate và format dữ liệu
-      const events = Array.isArray(response.data) ? response.data : [];
-      return events.map(event => ({
-        ...event,
-        EventDate: event.EventDate || new Date().toISOString().split('T')[0],
-        EventTime: event.EventTime || '00:00:00',
-        Price: parseFloat(event.Price) || 0,
-        MaxAttendees: parseInt(event.MaxAttendees) || 0,
-        CurrentAttendees: parseInt(event.CurrentAttendees) || 0
-      }));
+      // Xử lý cả mảng trực tiếp hoặc { event: [...] }
+      let rawEvents = [];
+      if (Array.isArray(response.data)) {
+        rawEvents = response.data;
+      } else if (response.data.event && Array.isArray(response.data.event)) {
+        rawEvents = response.data.event;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        rawEvents = response.data.data;
+      } else {
+        console.warn('Unexpected API response format:', response.data);
+        rawEvents = [];
+      }
+
+      // Chuẩn hóa toàn bộ sự kiện
+      return rawEvents.map(normalizeEvent).filter(Boolean);
+
     } catch (error) {
       console.error('Fetch events error:', error);
       return rejectWithValue(
@@ -59,7 +93,6 @@ export const registerEvent = createAsyncThunk(
   async ({ eventId, userData = {} }, { rejectWithValue }) => {
     try {
       console.log('Attempting to register for event:', eventId);
-      
       const response = await eventServices.registerForEvent(eventId, userData);
       console.log('Registration successful:', response);
       return { 
@@ -86,31 +119,23 @@ export const fetchEventDetail = createAsyncThunk(
   'events/fetchEventDetail',
   async (eventId, { rejectWithValue }) => {
     try {
-      // Use the directly imported getEventDetail function
       const response = await getEventDetail(eventId);
       
       if (!response.data) {
         throw new Error('Không tìm thấy thông tin sự kiện');
       }
 
-      // Format the event data before returning it
-      const eventData = {
-        ...response.data,
-        EventDate: response.data.EventDate || new Date().toISOString().split('T')[0],
-        EventTime: response.data.EventTime || '00:00:00',
-        Price: parseFloat(response.data.Price) || 0,
-        MaxAttendees: parseInt(response.data.MaxAttendees) || 0,
-        CurrentAttendees: parseInt(response.data.CurrentAttendees) || 0,
-        // Make sure these arrays exist even if not provided by backend
+      // Chuẩn hóa chi tiết sự kiện
+      const normalizedEvent = normalizeEvent(response.data);
+
+      return {
+        ...normalizedEvent,
         schedule: Array.isArray(response.data.schedule) ? response.data.schedule : [],
         prizes: Array.isArray(response.data.prizes) ? response.data.prizes : [],
         languages: Array.isArray(response.data.languages) ? response.data.languages : [],
         technologies: Array.isArray(response.data.technologies) ? response.data.technologies : []
       };
-
-      return eventData;
     } catch (error) {
-      // Không reject với lỗi authentication
       if (error.response?.status === 401) {
         return rejectWithValue({ 
           message: 'Vui lòng đăng nhập để xem chi tiết',
@@ -130,8 +155,6 @@ export const cancelRegistration = createAsyncThunk(
   async (eventId, { rejectWithValue }) => {
     try {
       console.log('Attempting to cancel registration for event:', eventId);
-      
-      // Use eventServices directly now that we've fixed it
       const response = await eventServices.cancelEventRegistration(eventId);
       console.log('Cancel registration successful:', response);
       return { success: true, message: 'Hủy đăng ký sự kiện thành công!', data: response.data };
@@ -155,11 +178,9 @@ export const checkRegistrationStatus = createAsyncThunk(
   async (eventId, { rejectWithValue }) => {
     try {
       console.log('Checking registration status for event:', eventId);
-      
       const response = await eventServices.checkEventRegistration(eventId);
       console.log('Check registration status successful:', response);
       
-      // Make sure we properly extract the response data
       const data = response.data || response;
       
       return {
@@ -208,6 +229,7 @@ const eventSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // fetchEvents
       .addCase(fetchEvents.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -222,18 +244,22 @@ const eventSlice = createSlice({
         state.events = [];
         state.error = action.payload?.message || 'Lỗi khi tải sự kiện';
       })
+
+      // fetchUpcomingEvents
       .addCase(fetchUpcomingEvents.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUpcomingEvents.fulfilled, (state, action) => {
         state.loading = false;
-        state.upcomingEvents = action.payload;
+        state.upcomingEvents = action.payload || [];
       })
       .addCase(fetchUpcomingEvents.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Lỗi khi tải sự kiện sắp diễn ra';
       })
+
+      // fetchEventDetail
       .addCase(fetchEventDetail.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -248,12 +274,13 @@ const eventSlice = createSlice({
         state.currentEvent = null;
         state.error = action.payload?.message || 'Lỗi khi tải thông tin sự kiện';
       })
+
+      // checkRegistrationStatus
       .addCase(checkRegistrationStatus.pending, (state) => {
         state.registrationLoading = true;
       })
       .addCase(checkRegistrationStatus.fulfilled, (state, action) => {
         state.registrationLoading = false;
-        console.log('Registration status updated:', action.payload);
         state.isRegistered = action.payload.isRegistered;
         state.registrationInfo = action.payload.registrationInfo;
       })
@@ -262,6 +289,8 @@ const eventSlice = createSlice({
         state.isRegistered = false;
         state.registrationInfo = null;
       })
+
+      // registerEvent & cancelRegistration
       .addCase(registerEvent.fulfilled, (state) => {
         state.isRegistered = true;
       })
@@ -273,4 +302,4 @@ const eventSlice = createSlice({
 });
 
 export const { setFilters, clearCurrentEvent, setRegistrationStatus } = eventSlice.actions;
-export default eventSlice.reducer; 
+export default eventSlice.reducer;

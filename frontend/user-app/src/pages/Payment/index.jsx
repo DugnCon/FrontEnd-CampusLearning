@@ -225,8 +225,8 @@ const Payment = () => {
   }
 
   // Calculate prices for display
-  const price = formatPrice(course.Price);
-  const discountPrice = formatPrice(course.DiscountPrice);
+  const price = formatPrice(course.price);
+  const discountPrice = formatPrice(course.discountPrice);
   const finalPrice = discountPrice > 0 ? discountPrice : price;
   const discount = price > 0 && discountPrice > 0 ? price - discountPrice : 0;
   const discountPercentage = price > 0 ? Math.round((discount / price) * 100) : 0;
@@ -239,7 +239,7 @@ const Payment = () => {
         <span className="mx-2">/</span>
         <Link to="/courses" className="hover:text-blue-600">Khóa học</Link>
         <span className="mx-2">/</span>
-        <Link to={`/courses/${courseId}`} className="hover:text-blue-600">{course.Title}</Link>
+        <Link to={`/courses/${courseId}`} className="hover:text-blue-600">{course.title}</Link>
         <span className="mx-2">/</span>
         <span className="text-gray-700">Thanh toán</span>
       </div>
@@ -277,10 +277,10 @@ const Payment = () => {
             <h2 className="text-xl font-bold mb-4">Thông tin đơn hàng</h2>
             
             <div className="flex items-start border-b pb-4 mb-4">
-              {course.ImageUrl ? (
+              {course.imageUrl ? (
                 <img 
-                  src={course.ImageUrl} 
-                  alt={course.Title} 
+                  src={`http://localhost:8080${course.imageUrl}`} 
+                  alt={course.title} 
                   className="w-24 h-24 object-cover rounded-md mr-4"
                   onError={(e) => {
                     e.target.onerror = null;
@@ -294,15 +294,15 @@ const Payment = () => {
               )}
               
               <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-1">{course.Title}</h3>
+                <h3 className="font-semibold text-lg mb-1">{course.title}</h3>
                 <p className="text-gray-600 text-sm mb-2">
-                  {course.ShortDescription || course.Description?.substring(0, 100) || 'Không có mô tả'}
+                  {course.shortDescription || course.description?.substring(0, 100) || 'Không có mô tả'}
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs mr-2">
-                    {course.Level || 'All Levels'}
+                    {course.level || 'All Levels'}
                   </span>
-                  <span>{course.Duration || 0} phút</span>
+                  <span>{course.duration || 0} phút</span>
                 </div>
               </div>
             </div>

@@ -51,23 +51,23 @@ const CommentItem = ({ comment, onLike, onDelete }) => {
   };
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const isOwner = currentUser.UserID === comment.UserID || currentUser.id === comment.UserID;
+  const isOwner = currentUser.userID === comment.userID || currentUser.id === comment.userID;
 
   return (
     <ListItem alignItems="flex-start" sx={{ py: 1 }}>
       <ListItemAvatar>
-        <Avatar src={comment.UserImage} alt={comment.FullName}>
-          {comment.FullName ? comment.FullName[0] : 'U'}
+        <Avatar src={comment.userImage} alt={comment.fullName}>
+          {comment.fullName ? comment.fullName[0] : 'U'}
         </Avatar>
       </ListItemAvatar>
       <ListItemText
         primary={
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="subtitle2" component="span">
-              {comment.FullName}
+              {comment.fullName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {formatTime(comment.CreatedAt)}
+              {formatTime(comment.createdAt)}
             </Typography>
           </Box>
         }
@@ -79,24 +79,24 @@ const CommentItem = ({ comment, onLike, onDelete }) => {
               color="text.primary"
               sx={{ display: 'block', my: 0.5 }}
             >
-              {comment.Content}
+              {comment.content}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
               <Button 
                 size="small" 
                 startIcon={<ThumbUpIcon fontSize="small" />}
-                color={comment.IsLiked ? "primary" : "inherit"}
-                onClick={() => onLike(comment.CommentID)}
+                color={comment.isLiked ? "primary" : "inherit"}
+                onClick={() => onLike(comment.commentID)}
                 sx={{ minWidth: 'auto', mr: 1 }}
               >
-                {comment.LikesCount}
+                {comment.likesCount}
               </Button>
               {isOwner && (
                 <Button
                   size="small"
                   startIcon={<DeleteIcon fontSize="small" />}
                   color="inherit"
-                  onClick={() => onDelete(comment.CommentID)}
+                  onClick={() => onDelete(comment.commentID)}
                   sx={{ minWidth: 'auto' }}
                 >
                   Xóa
@@ -188,7 +188,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
 
   const handleCommentAdded = async (content) => {
     try {
-      await addComment(post.PostID, content);
+      await addComment(post.postID, content);
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -200,7 +200,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
   };
 
   const handleDeleteComment = async (commentId) => {
-    await deleteComment(commentId, post.PostID);
+    await deleteComment(commentId, post.postID);
   };
 
   const handleReportSubmit = async () => {
@@ -210,7 +210,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
 
     setIsSubmitting(true);
     try {
-      await onReport(post.PostID, {
+      await onReport(post.postID, {
         title: reportTitle,
         content: reportContent,
         category: reportCategory,
@@ -229,7 +229,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
 
   const handleShare = async (shareType, sharePlatform) => {
     try {
-      await onShare(post.PostID, { shareType, sharePlatform });
+      await onShare(post.postID, { shareType, sharePlatform });
       setShareSuccess(true);
       setShareMessage('Chia sẻ bài viết thành công!');
       setOpenShareDialog(false);
@@ -242,7 +242,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
 
   const handleCopyLink = async () => {
     try {
-      const postUrl = `${window.location.origin}/posts?postId=${post.PostID}`;
+      const postUrl = `${window.location.origin}/posts?postId=${post.postID}`;
       await navigator.clipboard.writeText(postUrl);
       await onShare(post.PostID, { shareType: 'copy' });
       setShareSuccess(true);
@@ -264,8 +264,8 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
     <Card sx={{ mb: 2 }}>
       <CardHeader
         avatar={
-          <Avatar src={post.UserImage} alt={post.FullName}>
-            {post.FullName ? post.FullName[0] : 'U'}
+          <Avatar src={post.userImage} alt={post.fullName}>
+            {post.fullName ? post.fullName[0] : 'U'}
           </Avatar>
         }
         action={
@@ -273,23 +273,23 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
             <MoreVertIcon />
           </IconButton>
         }
-        title={post.FullName}
-        subheader={formatTime(post.CreatedAt)}
+        title={post.fullName}
+        subheader={formatTime(post.createdAt)}
       />
 
       <CardContent>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          {post.Content}
+          {post.content}
         </Typography>
 
         {post.media && post.media.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {post.media.map((media, index) => (
-              media.MediaType === 'image' ? (
+              media.mediaType === 'image' ? (
                 <Box
                   key={index}
                   component="img"
-                  src={media.MediaUrl}
+                  src={media.mediaUrl}
                   sx={{ 
                     maxWidth: '100%',
                     maxHeight: 400,
@@ -300,7 +300,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
                 <Box
                   key={index}
                   component="video"
-                  src={media.MediaUrl}
+                  src={media.mediaUrl}
                   controls
                   sx={{ 
                     maxWidth: '100%',
@@ -315,37 +315,37 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
 
       <CardActions disableSpacing>
         <IconButton 
-          onClick={() => onLike(post.PostID)}
-          color={post.IsLiked ? "primary" : "default"}
+          onClick={() => onLike(post.postID)}
+          color={post.isLiked ? "primary" : "default"}
         >
           <ThumbUpIcon />
         </IconButton>
         <Typography variant="body2" sx={{ mr: 2 }}>
-          {post.LikesCount}
+          {post.likesCount}
         </Typography>
 
         <IconButton onClick={handleExpandClick}>
           <CommentIcon color={expanded ? "primary" : "default"} />
         </IconButton>
         <Typography variant="body2" sx={{ mr: 2 }}>
-          {post.CommentsCount}
+          {post.commentsCount}
         </Typography>
 
         <IconButton onClick={() => setOpenShareDialog(true)}>
           <ShareIcon />
         </IconButton>
         <Typography variant="body2" sx={{ mr: 2 }}>
-          {post.SharesCount}
+          {post.sharesCount}
         </Typography>
 
         {(() => {
           const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-          const isOwner = currentUser.UserID === post.UserID || currentUser.id === post.UserID;
+          const isOwner = currentUser.userID === post.userID || currentUser.id === post.userID;
           
           return isOwner ? (
             <IconButton 
               color="error"
-              onClick={() => onDelete(post.PostID)}
+              onClick={() => onDelete(post.postID)}
               sx={{ ml: 'auto' }}
             >
               <DeleteIcon />
@@ -375,7 +375,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
             <List>
               {comments.map((comment) => (
                 <CommentItem
-                  key={comment.CommentID}
+                  key={comment.commentID}
                   comment={comment}
                   onLike={handleLikeComment}
                   onDelete={handleDeleteComment}
@@ -383,7 +383,7 @@ const PostCard = ({ post, onLike, onComment, onDelete, onReport, onShare }) => {
               ))}
             </List>
           )}
-          <CommentForm postId={post.PostID} onCommentAdded={handleCommentAdded} />
+          <CommentForm postId={post.postID} onCommentAdded={handleCommentAdded} />
         </CardContent>
       </Collapse>
 

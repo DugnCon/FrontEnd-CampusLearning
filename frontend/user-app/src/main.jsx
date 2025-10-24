@@ -123,7 +123,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         v7_relativeSplatPath: true 
       }}>
         <QueryClientProvider client={queryClient}>
-          <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '890586528678-d33nj5dfqbptc5j5773g9mgkfsd45413.apps.googleusercontent.com'}>
+          <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '761822374035-1vi613rg4n7c45lmrmrgmsafjihn76c0.apps.googleusercontent.com'}>
             <AuthProvider>
               <SocketProvider>
                 <ThemeProvider>

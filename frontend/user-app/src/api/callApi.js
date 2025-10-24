@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: callApi.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Call API functions for voice and video calling functionality
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import axios from 'axios';
 import { API_URL } from '../config';
 

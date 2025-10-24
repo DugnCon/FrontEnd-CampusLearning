@@ -1,19 +1,12 @@
-/*-----------------------------------------------------------------
-* File: index.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+
+import courseApi from '@/api/courseApi';
+import Loading from '@/components/common/Loading';
+import { useAuth } from '@/contexts/AuthContext';
+import { addEnrolledCourse, enrollFreeCourse, fetchEnrolledCourses, loadCachedAllCourses, preloadAllCourses } from '@/store/slices/courseSlice';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { enrollFreeCourse, fetchEnrolledCourses, addEnrolledCourse, loadCachedAllCourses, preloadAllCourses } from '@/store/slices/courseSlice';
-import courseApi from '@/api/courseApi';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
-import Loading from '@/components/common/Loading';
-import CoursesRoutes from './CoursesRoutes';
 
 // Hàm helper để format giá
 const formatPrice = (price) => {
@@ -86,22 +79,12 @@ const isITCourse = (course) => {
 
 // Hàm helper để kiểm tra khóa học đã đăng ký
 const isEnrolledCourse = (course, enrolledCourses = []) => {
-  if (!enrolledCourses || !Array.isArray(enrolledCourses) || enrolledCourses.length === 0) {
-    return false;
-  }
-  
-  // Nếu course đã có thuộc tính enrolled được đánh dấu
-  if (course.enrolled === true) {
-    return true;
-  }
-  
-  const courseId = course.CourseID || course.id;
+  const courseId = course.courseID || course.id;
   if (!courseId) return false;
-  
-  // Kiểm tra ID trong danh sách đã đăng ký
-  return enrolledCourses.some(enrolledCourse => {
-    const enrolledId = enrolledCourse.CourseID || enrolledCourse.id;
-    return enrolledId === courseId;
+
+  return enrolledCourses.some(enrolled => {
+    const enrolledId = enrolled.courseID || enrolled.id;
+    return enrolledId == courseId; // == để tránh kiểu dữ liệu
   });
 };
 
@@ -129,8 +112,8 @@ const CourseCardSkeleton = () => (
 );
 
 const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enrolledCourses, onNavigate }) => {
-  const courseId = course.CourseID || course.id;
-  const isFreeCourse = formatPrice(course.Price) === 0;
+  const courseId = course.courseID || course.id;
+  const isFreeCourse = formatPrice(course.price) === 0;
   const enrolled = course.enrolled === true || isEnrolledCourse(course, enrolledCourses);
   const courseType = isITCourse(course) ? 'it' : 'regular';
   const dispatch = useDispatch();
@@ -188,7 +171,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
       {/* Course Image */}
       <div className="relative overflow-hidden">
         <img
-          src={course.ImageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
+          src={`http://localhost:8080${course.imageUrl}` || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
           alt={course.Title || course.title}
           className="w-full h-40 sm:h-48 md:h-52 object-cover"
         />
@@ -269,7 +252,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
               </span>
             ) : (
               <span className="text-sm font-semibold text-blue-600">
-                {formatPrice(course.DiscountPrice || course.Price).toLocaleString()}₫
+                {formatPrice(course.discountPrice || course.price).toLocaleString()}₫
               </span>
             )}
           </div>
@@ -478,13 +461,12 @@ const Courses = () => {
   }, [dispatch, dataLoaded]);
   
   // Separate effect for enrolled courses - lower priority
-  useEffect(() => {
-    // Only fetch enrolled courses if user is authenticated and has valid user ID
-    if (isAuthenticated && currentUser?.id && !enrolledCourses.length) {
-      console.log('Fetching enrolled courses for user:', currentUser.id);
-      dispatch(fetchEnrolledCourses());
-    }
-  }, [dispatch, isAuthenticated, currentUser?.id, enrolledCourses.length]);
+  // Thay bằng:
+    useEffect(() => {
+      if (isAuthenticated && currentUser?.id) {
+        dispatch(fetchEnrolledCourses({ forceRefresh: true })); // BẮT BUỘC bỏ cache
+      }
+    }, [isAuthenticated, currentUser?.id, dispatch]);
 
   // Separate effect for handling payment success
   useEffect(() => {
@@ -550,9 +532,9 @@ const Courses = () => {
                 title.includes('đạo đức') ||
                 title.includes('triết học')
               ) {
-                courseData.CourseType = 'regular';
+                courseData.courseType = 'regular';
               } else {
-                courseData.CourseType = 'it';
+                courseData.courseType = 'it';
               }
             }
             
@@ -624,10 +606,10 @@ const Courses = () => {
       : allCourses;
 
     coursesToProcess?.forEach(course => {
-      const courseId = course.CourseID || course.id;
+      const courseId = course.courseID || course.id;
       if (!courseId || addedCourseIds.has(courseId)) return;
 
-      const isEnrolled = enrolledCourses.some(ec => (ec.CourseID || ec.id) === courseId);
+      const isEnrolled = enrolledCourses.some(ec => (ec.courseID || ec.id) === courseId);
       if (enrollmentFilter === 'enrolled' && !isEnrolled) return;
       
       const courseCat = getCourseCategory(course);
@@ -639,7 +621,11 @@ const Courses = () => {
       
       if (matchesCategory && matchesSearch && (enrollmentFilter === 'all' || isEnrolled)) {
         addedCourseIds.add(courseId);
-        result.push({...course, enrolled: isEnrolled, category: courseCat});
+        result.push({
+          ...course,
+          enrolled: course.enrolled === true || isEnrolled, // ƯU TIÊN DỮ LIỆU TỪ API
+          category: courseCat
+        });
       }
     });
     
@@ -1010,8 +996,8 @@ const Courses = () => {
                     </svg>
                     <span className="hidden sm:inline">Khóa học của tôi</span>
                     <span className="bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full text-xs">
-                      {enrolledCourses.length}
-                    </span>
+                    {enrolledCourses?.length || 0}
+                  </span>
                   </button>
                 )}
                 
@@ -1139,7 +1125,7 @@ const Courses = () => {
           ) : filteredCourses.length > 0 ? (
             filteredCourses.map((course) => (
               <CourseCard
-                key={`course-${course.CourseID || course.id}`}
+                key={`course-${course.courseID || course.id}`}
                 course={course}
                 enrollmentFilter={enrollmentFilter}
                 courseCategory={courseCategory}
@@ -1190,4 +1176,4 @@ const Courses = () => {
   );
 };
 
-export default Courses; 
+export default Courses;

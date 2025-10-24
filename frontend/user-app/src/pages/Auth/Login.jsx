@@ -445,7 +445,7 @@ const Login = () => {
       console.log(`Requesting authentication options for email: ${formData.email}`);
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         console.log(`Using API base URL: ${API_BASE_URL}`);
         
         const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
@@ -558,7 +558,7 @@ const Login = () => {
       let verifyResponse;
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         
         verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
           email: formData.email,
@@ -1005,7 +1005,7 @@ const Login = () => {
       console.log(`Requesting authentication options for email: ${account.email}`);
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         console.log(`Using API base URL: ${API_BASE_URL}`);
         
         const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
@@ -1101,7 +1101,7 @@ const Login = () => {
       let verifyResponse;
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         
         verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
           email: account.email,
@@ -1206,7 +1206,7 @@ const Login = () => {
       
       // Then try to check with server (if available)
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const response = await axios.post(`${API_BASE_URL}/api/passkeys/check-registration`, {
           email
         });
@@ -1912,7 +1912,7 @@ const Login = () => {
                         setError('');
                         
                         // Get configuration from environment or use defaults
-                        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '890586528678-d33nj5dfqbptc5j5773g9mgkfsd45413.apps.googleusercontent.com';
+                        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
                         
                         // Use the current origin as redirect URI by default
                         // This should match exactly what's registered in Google Cloud Console

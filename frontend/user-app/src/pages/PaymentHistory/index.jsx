@@ -1,16 +1,10 @@
-/*-----------------------------------------------------------------
-* File: index.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+
 import courseApi from '@/api/courseApi';
-import { toast } from 'react-toastify';
 import Loading from '@/components/common/Loading';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 // Add deletePayment method to courseApi if it doesn't exist
 if (!courseApi.deletePayment) {
@@ -156,8 +150,8 @@ const PaymentHistory = () => {
           };
           
           payments.forEach(payment => {
-            const status = (payment.PaymentStatus || payment.Status || '').toLowerCase();
-            const amount = parseFloat(payment.Amount) || 0;
+            const status = (payment.paymentStatus || payment.status || '').toLowerCase();
+            const amount = parseFloat(payment.amount) || 0;
             
             if (status === 'completed' || status === 'success') {
               stats.totalPaid += amount;
@@ -173,7 +167,7 @@ const PaymentHistory = () => {
         }
       } catch (error) {
         console.error('Error fetching payment history:', error);
-        setError('Đã xảy ra lỗi khi tải lịch sử thanh toán');
+        setError('Bạn chưa đăng ký khóa học nào');
       } finally {
         setLoading(false);
       }
@@ -222,7 +216,7 @@ const PaymentHistory = () => {
       if (response.data && response.data.success) {
         // Cập nhật UI ngay lập tức bằng cách xóa giao dịch khỏi state
         setPaymentHistory(prevPayments => 
-          prevPayments.filter(payment => payment.TransactionID !== paymentId)
+          prevPayments.filter(payment => payment.transactionID !== paymentId)
         );
         
         // Hiển thị thông báo thành công
@@ -269,8 +263,8 @@ const PaymentHistory = () => {
   // Select all cancelled payments
   const selectAllCancelledPayments = () => {
     const cancelledPaymentIds = paymentHistory
-      .filter(payment => (payment.PaymentStatus || payment.Status || '').toLowerCase() === 'cancelled')
-      .map(payment => payment.TransactionID);
+      .filter(payment => (payment.paymentStatus || payment.status || '').toLowerCase() === 'cancelled')
+      .map(payment => payment.transactionID);
     
     if (cancelledPaymentIds.length === 0) {
       toast.info('Không có giao dịch đã hủy nào để chọn', {
@@ -313,7 +307,7 @@ const PaymentHistory = () => {
       if (response.data && response.data.success) {
         // Cập nhật UI ngay lập tức
         setPaymentHistory(prevPayments => 
-          prevPayments.filter(payment => !selectedPayments.includes(payment.TransactionID))
+          prevPayments.filter(payment => !selectedPayments.includes(payment.transactionID))
         );
         
         toast.success(`Đã xóa thành công ${response.data.deletedCount} giao dịch`, {
@@ -346,7 +340,7 @@ const PaymentHistory = () => {
   // Print only successful payments
   const handlePrint = () => {
     const successfulPayments = paymentHistory.filter(payment => {
-      const status = (payment.PaymentStatus || payment.Status || '').toLowerCase();
+      const status = (payment.paymentStatus || payment.status || '').toLowerCase();
       return status === 'completed' || status === 'success';
     });
     
@@ -358,7 +352,7 @@ const PaymentHistory = () => {
     // Lấy thông tin người dùng từ context
     const userName = currentUser?.FullName || currentUser?.fullName || currentUser?.name || 'Người dùng CampusLearning Learning';
     const userEmail = currentUser?.Email || currentUser?.email || '';
-    const userId = currentUser?.UserID || currentUser?.userId || currentUser?.id || '';
+    const userId = currentUser?.UserID || currentUser?.userID || currentUser?.id || '';
 
     // Create a new window for printing
     const printWindow = window.open('', '_blank');
@@ -680,11 +674,11 @@ const PaymentHistory = () => {
                 ${successfulPayments.map((payment, index) => `
                   <tr>
                     <td>${index + 1}</td>
-                    <td>${payment.Course?.Title || 'Không có thông tin khóa học'}</td>
-                    <td>${payment.TransactionCode || payment.TransactionID}</td>
-                    <td>${getPaymentMethodText(payment.PaymentMethod)}</td>
-                    <td>${formatDate(payment.CreatedAt)}</td>
-                    <td class="amount">${formatCurrency(payment.Amount)}</td>
+                    <td>${payment.courses?.title || 'Không có thông tin khóa học'}</td>
+                    <td>${payment.transactionCode || payment.transactionID}</td>
+                    <td>${getPaymentMethodText(payment.paymentMethod)}</td>
+                    <td>${formatDate(payment.createdAt)}</td>
+                    <td class="amount">${formatCurrency(payment.amount)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -698,7 +692,7 @@ const PaymentHistory = () => {
               <div class="total-row grand-total">
                 <div class="total-label">Tổng thanh toán:</div>
                 <div class="total-amount">${formatCurrency(
-                  successfulPayments.reduce((total, payment) => total + parseFloat(payment.Amount || 0), 0)
+                  successfulPayments.reduce((total, payment) => total + parseFloat(payment.amount || 0), 0)
                 )}</div>
               </div>
             </div>
@@ -900,7 +894,7 @@ const PaymentHistory = () => {
     .filter(payment => {
       if (filter === 'all') return true;
       
-      const paymentStatus = (payment.PaymentStatus || payment.Status || '').toLowerCase();
+      const paymentStatus = (payment.paymentStatus || payment.status || '').toLowerCase();
       
       if (filter === 'completed') {
         return paymentStatus === 'completed' || paymentStatus === 'success';
@@ -1231,51 +1225,51 @@ const PaymentHistory = () => {
                       <th 
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('Course.Title')}
+                        onClick={() => handleSort('courses.title')}
                       >
                         <div className="flex items-center gap-1">
                           Khóa học
-                          {getSortIcon('Course.Title')}
+                          {getSortIcon('course.title')}
                         </div>
                       </th>
                       <th 
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('Amount')}
+                        onClick={() => handleSort('amount')}
                       >
                         <div className="flex items-center gap-1">
                           Số tiền
-                          {getSortIcon('Amount')}
+                          {getSortIcon('amount')}
                         </div>
                       </th>
                       <th 
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('PaymentMethod')}
+                        onClick={() => handleSort('paymentMethod')}
                       >
                         <div className="flex items-center gap-1">
                           Phương thức
-                          {getSortIcon('PaymentMethod')}
+                          {getSortIcon('paymentMethod')}
                         </div>
                       </th>
                       <th 
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('PaymentStatus')}
+                        onClick={() => handleSort('paymentStatus')}
                       >
                         <div className="flex items-center gap-1">
                           Trạng thái
-                          {getSortIcon('PaymentStatus')}
+                          {getSortIcon('paymentStatus')}
                         </div>
                       </th>
                       <th 
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort('CreatedAt')}
+                        onClick={() => handleSort('createdAt')}
                       >
                         <div className="flex items-center gap-1">
                           Ngày
-                          {getSortIcon('CreatedAt')}
+                          {getSortIcon('createdAt')}
                         </div>
                       </th>
                       <th 
@@ -1288,10 +1282,10 @@ const PaymentHistory = () => {
                   </thead>
                   <tbody>
                     {filteredPayments.map((payment, index) => {
-                      const isCancelled = (payment.PaymentStatus || payment.Status || '').toLowerCase() === 'cancelled';
+                      const isCancelled = (payment.paymentStatus || payment.status || '').toLowerCase() === 'cancelled';
                       return (
                         <tr 
-                          key={payment.TransactionID} 
+                          key={payment.transactionID} 
                           className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                         >
                           <td className="px-3 py-4">
@@ -1299,8 +1293,8 @@ const PaymentHistory = () => {
                               {isCancelled && (
                                 <input
                                   type="checkbox"
-                                  checked={selectedPayments.includes(payment.TransactionID)}
-                                  onChange={() => toggleSelectPayment(payment.TransactionID)}
+                                  checked={selectedPayments.includes(payment.transactionID)}
+                                  onChange={() => toggleSelectPayment(payment.transactionID)}
                                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                 />
                               )}
@@ -1309,10 +1303,10 @@ const PaymentHistory = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-500 mr-3">
-                                {payment.Course?.ImageUrl ? (
+                                {payment.courses?.imageUrl ? (
                                   <img 
-                                    src={payment.Course.ImageUrl} 
-                                    alt={payment.Course?.Title || 'Course image'}
+                                    src={payment.courses.imageUrl} 
+                                    alt={payment.courses?.title || 'Course image'}
                                     className="h-10 w-10 object-cover rounded-md"
                                   />
                                 ) : (
@@ -1323,20 +1317,20 @@ const PaymentHistory = () => {
                               </div>
                               <div>
                                 <div className="text-sm font-medium text-gray-900">
-                                  {payment.Course?.Title || 'Không có thông tin khóa học'}
+                                  {payment.courses?.title || 'Không có thông tin khóa học'}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  Mã GD: {payment.TransactionCode || payment.TransactionID}
+                                  Mã GD: {payment.transactionCode || payment.transactionID}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900">{formatCurrency(payment.Amount)}</div>
+                            <div className="text-sm font-medium text-gray-900">{formatCurrency(payment.amount)}</div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900 flex items-center">
-                              {payment.PaymentMethod === 'vnpay' && (
+                              {payment.paymentMethod === 'vnpay' && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-green-100 flex items-center justify-center mr-2">
                                     <span className="text-xs font-bold text-green-700">VN</span>
@@ -1344,7 +1338,7 @@ const PaymentHistory = () => {
                                   VNPay
                                 </>
                               )}
-                              {payment.PaymentMethod === 'credit_card' && (
+                              {payment.paymentMethod === 'credit_card' && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center mr-2">
                                     <svg className="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1354,7 +1348,7 @@ const PaymentHistory = () => {
                                   Thẻ tín dụng
                                 </>
                               )}
-                              {payment.PaymentMethod === 'paypal' && (
+                              {payment.paymentMethod === 'paypal' && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center mr-2">
                                     <span className="text-xs font-bold text-blue-700">PP</span>
@@ -1362,7 +1356,7 @@ const PaymentHistory = () => {
                                   PayPal
                                 </>
                               )}
-                              {payment.PaymentMethod === 'free' && (
+                              {payment.paymentMethod === 'free' && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center mr-2">
                                     <svg className="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1372,7 +1366,7 @@ const PaymentHistory = () => {
                                   Miễn phí
                                 </>
                               )}
-                              {payment.PaymentMethod === 'vietqr' && (
+                              {payment.paymentMethod === 'vietqr' && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-red-100 flex items-center justify-center mr-2">
                                     <span className="text-xs font-bold text-red-700">QR</span>
@@ -1380,7 +1374,7 @@ const PaymentHistory = () => {
                                   VietQR
                                 </>
                               )}
-                              {!payment.PaymentMethod && (
+                              {!payment.paymentMethod && (
                                 <>
                                   <span className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center mr-2">
                                     <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1393,16 +1387,16 @@ const PaymentHistory = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <StatusBadge status={payment.PaymentStatus || payment.Status} />
+                            <StatusBadge status={payment.paymentStatus || payment.status} />
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
-                            {formatDate(payment.CreatedAt)}
+                            {formatDate(payment.createdAt)}
                           </td>
                           <td className="px-6 py-4 text-right text-sm font-medium">
-                            {payment.Course && (
+                            {payment.courses && (
                               <>
                                 <button
-                                  onClick={() => navigate(`/courses/${payment.CourseID}`)}
+                                  onClick={() => navigate(`/courses/${payment.courses.courseID}`)}
                                   className="text-blue-600 hover:text-blue-900 transition-colors bg-blue-50 hover:bg-blue-100 p-2 rounded-md mr-2"
                                   title="Xem khóa học"
                                 >
@@ -1413,9 +1407,9 @@ const PaymentHistory = () => {
                                 </button>
                                 
                                 {/* Print course detail button */}
-                                {enrolledCourses.find(course => course.id === payment.CourseID) && (
+                                {enrolledCourses.find(course => course.id === payment.courseID) && (
                                   <button
-                                    onClick={() => handlePrintCourse(enrolledCourses.find(course => course.id === payment.CourseID))}
+                                    onClick={() => handlePrintCourse(enrolledCourses.find(course => course.id === payment.courseID))}
                                     className="text-green-600 hover:text-green-900 transition-colors bg-green-50 hover:bg-green-100 p-2 rounded-md"
                                     title="In chi tiết"
                                   >
@@ -1428,11 +1422,11 @@ const PaymentHistory = () => {
                             )}
                             {isCancelled && (
                               <button
-                                onClick={() => deletePayment(payment.TransactionID)}
-                                disabled={loading || processingPaymentId === payment.TransactionID}
+                                onClick={() => deletePayment(payment.transactionID)}
+                                disabled={loading || processingPaymentId === payment.transactionID}
                                 className={`text-red-600 hover:text-red-900 transition-colors bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md ml-2 flex items-center gap-1 ${(loading || processingPaymentId === payment.TransactionID) ? 'opacity-60 cursor-not-allowed' : ''}`}
                               >
-                                {processingPaymentId === payment.TransactionID ? (
+                                {processingPaymentId === payment.transactionID ? (
                                   <svg className="animate-spin h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

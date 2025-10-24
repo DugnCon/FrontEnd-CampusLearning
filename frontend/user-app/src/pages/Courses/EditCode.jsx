@@ -1,9 +1,9 @@
 /*-----------------------------------------------------------------
-* File: EditCode.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+ * File: EditCode.jsx
+ * Author: Quyen Nguyen Duc
+ * Date: 2025-07-24
+ * Description: This file is a component/module for the student application.
+ * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -15,7 +15,7 @@ import { initializeCodeServer } from './components/code-server-bridge';
 const EditCode = () => {
   const { courseId, lessonId } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const iframeRef = useRef(null);
   
   const [loading, setLoading] = useState(true);
@@ -25,33 +25,34 @@ const EditCode = () => {
   const [codeServerUrl, setCodeServerUrl] = useState('');
   const [nextLessonId, setNextLessonId] = useState(null);
   const [firstLessonId, setFirstLessonId] = useState(null);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [codeInput, setCodeInput] = useState('');
+
   useEffect(() => {
     const initializeEnvironment = async () => {
-    if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để truy cập bài tập');
-      navigate('/login', { state: { from: `/courses/${courseId}/edit-code/${lessonId}` } });
+      if (!isAuthenticated) {
+        toast.error('Vui lòng đăng nhập để truy cập bài tập');
+        navigate('/login', { state: { from: `/courses/${courseId}/edit-code/${lessonId}` } });
         return;
-    }
+      }
   
       try {
         setLoading(true);
         
-        // Khởi tạo code-server trước khi tải dữ liệu bài tập
         const codeServerResponse = await initializeCodeServer({
           courseId,
           lessonId,
-          port: 8080
+          port: 8100
         });
           
         if (!codeServerResponse.success) {
           throw new Error(codeServerResponse.message);
         }
         
-        // Đặt URL ngay lập tức để iframe có thể bắt đầu tải
         setCodeServerUrl(codeServerResponse.url);
         
-        // Sau đó tải dữ liệu bài tập
         const exerciseResponse = await courseApi.getCodeExercise(courseId, lessonId);
         if (!exerciseResponse || !exerciseResponse.success) {
           throw new Error(exerciseResponse?.message || 'Không thể tải thông tin bài tập');
@@ -65,42 +66,36 @@ const EditCode = () => {
         }
         
         if (exerciseData.exerciseContent) {
-          // Tạo hoặc cập nhật file README.md trong workspace
           try {
             const content = exerciseData.exerciseContent;
             console.log('Creating README.md in workspace with content:', content);
-            // Phần này có thể được xử lý bởi backend để tạo file trong workspace
           } catch (error) {
             console.error('Failed to create README.md in workspace:', error);
           }
         }
         
-        // Fetch course structure to determine next lesson ID
         try {
           const courseResp = await courseApi.getCourseDetails(courseId);
           if (courseResp && courseResp.success) {
             const course = courseResp.data;
             let found = false;
             let nextId = null;
-            if (course && Array.isArray(course.Modules)) {
-              // store first lesson id for later redirect
-              if (course.Modules.length > 0 && course.Modules[0].Lessons && course.Modules[0].Lessons.length > 0) {
-                setFirstLessonId(course.Modules[0].Lessons[0].LessonID);
+            if (course && Array.isArray(course.modules)) {
+              if (course.modules.length > 0 && course.modules[0].lessons && course.modules[0].lessons.length > 0) {
+                setFirstLessonId(course.modules[0].lessons[0].lessonID);
               }
-              for (let mIndex = 0; mIndex < course.Modules.length && !found; mIndex++) {
-                const module = course.Modules[mIndex];
-                if (!module || !Array.isArray(module.Lessons)) continue;
-                for (let lIndex = 0; lIndex < module.Lessons.length; lIndex++) {
-                  const l = module.Lessons[lIndex];
-                  if (String(l.LessonID) === String(lessonId)) {
-                    // determine next lesson within same module
-                    if (lIndex < module.Lessons.length - 1) {
-                      nextId = module.Lessons[lIndex + 1].LessonID;
-                    } else if (mIndex < course.Modules.length - 1) {
-                      // take first lesson of next module
-                      const nextModule = course.Modules[mIndex + 1];
-                      if (nextModule && Array.isArray(nextModule.Lessons) && nextModule.Lessons.length > 0) {
-                        nextId = nextModule.Lessons[0].LessonID;
+              for (let mIndex = 0; mIndex < course.modules.length && !found; mIndex++) {
+                const module = course.modules[mIndex];
+                if (!module || !Array.isArray(module.lessons)) continue;
+                for (let lIndex = 0; lIndex < module.lessons.length; lIndex++) {
+                  const l = module.lessons[lIndex];
+                  if (String(l.lessonID) === String(lessonId)) {
+                    if (lIndex < module.lessons.length - 1) {
+                      nextId = module.lessons[lIndex + 1].lessonID;
+                    } else if (mIndex < course.modules.length - 1) {
+                      const nextModule = course.modules[mIndex + 1];
+                      if (nextModule && Array.isArray(nextModule.lessons) && nextModule.lessons.length > 0) {
+                        nextId = nextModule.lessons[0].lessonID;
                       }
                     }
                     found = true;
@@ -128,10 +123,51 @@ const EditCode = () => {
     return () => {
       if (iframeRef.current) {
         iframeRef.current.src = 'about:blank';
-    }
+      }
     };
-  }, [courseId, lessonId, isAuthenticated, navigate]);
+  }, [courseId, lessonId, isAuthenticated, user, navigate]);
   
+  const handleSubmitCode = async () => {
+    if (!codeInput.trim()) {
+      toast.error('Vui lòng nhập code trước khi submit');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitResult(null);
+    setSubmitError(null);
+
+    try {
+      // Gửi code và testCases từ exercise
+      const payload = {
+        code: codeInput,
+        testCases: exercise?.testCases || [], // Gửi testCases, mặc định là mảng rỗng nếu không có
+      };
+      const submitResponse = await courseApi.submitCodeExercise(courseId, lessonId, payload);
+
+      if (!submitResponse || !submitResponse.success) {
+        throw new Error(submitResponse?.message || 'Không thể submit code');
+      }
+
+      setSubmitResult(submitResponse.data || {});
+      console.log('Submit response data:', submitResponse.data);
+      toast.success('Code đã được submit thành công!');
+
+      if (submitResponse.data?.passed) {
+        await courseApi.markLessonAsComplete(courseId, lessonId);
+        toast.success('Bài tập hoàn thành!');
+      } else {
+        toast.error('Code chưa vượt qua các test case!');
+      }
+    } catch (err) {
+      console.error('Error submitting code:', err);
+      setSubmitError(err.message || 'Có lỗi xảy ra khi submit code. Vui lòng thử lại.');
+      toast.error(submitError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading && !codeServerUrl) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -153,28 +189,24 @@ const EditCode = () => {
           >
             Thử lại
           </button>
-        <button 
-          onClick={() => navigate(`/courses/${courseId}`)} 
+          <button 
+            onClick={() => navigate(`/courses/${courseId}`)} 
             className="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
-        >
-          Quay lại khóa học
-        </button>
-      </div>
+          >
+            Quay lại khóa học
+          </button>
+        </div>
       </div>
     );
   }
   
   return (
     <div className="flex flex-col h-screen max-h-screen bg-white">
-      {/* Header trống - chỉ hiển thị đường viền mỏng */}
       <header className="bg-white border-b border-gray-200 h-1"></header>
       
-      {/* Main content layout - thu nhỏ tổng thể thêm 4px */}
       <div className="flex-1 flex max-h-[calc(100vh-4.5rem)] overflow-hidden">
-        {/* Exercise description in left panel - giữ tỷ lệ 20% */}
         {exercise && (
           <div className="w-1/5 border-r border-gray-200 p-2 h-full flex flex-col max-h-full">
-            {/* Navigation buttons */}
             <div className="mb-2 flex space-x-1">
               <Link
                 to={`/courses/${courseId}/learn?lessonId=${lessonId}`}
@@ -182,6 +214,13 @@ const EditCode = () => {
               >
                 ◀ Bài trước
               </Link>
+              <button
+                onClick={handleSubmitCode}
+                disabled={isSubmitting}
+                className={`flex-1 px-2 py-1 ${isSubmitting ? 'bg-gray-400' : 'bg-indigo-600'} text-white rounded text-xs flex items-center justify-center`}
+              >
+                {isSubmitting ? 'Đang submit...' : 'Submit Code'}
+              </button>
               {nextLessonId ? (
                 <button
                   onClick={async () => {
@@ -194,7 +233,8 @@ const EditCode = () => {
                       navigate(`/courses/${courseId}/learn?lessonId=${nextLessonId}`);
                     }
                   }}
-                  className="flex-1 px-2 py-1 bg-blue-600 text-white rounded text-xs flex items-center justify-center"
+                  disabled={!(submitResult?.passed === true)}
+                  className={`flex-1 px-2 py-1 ${submitResult?.passed === true ? 'bg-blue-600' : 'bg-gray-400'} text-white rounded text-xs flex items-center justify-center`}
                 >
                   Bài tiếp ▶
                 </button>
@@ -211,37 +251,77 @@ const EditCode = () => {
                       navigate(navTarget, { state: { finishedCourse: true }});
                     }
                   }}
-                  className="flex-1 px-2 py-1 bg-green-600 text-white rounded text-xs flex items-center justify-center"
+                  disabled={!(submitResult?.passed === true)}
+                  className={`flex-1 px-2 py-1 ${submitResult?.passed === true ? 'bg-green-600' : 'bg-gray-400'} text-white rounded text-xs flex items-center justify-center`}
                 >
                   Kết thúc khóa học
                 </button>
               )}
             </div>
             
-            {/* Phần nội dung đề bài - thu nhỏ */}
+            {submitResult && (
+              <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
+                <h3 className="font-semibold mb-1">Kết quả submit:</h3>
+                <p className={`font-medium ${submitResult.passed ? 'text-green-600' : 'text-red-600'}`}>
+                  {submitResult.passed ? 'Passed!' : 'Failed'}
+                </p>
+                {submitResult.message && <p className="mt-1">{submitResult.message}</p>}
+                {submitResult.details && Array.isArray(submitResult.details) && (
+                  <div className="mt-1">
+                    <h4 className="font-medium">Chi tiết test cases:</h4>
+                    <div className="space-y-1">
+                      {submitResult.details.map((detail, index) => (
+                        <div key={index} className={`p-1.5 rounded border ${detail.passed ? 'bg-green-50' : 'bg-red-50'}`}>
+                          <p className="font-medium">Test {detail.testCase}:</p>
+                          <p><span className="font-medium">Input:</span> {detail.input}</p>
+                          <p><span className="font-medium">Expected:</span> {detail.expected}</p>
+                          <p><span className="font-medium">Actual:</span> {detail.actual}</p>
+                          <p><span className="font-medium">Status:</span> {detail.passed ? 'Passed' : 'Failed'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {submitError && (
+              <div className="mb-2 p-2 bg-red-100 text-red-700 rounded text-xs">
+                {submitError}
+              </div>
+            )}
+            
+            <div className="mb-2">
+              <h3 className="text-xs font-semibold mb-1">Dán code của bạn</h3>
+              <textarea
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                placeholder="Dán code của bạn vào đây..."
+                className="w-full h-32 p-2 border border-gray-300 rounded text-xs font-mono resize-none"
+              />
+            </div>
+            
             <div className="flex-1 overflow-y-auto pr-1 text-xs">
-              {/* Tiêu đề bài tập và module - thu nhỏ */}
               <div className="border-b pb-1.5 mb-2">
                 <h1 className="font-bold text-sm text-gray-800">{exercise?.title || 'Hello C++ World'}</h1>
                 {moduleTitle && (
                   <div className="text-xs text-gray-600 mt-0.5">
                     Module: {moduleTitle}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
               
               <div className="mb-2">
                 {exercise.description && (
                   <div className="prose prose-xs max-w-none" dangerouslySetInnerHTML={{ __html: exercise.description }} />
-            )}
-          </div>
+                )}
+              </div>
           
               {exercise.instructions && (
                 <div className="mb-2">
                   <h3 className="text-xs font-semibold mb-1">Hướng dẫn</h3>
                   <div className="prose prose-xs max-w-none" dangerouslySetInnerHTML={{ __html: exercise.instructions }} />
-            </div>
-          )}
+                </div>
+              )}
           
               {exercise.hints && exercise.hints.length > 0 && (
                 <div className="mb-2">
@@ -264,27 +344,24 @@ const EditCode = () => {
                         {test.input && (
                           <p className="text-xs leading-tight"><span className="font-medium">Input:</span> {test.input}</p>
                         )}
-                        {test.expected && (
-                          <p className="text-xs leading-tight"><span className="font-medium">Expected:</span> {test.expected}</p>
+                        {test.output && (
+                          <p className="text-xs leading-tight"><span className="font-medium">Expected:</span> {test.output}</p>
                         )}
                       </div>
                     ))}
-                        </div>
-                        </div>
-                      )}
+                  </div>
+                </div>
+              )}
               
               {exercise.exerciseContent && !exercise.description && !exercise.instructions && (
                 <div className="prose prose-xs max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: exercise.exerciseContent }} />
-                            </div>
-                          )}
-                        </div>
-            
-            {/* Nút quay lại đã di chuyển lên đầu, phần này bỏ */}
+                </div>
+              )}
+            </div>
           </div>
         )}
         
-        {/* Code-server iframe in right panel - giữ tỷ lệ 80% */}
         <div className="w-4/5 h-full">
           {codeServerUrl ? (
             <iframe
@@ -306,4 +383,3 @@ const EditCode = () => {
 };
 
 export default EditCode;
-

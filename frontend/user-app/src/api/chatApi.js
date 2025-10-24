@@ -1,10 +1,5 @@
-/*-----------------------------------------------------------------
-* File: chatApi.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Chat API functions for messaging functionality
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
+
 import axios from 'axios';
 import { API_URL } from '../config';
 

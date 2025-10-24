@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CreatePost.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -21,7 +15,7 @@ import {
   LockClosedIcon,
   InformationCircleIcon
 } from "@heroicons/react/24/outline"
-
+import postService from "@/services/postService"
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState("")
   const [title, setTitle] = useState("")
@@ -312,48 +306,29 @@ const CreatePost = ({ onPostCreated }) => {
     
     setLoading(true)
     try {
-      const formData = new FormData()
-      formData.append("content", content)
-      formData.append("visibility", visibility)
-      if (title) formData.append("title", title)
-      
-      media.forEach((file) => {
-        formData.append("media", file)
-      })
+  const formData = new FormData()
+  formData.append("content", content)
+  formData.append("visibility", visibility)
+  if (title) formData.append("title", title)
+  media.forEach((file) => formData.append("media", file))
+  if (location) formData.append("location", JSON.stringify(location))
 
-      // Add location if available
-      if (location) {
-        formData.append("location", JSON.stringify(location))
-      }
+  const response = await postService.createPost(formData)
 
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: formData,
-      })
+  setContent("")
+  setTitle("")
+  setMedia([])
+  setLocation(null)
+  localStorage.removeItem("postDraft")
 
-      if (!response.ok) {
-        throw new Error("Không thể tạo bài viết")
-      }
+  if (onPostCreated) onPostCreated()
+} catch (error) {
+  console.error("Create post error:", error)
+  alert("Có lỗi xảy ra khi đăng bài. Vui lòng thử lại sau.")
+} finally {
+  setLoading(false)
+}
 
-      // Clear form and local storage draft
-      setContent("")
-      setTitle("")
-      setMedia([])
-      setLocation(null)
-      localStorage.removeItem('postDraft')
-      
-      if (onPostCreated) {
-        onPostCreated()
-      }
-    } catch (error) {
-      console.error("Create post error:", error)
-      alert("Có lỗi xảy ra khi đăng bài. Vui lòng thử lại sau.")
-    } finally {
-      setLoading(false)
-    }
   }
 
   const handleMediaChange = (e) => {

@@ -23,7 +23,14 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-      }
+      },
+      '/code-server': {
+      target: 'http://localhost:8100',
+      changeOrigin: true,
+      secure: false,
+      ws: true, // enable WebSocket proxy
+      rewrite: (path) => path.replace(/^\/code-server/, ''), // optional nếu muốn giữ đường dẫn gốc
+  },
     }
   },
   resolve: {

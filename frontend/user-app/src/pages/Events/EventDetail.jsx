@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: EventDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -363,12 +356,12 @@ const EventDetail = () => {
                     <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
                       <ClockIcon className="h-6 w-6 text-gray-500 mt-1" />
                       <div>
-                        <h3 className="font-semibold">{item.ActivityName}</h3>
+                        <h3 className="font-semibold">{item.activityName}</h3>
                         <p className="text-gray-600">
-                          {formatDate(item.StartTime)} {formatTime(item.StartTime)} - {formatTime(item.EndTime)}
+                          {formatDate(item.startTime)} {formatTime(item.startTime)} - {formatTime(item.endTime)}
                         </p>
-                        <p className="text-gray-600">{item.Location}</p>
-                        <p className="text-gray-600 mt-2">{item.Description}</p>
+                        <p className="text-gray-600">{item.location}</p>
+                        <p className="text-gray-600 mt-2">{item.description}</p>
                       </div>
                     </div>
                   ))}
@@ -389,11 +382,11 @@ const EventDetail = () => {
                     <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
                       <TrophyIcon className="h-6 w-6 text-yellow-500 mt-1" />
                       <div>
-                        <h3 className="font-semibold">Hạng {prize.Rank}</h3>
+                        <h3 className="font-semibold">Hạng {prize.ranking}</h3>
                         <p className="text-gray-800 font-medium">
-                          {prize.PrizeAmount ? `${prize.PrizeAmount.toLocaleString('vi-VN')} VND` : ''}
+                          {prize.prizeAmount ? `${prize.prizeAmount.toLocaleString('vi-VN')} VND` : ''}
                         </p>
-                        <p className="text-gray-600 mt-1">{prize.Description}</p>
+                        <p className="text-gray-600 mt-1">{prize.description}</p>
                       </div>
                     </div>
                   ))}
@@ -419,7 +412,7 @@ const EventDetail = () => {
                   <div className="flex flex-wrap gap-2">
                     {event.languages.map((lang, index) => (
                       <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                        {lang.Language}
+                        {lang.language}
                       </span>
                     ))}
                   </div>
@@ -438,7 +431,7 @@ const EventDetail = () => {
                   <div className="flex flex-wrap gap-2">
                     {event.technologies.map((tech, index) => (
                       <span key={index} className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                        {tech.Technology}
+                        {tech.technology}
                       </span>
                     ))}
                   </div>

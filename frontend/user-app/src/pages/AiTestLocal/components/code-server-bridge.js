@@ -45,11 +45,8 @@ if (typeof window !== 'undefined') {
     // Instead of automatically creating workspaces, just check if code-server is running
     try {
       // Check if code-server is accessible
-      const response = await fetch(`http://localhost:8080/`, { 
-        method: 'HEAD',
-        mode: 'no-cors',
-        cache: 'no-cache'
-      });
+      const response = await fetch(`http://localhost:8100/`, { method: 'GET', cache: 'no-cache' });
+
       
       console.log('Code-server is accessible, but not creating any workspaces automatically');
     } catch (err) {
@@ -64,12 +61,12 @@ if (typeof window !== 'undefined') {
 
 // Start the code-server instance
 export const startCodeServer = async (options = {}) => {
-  const { port = 8080, workspacePath = '/workspace' } = options;
+  const { port = 8100, workspacePath = '/workspace' } = options;
   
   try {
     // Check if code-server is already running
     const response = await fetch(`http://localhost:${port}`, { 
-      method: 'HEAD',
+      method: 'GET',
       mode: 'no-cors',
       cache: 'no-cache'
     });
@@ -256,7 +253,7 @@ const createWorkspaceDirectory = (iframeElement) => {
 
 // Explicitly create a workspace for the current user
 export const createUserWorkspace = async (options = {}) => {
-  const { port = 8080, workspacePath = '/workspace' } = options;
+  const { port = 8100, workspacePath = '/workspace' } = options;
   
   try {
     // Create the workspace

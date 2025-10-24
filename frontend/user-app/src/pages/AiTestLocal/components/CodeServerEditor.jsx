@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CodeServerEditor.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useEffect, useRef, useState } from 'react';
 import { startCodeServer, injectCommunicationScript, configureCodeServer, createFile, createFolder } from './code-server-bridge';
 import { setupWorkspaceForCodeServer } from './create-workspace';
@@ -24,7 +18,7 @@ const CodeServerEditor = ({ code, language, onChange }) => {
   useEffect(() => {
     const initCodeServer = async () => {
       try {
-        const result = await startCodeServer({ port: 8080 });
+        const result = await startCodeServer({ port: 8100 });
         setServerStatus({
           loading: false,
           success: result.success,
@@ -447,7 +441,7 @@ Thư mục này chứa các ví dụ mã nguồn để giúp bạn làm quen v�
         <div className="bg-gray-100 p-4 rounded-lg w-full max-w-2xl text-sm">
           <p className="font-bold mb-2">Khởi động code-server với lệnh:</p>
           <pre className="bg-gray-800 text-white p-3 rounded overflow-x-auto">
-            code-server --auth none --port 8080
+            code-server --auth none --port 8100
           </pre>
         </div>
       </div>

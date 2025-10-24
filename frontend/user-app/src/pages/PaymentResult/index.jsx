@@ -1,11 +1,4 @@
-/*-----------------------------------------------------------------
-* File: index.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
@@ -27,34 +20,25 @@ const PaymentResult = () => {
   const queryClient = useQueryClient();
   const dispatch = useDispatch();
   const { isAuthenticated } = useAuth();
+  const hasProcessed = useRef(false); // ✅ chặn gọi lại
 
   useEffect(() => {
-    // Nếu chưa xác thực nhưng vẫn còn token, chờ checkAuth thay vì đẩy sang login
-    if (!isAuthenticated) {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login', { replace: true });
-        return;
-      }
-    }
-
     const queryParams = new URLSearchParams(location.search);
     const statusParam = queryParams.get('status');
     const messageParam = queryParams.get('message');
     const courseIdParam = queryParams.get('courseId');
     const transactionIdParam = queryParams.get('transactionId');
     const payerIdParam = queryParams.get('PayerID') || queryParams.get('payerId');
-    
+
     setStatus(statusParam);
     setMessage(messageParam || '');
     setCourseId(courseIdParam);
     setTransactionId(transactionIdParam);
-    
+
     const processPayment = async () => {
       try {
         setLoading(true);
 
-        // Thanh toán thành công – xác thực & cập nhật giao dịch
         if (statusParam === 'success' && courseIdParam) {
           try {
             await courseApi.processPayPalSuccess({
@@ -62,57 +46,46 @@ const PaymentResult = () => {
               PayerID: payerIdParam,
               courseId: courseIdParam
             });
-            console.log('Backend confirmed PayPal payment success');
+            console.log('✅ Backend confirmed PayPal payment success');
           } catch (apiErr) {
-            console.error('Backend confirmation for PayPal success failed:', apiErr);
+            console.error('❌ Backend confirmation failed:', apiErr);
             toast.error('Không thể xác thực thanh toán. Vui lòng kiểm tra lại lịch sử giao dịch.');
           }
-          
-          // Làm mới danh sách khóa học đã đăng ký
+
           try {
             await dispatch(fetchEnrolledCourses()).unwrap();
-            console.log('Successfully fetched enrolled courses after payment');
+            console.log('📚 Fetched enrolled courses');
           } catch (fetchError) {
-            console.error('Error fetching enrolled courses:', fetchError);
+            console.error('❌ Error fetching enrolled courses:', fetchError);
           }
-          
-          // Lấy thông tin chi tiết khóa học
+
           try {
             const courseResponse = await courseApi.getCourseDetails(courseIdParam);
-            if (courseResponse && courseResponse.success) {
-              setCourseTitle(courseResponse.data.Title || 'Khóa học');
-              
-              // Manually add the course to enrolled courses in Redux store
+            if (courseResponse?.success) {
+              setCourseTitle(courseResponse.data.title || 'Khóa học');
               dispatch(addEnrolledCourse(courseResponse.data));
-              
-              // Log confirmation
-              console.log(`Course ${courseIdParam} added to enrolled courses list`);
+              console.log(`🎉 Course ${courseIdParam} added to store`);
             }
           } catch (courseError) {
-            console.error('Error fetching course details:', courseError);
+            console.error('❌ Error fetching course details:', courseError);
           }
-          
-          // Làm mới cache danh sách khóa học
+
           queryClient.invalidateQueries(['enrolledCourses']);
-          
-          // Hiển thị thông báo thành công
           toast.success('Đăng ký khóa học thành công!');
-          
-          // Add a second fetch after a delay to ensure server has processed enrollment
+
           setTimeout(() => {
             dispatch(fetchEnrolledCourses());
           }, 2000);
         } else if ((statusParam === 'cancel' || statusParam === 'error') && transactionIdParam) {
-          // Gọi API cập nhật huỷ thanh toán (nếu có)
           try {
             await courseApi.processPayPalCancel(transactionIdParam);
-            console.log('Backend recorded PayPal cancellation');
+            console.log('⚠️ Backend recorded PayPal cancellation');
           } catch (cancelErr) {
-            console.error('Failed to notify backend about cancellation:', cancelErr);
+            console.error('❌ Failed to notify backend about cancellation:', cancelErr);
           }
         }
       } catch (error) {
-        console.error('Error processing payment result:', error);
+        console.error('❌ Error processing payment result:', error);
         setMessage(error.message || 'Đã xảy ra lỗi khi xử lý kết quả thanh toán');
         if (statusParam === 'success') {
           setStatus('error');
@@ -122,38 +95,33 @@ const PaymentResult = () => {
       }
     };
 
-    processPayment();
-  }, [isAuthenticated, location.search, navigate, dispatch, queryClient]);
+    if (!hasProcessed.current && isAuthenticated) {
+      hasProcessed.current = true;
+      processPayment();
+    }
+  }, [isAuthenticated, location.search]);
 
-  // Navigate to the purchased course detail page
   const goToCourseDetail = (success = false) => {
     if (!courseId) return;
     navigate(`/courses/${courseId}`, {
-      state: {
-        paymentSuccess: success,
-        timestamp: Date.now()
-      },
+      state: { paymentSuccess: success, timestamp: Date.now() },
       replace: true
     });
   };
 
-  // Navigate directly to the learning page of the course
   const goToCourseLearn = () => {
     if (courseId) {
       navigate(`/courses/${courseId}/learn`);
     }
   };
 
-  // Auto redirect after payment outcome (success or cancel/error)
   useEffect(() => {
     if (loading) return;
 
     let timer;
     if (status === 'success') {
-      // Redirect to course detail when payment completed
       timer = setTimeout(() => goToCourseDetail(true), 5000);
     } else if (status === 'cancel' || status === 'error' || message?.toLowerCase().includes('cancel')) {
-      // After cancellation / failure, still send learner back to course detail (or courses list)
       timer = setTimeout(() => {
         if (courseId) {
           goToCourseDetail(false);
@@ -190,9 +158,7 @@ const PaymentResult = () => {
               Cảm ơn bạn đã đăng ký khóa học "{courseTitle || 'Khóa học'}"
             </p>
             {transactionId && (
-              <p className="mt-1 text-sm text-gray-500">
-                Mã giao dịch: {transactionId}
-              </p>
+              <p className="mt-1 text-sm text-gray-500">Mã giao dịch: {transactionId}</p>
             )}
             <p className="mt-4 text-sm text-gray-500">
               Bạn sẽ được chuyển hướng đến trang khóa học đã đăng ký sau 5 giây.
@@ -220,9 +186,7 @@ const PaymentResult = () => {
             </div>
             <h2 className="mt-4 text-xl font-bold text-gray-800">Thanh toán không thành công</h2>
             <p className="mt-2 text-gray-600">
-              {message 
-                ? `Lỗi: ${message.replace(/_/g, ' ')}` 
-                : 'Đã xảy ra lỗi trong quá trình thanh toán'}
+              {message ? `Lỗi: ${message.replace(/_/g, ' ')}` : 'Đã xảy ra lỗi trong quá trình thanh toán'}
             </p>
             <p className="mt-4 text-sm text-gray-500">
               Bạn sẽ được chuyển hướng về trang khóa học trong 5 giây.
@@ -242,4 +206,4 @@ const PaymentResult = () => {
   );
 };
 
-export default PaymentResult; 
+export default PaymentResult;

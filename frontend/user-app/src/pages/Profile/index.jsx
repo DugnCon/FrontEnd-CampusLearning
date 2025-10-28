@@ -78,6 +78,8 @@ const Profile = () => {
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState(null);
 
+  const API_URL = import.meta.env.VITE_API_URL
+
   // Tab state for posts - added 'saved'
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'image', 'video', 'saved'
 
@@ -95,10 +97,10 @@ const Profile = () => {
         let endpoint;
         // If userId is provided, fetch that specific user's profile
         if (userId) {
-          endpoint = `/api/users/${userId}`;
+          endpoint = `${API_URL}/users/${userId}`;
         } else {
           // Otherwise fetch the current logged in user's profile
-          endpoint = '/api/auth/me';
+          endpoint = `${API_URL}/auth/me`;
           setIsOwnProfile(true);
         }
 
@@ -141,15 +143,15 @@ const Profile = () => {
 
         // Get extended profile data with education and work experience
         try {
-          const extendedProfileResponse = await userServices.getUserProfile(userId || data.UserID);
+          const extendedProfileResponse = await userServices.getUserProfile(userId || data.userID);
           const extendedData = extendedProfileResponse.data.profile;
           
-          if (extendedData.Education) {
-            setEducationData(extendedData.Education);
+          if (extendedData.education) {
+            setEducationData(extendedData.education);
           }
           
-          if (extendedData.WorkExperience) {
-            setWorkExperienceData(extendedData.WorkExperience);
+          if (extendedData.workExperience) {
+            setWorkExperienceData(extendedData.workExperience);
           }
         } catch (profileError) {
           console.error("Error fetching extended profile:", profileError);
@@ -160,10 +162,10 @@ const Profile = () => {
           setIsOwnProfile(true);
         } else {
           const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-          setIsOwnProfile(currentUser.UserID === parseInt(userId) || currentUser.id === parseInt(userId));
+          setIsOwnProfile(currentUser.userID === parseInt(userId) || currentUser.id === parseInt(userId));
           
           // If not own profile, check friendship status
-          if (!(currentUser.UserID === parseInt(userId) || currentUser.id === parseInt(userId))) {
+          if (!(currentUser.userID === parseInt(userId) || currentUser.id === parseInt(userId))) {
             fetchFriendshipStatus(userId);
           }
         }
@@ -189,7 +191,7 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`/api/friendships/status/${targetUserId}`, {
+      const response = await fetch(`${API_URL}/friendships/status/${targetUserId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -221,7 +223,7 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const targetUserId = userId || userData?.UserID;
+      const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
       const response = await fetch(`/api/friendships`, {
@@ -258,7 +260,7 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const targetUserId = userId || userData?.UserID;
+      const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
       const response = await fetch(`/api/friendships/${targetUserId}/accept`, {
@@ -291,7 +293,7 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const targetUserId = userId || userData?.UserID;
+      const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
       const response = await fetch(`/api/friendships/${targetUserId}/reject`, {
@@ -324,7 +326,7 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const targetUserId = userId || userData?.UserID;
+      const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
       const response = await fetch(`/api/friendships/${targetUserId}`, {
@@ -357,7 +359,7 @@ const Profile = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const targetUserId = userId || userData?.UserID;
+        const targetUserId = userId || userData?.userID;
         if (!targetUserId) return;
 
         const response = await fetch(`/api/posts/user/${targetUserId}?limit=1000`, {
@@ -713,7 +715,7 @@ const Profile = () => {
       }
       
       // Make sure we have at least the user ID
-      const userId = userData.UserID || userData.id;
+      const userId = userData.userID || userData.id;
       if (!userId) {
         console.error('User ID is missing');
         // showToast('error', 'Không thể bắt đầu chat: ID người dùng bị thiếu'); // Removed showToast
@@ -724,10 +726,10 @@ const Profile = () => {
       const userDataForChat = {
         UserID: userId,
         id: userId,
-        FullName: userData.FullName || userData.Username,
-        Username: userData.Username,
-        Email: userData.Email,
-        Image: userData.Image || userData.Avatar
+        FullName: userData.fullName || userData.username,
+        Username: userData.username,
+        Email: userData.email,
+        Image: userData.image || userData.avatar
       };
       
       console.log('Starting chat with user:', userDataForChat);
@@ -755,12 +757,12 @@ const Profile = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const targetUserId = userId || userData?.UserID;
+      const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
-      let endpoint = `/api/friendships/user/${targetUserId}`;
+      let endpoint = `${API_URL}/friendships/user/${targetUserId}`;
       if (!userId && isOwnProfile) {
-        endpoint = '/api/friendships';
+        endpoint = `${API_URL}/friendships`;
       }
 
       const response = await fetch(endpoint, {
@@ -793,7 +795,7 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (userData?.UserID || userId) {
+    if (userData?.userID || userId) {
       fetchFriends();
     }
   }, [userData, userId, isOwnProfile]);
@@ -1303,13 +1305,13 @@ const Profile = () => {
                   <div className="grid grid-cols-6 gap-2">
                     {userFriends.slice(0, 6).map(friend => (
                       <div 
-                        key={friend.UserID || friend.FriendID}
+                        key={friend.userID || friend.friendID}
                         className="cursor-pointer"
-                        onClick={() => navigate(`/profile/${friend.UserID || friend.FriendID}`)}
+                        onClick={() => navigate(`/profile/${friend.userID || friend.friendID}`)}
                       >
                         <Avatar 
-                          src={friend.Image || friend.FriendProfilePicture} 
-                          name={friend.FullName || friend.FriendFullName}
+                          src={friend.image || friend.friendProfilePicture} 
+                          name={friend.fullName || friend.friendFullName}
                           size="sm"
                           className="w-8 h-8"
                         />

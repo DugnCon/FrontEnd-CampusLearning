@@ -1,22 +1,19 @@
-
 import axios from 'axios';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-  // Logout function - using clearAuthData helper
- import { useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { resetCourses } from '@/store/slices/courseSlice';
-
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  // Synchronous init from localStorage to avoid flash before token load
+  // Synchronous init from localStorage
   const initialUser = (() => {
     try {
       const savedUser = localStorage.getItem('user');
       const token = localStorage.getItem('token');
       if (savedUser && token && token.length > 10) {
         const parsed = JSON.parse(savedUser);
-        return { ...parsed, token, id: parsed.id || parsed.UserID || parsed.userId };
+        return { ...parsed, token, id: parsed.id || parsed.userID || parsed.userId };
       }
     } catch {}
     return null;
@@ -27,25 +24,41 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
+  const dispatch = useDispatch();
 
-  // Helper function to normalize user data with consistent field names
+  // === ĐỒNG BỘ currentUser → localStorage ===
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, [currentUser]);
+
+  // === DỌN CACHE BẠN BÈ ===
+  const clearFriendsCache = useCallback(() => {
+    Object.keys(localStorage).forEach(key => {
+      if (key.match(/^(friends|pendingRequests|sentRequests)_/)) {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []);
+
+  // === Helper: Normalize user data ===
   const normalizeUserData = useCallback((userData) => {
     if (!userData) return null;
-    
     return {
       ...userData,
-      // Ensure all ID fields are set for compatibility
-      id: userData.id || userData.UserID || userData.userId,
-      UserID: userData.id || userData.UserID || userData.userId,
-      userId: userData.id || userData.UserID || userData.userId,
-      // Normalize avatar/image fields for consistency
-      avatar: userData.Image || userData.avatar || userData.profileImage,
-      profileImage: userData.Image || userData.avatar || userData.profileImage,
-      Image: userData.Image || userData.avatar || userData.profileImage
+      id: userData.id || userData.userID || userData.userId,
+      userID: userData.id || userData.userID || userData.userId,
+      userId: userData.id || userData.userID || userData.userId,
+      avatar: userData.image || userData.avatar || userData.profileImage,
+      profileImage: userData.image || userData.avatar || userData.profileImage,
+      Image: userData.image || userData.avatar || userData.profileImage
     };
   }, []);
 
-  // Function to update current user data
+  // === Update user ===
   const updateUser = useCallback((updatedData) => {
     const normalizedData = normalizeUserData(updatedData);
     setCurrentUser(prev => {
@@ -55,7 +68,7 @@ export function AuthProvider({ children }) {
     });
   }, [normalizeUserData]);
 
-  // Function to refresh user data from server
+  // === Refresh user data ===
   const refreshUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -70,7 +83,6 @@ export function AuthProvider({ children }) {
           ...response.data,
           token: token
         });
-        
         setCurrentUser(normalizedUser);
         localStorage.setItem('user', JSON.stringify(normalizedUser));
         return normalizedUser;
@@ -81,58 +93,51 @@ export function AuthProvider({ children }) {
     }
   }, [normalizeUserData]);
 
-  // Initial auth check - run only once at component mount
+  // === Initial auth check ===
   useEffect(() => {
     if (initialAuthCheckDone || initialUser) return;
 
-    // Check for saved user and token on component mount
     const savedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    
+
     if (savedUser && token) {
       try {
-        // Validate token format
         if (token.length < 10) {
           console.error('Invalid token format found in localStorage');
           clearAuthData();
-          setLoading(false);
           setInitialAuthCheckDone(true);
           return;
         }
-        
+
         const parsedUser = JSON.parse(savedUser);
-        // Ensure the user object includes the token and id
         const userWithToken = {
           ...parsedUser,
           token: token,
-          id: parsedUser.id || parsedUser.UserID || parsedUser.userId
+          id: parsedUser.id || parsedUser.userID || parsedUser.userId
         };
-        
+
         if (!userWithToken.id) {
           console.error('User object does not contain ID information');
           clearAuthData();
-          setLoading(false);
           setInitialAuthCheckDone(true);
           return;
         }
-        
+
         setCurrentUser(userWithToken);
         setIsAuthenticated(true);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        // Optional: Check auth status in the background, but don't block UI rendering
         checkAuth().catch(err => console.error('Background auth check failed:', err));
       } catch (error) {
         console.error('Error parsing saved user:', error);
         clearAuthData();
       }
     }
-    
+
     setLoading(false);
     setInitialAuthCheckDone(true);
   }, [initialAuthCheckDone, initialUser]);
 
-  // Helper function to clear all auth data
+  // === Clear all auth data + cache ===
   const clearAuthData = useCallback(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
@@ -140,109 +145,64 @@ export function AuthProvider({ children }) {
     delete axios.defaults.headers.common['Authorization'];
     setCurrentUser(null);
     setIsAuthenticated(false);
-  }, []);
+    clearFriendsCache(); // DỌN CACHE BẠN BÈ
+  }, [clearFriendsCache]);
 
-  // Login function
+  // === Login ===
   const login = async (email, password) => {
     try {
       setAuthError(null);
       setLoading(true);
-      
+
       const response = await axios.post('http://localhost:8080/api/auth/login', { email, password });
-      
-      // Handle 2FA challenge from server
+
       if (response.data.twoFaRequired) {
-        setAuthError(null);
         return { success: true, twoFaRequired: true, tempToken: response.data.tempToken };
       }
 
-      // Handle first-time 2FA setup requirement
       if (response.data.requireTwoFASetup) {
-        setAuthError(null);
         return { success: true, requireTwoFASetup: true, setupToken: response.data.setupToken, user: response.data.user };
       }
 
       if (response.data && response.data.token) {
         const token = response.data.token;
-        
-        // Validate token
-        if (token.length < 10) {
-          throw new Error('Invalid token received from server');
-        }
-        
+        if (token.length < 10) throw new Error('Invalid token');
+
         localStorage.setItem('token', token);
-        
         if (response.data.refreshToken) {
           localStorage.setItem('refreshToken', response.data.refreshToken);
         }
-        
-        const userData = response.data.user || {};
 
-        console.log("Response JSON:", userData);
-        
-        // Ensure we have a user ID
-        if (!userData.id && !userData.UserID && !userData.userId) {
+        const userData = response.data.user || {};
+        if (!userData.id && !userData.userID && !userData.userId) {
           throw new Error('User data does not contain an ID field');
         }
-        
-        // Create a complete user object with token and normalize fields
-        const userWithToken = normalizeUserData({
-          ...userData,
-          token: token
-        });
-        
-        // Save complete user data
+
+        const userWithToken = normalizeUserData({ ...userData, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
-        
+
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
-        
+
         return { success: true, user: userWithToken };
       } else {
         throw new Error('Login response did not contain token');
       }
     } catch (error) {
       console.error('Login error:', error);
-      
-      // Enhanced error handling
+      const errorMessage = error.response?.data?.message || error.message || 'Đăng nhập thất bại';
+      setAuthError(errorMessage);
+
       if (error.response) {
         const { status, data } = error.response;
-        const errorMessage = data.message || 'Đăng nhập thất bại';
-        
-        setAuthError(errorMessage);
-        
         switch (status) {
-          case 423: // Account locked
-            return {
-              success: false,
-              error: errorMessage,
-              locked: true,
-              unlockEmailSent: !!data.unlockEmailSent,
-              lockedUntil: data.lockedUntil
-            };
-          
-          case 429: // Too many requests (IP blocked)
-            return {
-              success: false, 
-              error: errorMessage,
-              blocked: true,
-              retryAfter: parseInt(error.response.headers['retry-after'] || '300', 10)
-            };
-            
-          case 401: // Unauthorized
-            return {
-              success: false,
-              error: errorMessage,
-              attemptsRemaining: data.attemptsRemaining
-            };
-            
-          default:
-            return { success: false, error: errorMessage };
+          case 423: return { success: false, error: errorMessage, locked: true, unlockEmailSent: !!data.unlockEmailSent, lockedUntil: data.lockedUntil };
+          case 429: return { success: false, error: errorMessage, blocked: true, retryAfter: parseInt(error.response.headers['retry-after'] || '300', 10) };
+          case 401: return { success: false, error: errorMessage, attemptsRemaining: data.attemptsRemaining };
+          default: return { success: false, error: errorMessage };
         }
       } else {
-        const errorMessage = error.message || 'Đăng nhập thất bại';
-        setAuthError(errorMessage);
         return { success: false, error: errorMessage };
       }
     } finally {
@@ -250,74 +210,40 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Add OAuth login functions
+  // === OAuth Login (Google, Facebook) ===
   const loginWithGoogle = async (token) => {
     try {
       setAuthError(null);
       setLoading(true);
-      
-      console.log('Starting Google login process with token:', token ? 'Token provided' : 'No token');
-      
-      if (!token) {
-        throw new Error('No Google authentication token provided');
-      }
-      
-      // Get API URL from env or use default
+      if (!token) throw new Error('No Google token');
+
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const response = await axios.post(`${API_BASE_URL}/api/auth/google`, { token });
-      
-      console.log('Google login response received:', response.status);
-      
+
       if (response.data && response.data.token) {
         const token = response.data.token;
-        
-        // Validate token
-        if (token.length < 10) {
-          throw new Error('Invalid token received from server');
-        }
-        
+        if (token.length < 10) throw new Error('Invalid token');
+
         localStorage.setItem('token', token);
-        localStorage.setItem('authToken', token); // Add secondary token storage for compatibility
-        
-        if (response.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
-        
+        localStorage.setItem('authToken', token);
+        if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
+
         const userData = response.data.user || {};
-        
-        // Ensure we have a user ID
-        if (!userData.id && !userData.UserID && !userData.userId) {
-          throw new Error('User data does not contain an ID field');
-        }
-        
-        // Create a complete user object with token and normalize fields
-        const userWithToken = normalizeUserData({
-          ...userData,
-          token: token
-        });
-        
-        // Save complete user data
+        if (!userData.id && !userData.userID && !userData.userId) throw new Error('No ID');
+
+        const userWithToken = normalizeUserData({ ...userData, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
-        
+
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
-        
-        console.log('Google login successful, user authenticated:', userWithToken.id);
+
         return { success: true, user: userWithToken };
       } else {
-        throw new Error('Login response did not contain token');
+        throw new Error('No token in response');
       }
     } catch (error) {
       console.error('Google login error:', error);
-      // More detailed error logging
-      if (error.response) {
-        console.error('Server response error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      
       const errorMessage = error.response?.data?.message || error.message || 'Google login failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
@@ -330,41 +256,26 @@ export function AuthProvider({ children }) {
     try {
       setAuthError(null);
       setLoading(true);
-      
       const response = await axios.post('http://localhost:8080/api/auth/facebook', { accessToken });
-      
+
       if (response.data && response.data.token) {
         const token = response.data.token;
-        
-        // Validate token
-        if (token.length < 10) {
-          throw new Error('Invalid token received from server');
-        }
-        
+        if (token.length < 10) throw new Error('Invalid token');
+
         localStorage.setItem('token', token);
-        
-        if (response.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
-        
+        if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
+
         const userData = response.data.user || {};
-        
-        // Create a complete user object with token and normalize fields
-        const userWithToken = normalizeUserData({
-          ...userData,
-          token: token
-        });
-        
-        // Save complete user data
+        const userWithToken = normalizeUserData({ ...userData, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
-        
+
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
-        
+
         return { success: true, user: userWithToken };
       } else {
-        throw new Error('Login response did not contain token');
+        throw new Error('No token');
       }
     } catch (error) {
       console.error('Facebook login error:', error);
@@ -376,27 +287,23 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // OAuth connection management
+  // === OAuth Connect/Disconnect ===
   const connectOAuthProvider = async (provider, token) => {
     try {
       setAuthError(null);
       setLoading(true);
-      
       const endpoint = provider === 'google' ? 'connect/google' : 'connect/facebook';
       const payload = provider === 'google' ? { token } : { accessToken: token };
-      
+
       const response = await axios.post(`http://localhost:8080/api/auth/oauth/${endpoint}`, payload, {
         headers: { Authorization: `Bearer ${currentUser.token}` }
       });
-      
-      if (response.data && response.data.success) {
-        return { success: true, message: response.data.message };
-      } else {
-        throw new Error(response.data?.message || `Failed to connect ${provider}`);
-      }
+
+      return response.data && response.data.success
+        ? { success: true, message: response.data.message }
+        : { success: false, error: response.data?.message || 'Failed' };
     } catch (error) {
-      console.error(`${provider} connection error:`, error);
-      const errorMessage = error.response?.data?.message || error.message || `${provider} connection failed`;
+      const errorMessage = error.response?.data?.message || error.message || 'Failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -408,19 +315,14 @@ export function AuthProvider({ children }) {
     try {
       setAuthError(null);
       setLoading(true);
-      
       const response = await axios.delete(`http://localhost:8080/api/auth/oauth/disconnect/${provider}`, {
         headers: { Authorization: `Bearer ${currentUser.token}` }
       });
-      
-      if (response.data && response.data.success) {
-        return { success: true, message: response.data.message };
-      } else {
-        throw new Error(response.data?.message || `Failed to disconnect ${provider}`);
-      }
+      return response.data && response.data.success
+        ? { success: true, message: response.data.message }
+        : { success: false, error: response.data?.message || 'Failed' };
     } catch (error) {
-      console.error(`${provider} disconnection error:`, error);
-      const errorMessage = error.response?.data?.message || error.message || `${provider} disconnection failed`;
+      const errorMessage = error.response?.data?.message || error.message || 'Failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -433,20 +335,15 @@ export function AuthProvider({ children }) {
       const response = await axios.get('http://localhost:8080/api/auth/oauth/connections', {
         headers: { Authorization: `Bearer ${currentUser.token}` }
       });
-      
-      if (response.data && response.data.success) {
-        return { success: true, connections: response.data.connections };
-      } else {
-        throw new Error(response.data?.message || 'Failed to get OAuth connections');
-      }
+      return response.data && response.data.success
+        ? { success: true, connections: response.data.connections }
+        : { success: false, error: response.data?.message || 'Failed' };
     } catch (error) {
-      console.error('Get OAuth connections error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to get OAuth connections';
-      return { success: false, error: errorMessage };
+      return { success: false, error: error.response?.data?.message || error.message || 'Failed' };
     }
   };
 
-  // Add login2Fa function for verifying 2FA OTP
+  // === 2FA Login ===
   const login2Fa = async (tempToken, otp) => {
     try {
       setAuthError(null);
@@ -454,37 +351,27 @@ export function AuthProvider({ children }) {
       const response = await axios.post('http://localhost:8080/api/auth/login-2fa', { otp }, {
         headers: { Authorization: `Bearer ${tempToken}` }
       });
-      
+
       if (response.data.token) {
         const token = response.data.token;
-        // Persist tokens
         localStorage.setItem('token', token);
-        if (response.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
-        
+        if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
+
         const userData = response.data.user || {};
-        const id = userData.id || userData.UserID || userData.userId;
-        const userWithToken = {
-          ...userData,
-          token,
-          id,
-          UserID: id,
-          userId: id
-        };
-        
+        const id = userData.id || userData.userID || userData.userId;
+        const userWithToken = { ...userData, token, id, userID: id, userId: id };
+
         localStorage.setItem('user', JSON.stringify(userWithToken));
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
-        
+
         return { success: true, user: userWithToken };
       } else {
-        throw new Error(response.data?.message || '2FA login failed');
+        throw new Error(response.data?.message || '2FA failed');
       }
     } catch (error) {
-      console.error('2FA login error:', error);
-      const errorMessage = error.response?.data?.message || error.message || '2FA login failed';
+      const errorMessage = error.response?.data?.message || error.message || '2FA failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -492,22 +379,17 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Register function
+  // === Register ===
   const register = async (userData) => {
     try {
       setAuthError(null);
       setLoading(true);
-      
       const response = await axios.post('http://localhost:8080/api/auth/register', userData);
-      
-      if (response.data && response.data.success) {
-        return { success: true, message: response.data.message };
-      } else {
-        throw new Error(response.data?.message || 'Registration failed');
-      }
+      return response.data && response.data.success
+        ? { success: true, message: response.data.message }
+        : { success: false, error: response.data?.message || 'Failed' };
     } catch (error) {
-      console.error('Registration error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+      const errorMessage = error.response?.data?.message || error.message || 'Failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -515,144 +397,79 @@ export function AuthProvider({ children }) {
     }
   };
 
-const dispatch = useDispatch();
+  // === LOGOUT – DỌN SẠCH HẾT ===
+  const logout = async () => {
+    const token = localStorage.getItem('token');
+    const rawApi = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    const API_BASE_URL = String(rawApi).replace(/\/$/, '');
 
-const logout = async () => {
-  const token = localStorage.getItem('token');
-  const rawApi = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-  const API_BASE_URL = String(rawApi).replace(/\/$/, '');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      try {
+        await axios.post(`${API_BASE_URL}/auth/logout`, {}, { timeout: 10000 });
+      } catch (err) {
+        console.error('[AuthContext] Logout API error:', err);
+      }
+    }
 
-  if (!token) {
-    console.warn('logout: no token found');
-    dispatch(resetCourses()); // ✅ Clear Redux & cache
+    // DỌN SẠCH
+    dispatch(resetCourses());
     clearAuthData();
-    return;
-  }
+    clearFriendsCache();
+  };
 
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  const logoutUrl = `${API_BASE_URL}/auth/logout`;
-  console.log('[AuthContext] Calling logout URL:', logoutUrl);
-
-  try {
-    const response = await axios.post(logoutUrl, {}, { timeout: 10000 });
-    console.log('[AuthContext] Logout response:', response.status);
-
-    dispatch(resetCourses()); // ✅ Clear Redux & cache
-    clearAuthData();
-    return response;
-  } catch (err) {
-    console.error('[AuthContext] Logout API error:', err);
-    dispatch(resetCourses()); // ✅ Clear Redux & cache ngay cả khi lỗi
-    clearAuthData();
-  }
-};
-
-
-  // Check authentication status without redirecting - optimized to reduce unnecessary calls
+  // === Check Auth ===
   const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setIsAuthenticated(false);
-        return false;
-      }
-      
-      // Validate token
-      if (token.length < 10) {
-        console.error('Invalid token format in checkAuth');
+      if (!token || token.length < 10) {
         clearAuthData();
         return false;
       }
-      
+
       const response = await axios.get('http://localhost:8080/api/auth/check', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      if (response.data && response.data.success) {
-        // If we have updated user data, update the currentUser
-        if (response.data.user) {
-          // Normalize user ID fields
-          const userId = 
-            response.data.user.id || 
-            response.data.user.userID || 
-            response.data.user.userId;
-            
-          if (!userId) {
-            console.error('User data from auth check does not contain ID');
-            return false;
-          }
-          
-          const updatedUser = normalizeUserData({
-            ...response.data.user,
-            token: token
-          });
-          
-          setCurrentUser(updatedUser);
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
+
+      if (response.data && response.data.success && response.data.user) {
+        const userId = response.data.user.id || response.data.user.userID || response.data.user.userId;
+        if (!userId) return false;
+
+        const updatedUser = normalizeUserData({ ...response.data.user, token });
+        setCurrentUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
         return true;
       }
-      
-      setIsAuthenticated(false);
       return false;
     } catch (error) {
-      console.warn('Auth check failed:', error);
-      
-      // Don't clear tokens or set authenticated to false on network errors
-      if (error.response) {
-        // If we receive a 401/403, clear user data
-        if (error.response.status === 401 || error.response.status === 403) {
-          clearAuthData();
-        }
-        return false;
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        clearAuthData();
       }
-      
-      // For network errors, assume user is still authenticated to prevent logout
-      return true;
+      return false;
     }
-  }, [clearAuthData]);
+  }, [clearAuthData, normalizeUserData]);
 
-  // Refresh token function that can be called from outside
+  // === Refresh Token ===
   const refreshUserToken = async () => {
     try {
       const refreshTokenValue = localStorage.getItem('refreshToken');
       const token = localStorage.getItem('token');
-      
-      // If we have a token but no refresh token, we should still consider this valid
-      // This prevents refreshing issues when an old session only had a token and no refresh token
-      if (token && !refreshTokenValue) {
-        console.log('No refresh token available but valid token exists');
-        return true;
-      }
-      
-      if (!refreshTokenValue) {
-        console.log('No refresh token available for refresh');
-        return false;
-      }
-      
-      const response = await axios.post('http://localhost:8080/api/auth/refresh-token', {
-        refreshToken: refreshTokenValue
-      });
-      
+
+      if (token && !refreshTokenValue) return true;
+      if (!refreshTokenValue) return false;
+
+      const response = await axios.post('http://localhost:8080/api/auth/refresh-token', { refreshToken: refreshTokenValue });
       if (response.data && response.data.token) {
         localStorage.setItem('token', response.data.token);
-        if (response.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
+        if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
         return true;
       }
       return false;
     } catch (error) {
-      console.log('Token refresh failed:', error.message);
-      // Only clear on specific errors, not on network errors
       if (error.response && (error.response.status === 400 || error.response.status === 401)) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        delete axios.defaults.headers.common['Authorization'];
-        setIsAuthenticated(false);
-        setCurrentUser(null);
+        clearAuthData();
       }
       return false;
     }
@@ -674,23 +491,17 @@ const logout = async () => {
     logout,
     checkAuth,
     refreshUserToken,
-    updateUser, // Add updateUser to the context value
-    refreshUserData // Add refreshUserData to the context value
+    updateUser,
+    refreshUserData
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
 
-export default AuthContext; 
+export default AuthContext;

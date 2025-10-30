@@ -3,7 +3,6 @@
 import axios from 'axios';
 import { API_URL } from '../config';
 
-// Create axios instance with default config
 const chatApiClient = axios.create({
   baseURL: `${API_URL}/api/chat`,
   headers: {

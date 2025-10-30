@@ -476,32 +476,41 @@ export function AuthProvider({ children }) {
   };
 
   const value = {
-    currentUser,
-    isAuthenticated,
-    loading,
-    authError,
-    login,
-    login2Fa,
-    loginWithGoogle,
-    loginWithFacebook,
-    connectOAuthProvider,
-    disconnectOAuthProvider,
-    getOAuthConnections,
-    register,
-    logout,
-    checkAuth,
-    refreshUserToken,
-    updateUser,
-    refreshUserData
-  };
+  user: currentUser, // Đổi từ currentUser → user cho consistent
+  currentUser, // Giữ cả hai để backward compatibility
+  isAuthenticated,
+  loading,
+  authError,
+  initialAuthCheckDone, // THÊM DÒNG NÀY
+  login,
+  login2Fa,
+  loginWithGoogle,
+  loginWithFacebook,
+  connectOAuthProvider,
+  disconnectOAuthProvider,
+  getOAuthConnections,
+  register,
+  logout,
+  checkAuth,
+  refreshUserToken,
+  updateUser,
+  refreshUserData,
+  clearFriendsCache
+};
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
+  
+  // Trả về cả user và currentUser để backward compatibility
+  return {
+    ...context,
+    user: context.user || context.currentUser,
+    currentUser: context.currentUser || context.user
+  };
 }
 
 export default AuthContext;

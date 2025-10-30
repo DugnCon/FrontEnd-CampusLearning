@@ -1,23 +1,18 @@
-/*-----------------------------------------------------------------
-* File: SocketContext.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Context provider for managing Socket.IO connection.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import { createContext, useContext, useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+// contexts/SocketContext.js
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { API_URL } from '../config';
-import { handleSocketGracefully } from '../utils/errorHandling';
 
 const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
+  const [stompClient, setStompClient] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [user, setUser] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const subscriptionsRef = useRef(new Map()); // Lưu trữ các subscription
 
   const MAX_RETRY_ATTEMPTS = 3;
 
@@ -31,122 +26,195 @@ export const SocketProvider = ({ children }) => {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
 
-      // Khởi tạo kết nối socket.io
-      const socketInstance = io(API_URL.replace('/api', ''), {
-        auth: { token },
-        transports: ['websocket', 'polling'],
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: MAX_RETRY_ATTEMPTS,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-        autoConnect: true,
-      });
-
-      // Gắn xử lý lỗi chung
-      handleSocketGracefully(socketInstance, (error) => {
-        console.warn('Socket error handled silently:', error.message);
-        if (
-          !error.message.includes('ECONNREFUSED') &&
-          !error.message.includes('xhr poll error')
-        ) {
-          setConnectionAttempts((prev) => prev + 1);
+      // Khởi tạo STOMP client
+      const client = new Client({
+        webSocketFactory: () => new SockJS(`${API_URL}/ws`),
+        connectHeaders: {
+          Authorization: `Bearer ${token}`
+        },
+        debug: (str) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('STOMP Debug:', str);
+          }
+        },
+        reconnectDelay: 5000,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+        onConnect: (frame) => {
+          console.log('✅ STOMP Connected successfully');
+          setIsConnected(true);
+          setConnectionAttempts(0);
+          setStompClient(client);
+        },
+        onStompError: (frame) => {
+          console.error('❌ STOMP Error:', frame.headers?.message || frame.body);
+          setIsConnected(false);
+          
+          if (connectionAttempts < MAX_RETRY_ATTEMPTS) {
+            setConnectionAttempts(prev => prev + 1);
+          }
+        },
+        onDisconnect: () => {
+          console.log('🔴 STOMP Disconnected');
+          setIsConnected(false);
+        },
+        onWebSocketClose: (event) => {
+          console.log('🔴 WebSocket Closed:', event);
+          setIsConnected(false);
+        },
+        onWebSocketError: (event) => {
+          console.error('❌ WebSocket Error:', event);
+          setIsConnected(false);
         }
       });
 
-      // Event: kết nối thành công
-      socketInstance.on('connect', () => {
-        console.log('Socket connected');
-        setIsConnected(true);
-        setConnectionAttempts(0);
-      });
-
-      // Event: mất kết nối
-      socketInstance.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setIsConnected(false);
-      });
-
-      // Event: nhận danh sách user online
-      socketInstance.on('getUsers', (users) => {
-        setOnlineUsers(users);
-      });
-
-      // Event: lỗi khi connect
-      socketInstance.on('connect_error', (error) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Socket connection error:', error.message);
-        }
-        setIsConnected(false);
-
-        if (
-          !error.message.includes('ECONNREFUSED') &&
-          !error.message.includes('xhr poll error') &&
-          !error.message.includes('WebSocket is closed')
-        ) {
-          setConnectionAttempts((prev) => prev + 1);
-        }
-
-        // fallback sang polling nếu WebSocket fail
-        if (
-          error.message.includes('WebSocket is closed') &&
-          socketInstance.io.opts.transports.includes('polling')
-        ) {
-          console.log('WebSocket failed, falling back to polling');
-          socketInstance.io.opts.transports = ['polling'];
-          socketInstance.connect();
-        }
-      });
-
-      // Lưu instance socket vào state
-      setSocket(socketInstance);
+      // Kích hoạt kết nối
+      client.activate();
 
       // Cleanup khi unmount
       return () => {
-        if (socketInstance) {
-          try {
-            socketInstance.disconnect();
-          } catch (err) {
-            console.warn('Error during socket cleanup:', err.message);
-          }
+        if (client) {
+          // Hủy tất cả subscriptions
+          subscriptionsRef.current.forEach((subscription, destination) => {
+            try {
+              subscription.unsubscribe();
+              console.log(`Unsubscribed from ${destination}`);
+            } catch (error) {
+              console.warn(`Error unsubscribing from ${destination}:`, error);
+            }
+          });
+          subscriptionsRef.current.clear();
+          
+          // Ngắt kết nối
+          client.deactivate();
+          console.log('STOMP client deactivated');
         }
       };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Error setting up socket:', error.message);
-      }
+      console.error('Error setting up STOMP:', error);
     }
   }, []);
 
   // Tự động reconnect khi token thay đổi
   useEffect(() => {
-    if (!socket) return;
+    if (!stompClient) return;
     if (isConnected || connectionAttempts >= MAX_RETRY_ATTEMPTS) return;
 
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        socket.auth = { token };
-        socket.connect();
+        // STOMP sẽ tự động reconnect với connectHeaders mới
+        console.log('Attempting to reconnect STOMP...');
       } catch (err) {
         console.warn('Reconnect failed:', err.message);
       }
     }
-  }, [socket, isConnected, connectionAttempts]);
+  }, [stompClient, isConnected, connectionAttempts]);
+
+  // Subscribe to a topic
+  const subscribe = (destination, callback) => {
+    if (!stompClient || !isConnected) {
+      console.warn('STOMP not connected, cannot subscribe to:', destination);
+      return null;
+    }
+    
+    try {
+      // Kiểm tra nếu đã subscribe rồi thì hủy cái cũ
+      if (subscriptionsRef.current.has(destination)) {
+        subscriptionsRef.current.get(destination).unsubscribe();
+      }
+
+      const subscription = stompClient.subscribe(destination, (message) => {
+        try {
+          const data = JSON.parse(message.body);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`📨 Received from ${destination}:`, data);
+          }
+          callback(data);
+        } catch (error) {
+          console.error(`Parse error for ${destination}:`, error);
+        }
+      });
+
+      subscriptionsRef.current.set(destination, subscription);
+      console.log(`✅ Subscribed to ${destination}`);
+      return subscription;
+
+    } catch (error) {
+      console.error(`Subscribe error for ${destination}:`, error);
+      return null;
+    }
+  };
+
+  // Unsubscribe from topic
+  const unsubscribe = (destination) => {
+    const subscription = subscriptionsRef.current.get(destination);
+    if (subscription) {
+      try {
+        subscription.unsubscribe();
+        subscriptionsRef.current.delete(destination);
+        console.log(`✅ Unsubscribed from ${destination}`);
+      } catch (error) {
+        console.error(`Unsubscribe error for ${destination}:`, error);
+      }
+    }
+  };
+
+  // Send message to server
+  const sendMessage = (destination, body) => {
+    if (!stompClient || !isConnected) {
+      console.warn('STOMP not connected, cannot send to:', destination);
+      return false;
+    }
+    
+    try {
+      const fullDestination = `/app${destination}`;
+      stompClient.publish({
+        destination: fullDestination,
+        body: JSON.stringify(body)
+      });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📤 Sent to ${fullDestination}:`, body);
+      }
+      return true;
+    } catch (error) {
+      console.error(`Send error to ${destination}:`, error);
+      return false;
+    }
+  };
+
+  // Get all active subscriptions (for debugging)
+  const getSubscriptions = () => {
+    return Array.from(subscriptionsRef.current.keys());
+  };
+
+  const value = {
+    // STOMP specific
+    stompClient,
+    isConnected,
+    subscribe,
+    unsubscribe,
+    sendMessage,
+    getSubscriptions,
+    
+    // Common
+    user,
+    onlineUsers,
+    connectionAttempts
+  };
 
   return (
-    <SocketContext.Provider
-      value={{
-        socket,
-        user,
-        onlineUsers,
-        isConnected,
-      }}
-    >
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );
 };
 
-export const useSocket = () => useContext(SocketContext);
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context;
+};

@@ -47,6 +47,3 @@ $ cd services/user-service && npm run dev
 ---
 
 © 2025 CampusLearning. All rights reserved.
-# FrontEnd-CampusLearning
-# FrontEnd-CampusLearning
-# FrontEnd-CampusLearning

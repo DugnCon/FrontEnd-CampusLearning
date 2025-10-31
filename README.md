@@ -44,23 +44,6 @@ $ cd services/user-service && npm run dev
 ```
 
 > Check each sub-project’s README for detailed setup and environment configuration.
-
----
-
-## Support Me
-
-This project is built and maintained by [**Nguyen Duc Quyen**](https://github.com/DucQuyen199) to empower modern digital learning platforms. If you find this project helpful and want to support its continued development:
-
-- Star this repository  
-- Share it with your friends or community  
-- Donate via MB Bank QR (Account: **9999991909 – Nguyen Duc Quyen**):
-
-<p align="center">
-  <img src="https://iili.io/F8JsIef.png" alt="Donate via MB Bank QR" width="300" />
-</p>
-
-Your support keeps the project alive and evolving!
-
 ---
 
 © 2025 CampusLearning. All rights reserved.

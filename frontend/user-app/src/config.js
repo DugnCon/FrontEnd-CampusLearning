@@ -1,9 +1,11 @@
 
-// API configuration
-export const API_URL = 'http://localhost:8080';
+const isNgrok = window.location.hostname.includes('ngrok');
 
+export const API_URL = isNgrok 
+  ? window.location.origin 
+  : 'http://localhost:8080';
 // Socket.IO configuration
-export const SOCKET_URL = 'http://localhost:8080';
+export const SOCKET_URL = API_URL;
 
 // Other app configuration
 export const APP_CONFIG = {

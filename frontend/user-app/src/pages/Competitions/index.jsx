@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: index.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllCompetitions } from '@/api/competitionService';
@@ -60,14 +54,14 @@ const CompetitionsPage = () => {
 
   const filteredCompetitions = competitions.filter(competition => {
     // First apply status filter
-    if (filter !== 'all' && competition.Status !== filter) return false;
+    if (filter !== 'all' && competition.status !== filter) return false;
     
     // Then apply search term filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       return (
-        competition.Title.toLowerCase().includes(searchLower) ||
-        (competition.Description && competition.Description.toLowerCase().includes(searchLower))
+        competition.title.toLowerCase().includes(searchLower) ||
+        (competition.description && competition.description.toLowerCase().includes(searchLower))
       );
     }
     
@@ -324,51 +318,51 @@ const CompetitionsPage = () => {
           {filteredCompetitions.length > 0 ? (
             filteredCompetitions.map((competition) => {
               const status = getCompetitionStatus(
-                competition.Status,
-                competition.StartTime,
-                competition.EndTime
+                competition.status,
+                competition.startTime,
+                competition.endTime
               );
               
               return (
                 <Link
-                  to={`/competitions/${competition.CompetitionID}`}
-                  key={competition.CompetitionID}
+                  to={`/competitions/${competition.competitionID}`}
+                  key={competition.competitionID}
                   className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
                 >
                   <div className="aspect-w-16 aspect-h-9 overflow-hidden">
                     <img
-                      src={competition.ThumbnailUrl || 'https://via.placeholder.com/600x400?text=Competition'}
-                      alt={competition.Title}
+                      src={competition.thumbnailUrl || 'https://via.placeholder.com/600x400?text=Competition'}
+                      alt={competition.title}
                       className="w-full h-48 object-cover"
                       loading="lazy"
                     />
                   </div>
                   <div className="p-3 sm:p-4">
                     <div className="flex justify-between items-start">
-                      <h2 className="text-lg sm:text-xl font-semibold mb-2 line-clamp-2">{competition.Title}</h2>
+                      <h2 className="text-lg sm:text-xl font-semibold mb-2 line-clamp-2">{competition.title}</h2>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(status)}`}
                       >
                         {getStatusLabel(status)}
                       </span>
                     </div>
-                    <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{competition.Description}</p>
+                    <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{competition.description}</p>
                     <div className="text-xs sm:text-sm text-gray-500">
                       <div className="flex items-center mb-1">
                         <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span>
-                          {status === 'upcoming' && `Bắt đầu ${formatTimeToNow(competition.StartTime)}`}
-                          {status === 'ongoing' && `Kết thúc ${formatTimeToNow(competition.EndTime)}`}
-                          {status === 'completed' && `Kết thúc ${formatTimeToNow(competition.EndTime)}`}
+                          {status === 'upcoming' && `Bắt đầu ${formatTimeToNow(competition.startTime)}`}
+                          {status === 'ongoing' && `Kết thúc ${formatTimeToNow(competition.endTime)}`}
+                          {status === 'completed' && `Kết thúc ${formatTimeToNow(competition.endTime)}`}
                         </span>
                       </div>
                       <div className="flex items-center">
                         <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                         </svg>
-                        <span>{competition.Difficulty || 'Trung Bình'}</span>
+                        <span>{competition.difficulty || 'Trung Bình'}</span>
                       </div>
                     </div>
                   </div>

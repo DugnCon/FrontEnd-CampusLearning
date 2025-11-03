@@ -17,7 +17,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar } from '../../components';
-import { useAuth } from '@/contexts/AuthContext'; // ĐÚNG ĐƯỜNG DẪN
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -27,11 +27,9 @@ const Friends = () => {
   const queryParams = new URLSearchParams(location.search);
   const userId = queryParams.get('userId');
 
-  // LẤY USER TỪ AUTH CONTEXT
   const { currentUser } = useAuth();
   const currentUserId = currentUser?.id || currentUser?.userID;
 
-  // State
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = sessionStorage.getItem('friendsActiveTab');
     return savedTab || 'all';
@@ -59,7 +57,6 @@ const Friends = () => {
   const searchTimeoutRef = useRef(null);
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
 
-  // === QUẢN LÝ CACHE THEO USER ===
   const getCacheKey = (type) => {
     if (!currentUserId) return null;
     return `${type}_${currentUserId}`;
@@ -79,7 +76,6 @@ const Friends = () => {
     }
   };
 
-  // Load cache khi user thay đổi
   useEffect(() => {
     if (currentUserId) {
       setFriends(getCachedData('friends'));
@@ -92,16 +88,12 @@ const Friends = () => {
     }
   }, [currentUserId]);
 
-  // === END CACHE ===
-
-  // Handle resize
   useEffect(() => {
     const handleResize = () => setShowSidebar(window.innerWidth >= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fix viewport height
   useEffect(() => {
     const setVh = () => {
       const vh = window.innerHeight * 0.01;
@@ -165,7 +157,6 @@ const Friends = () => {
         setPendingRequests(pendingList);
         setSentRequests(sentList);
 
-        // Lưu cache theo user
         setCachedData('friends', friendsList);
         setCachedData('pendingRequests', pendingList);
         setCachedData('sentRequests', sentList);
@@ -176,7 +167,6 @@ const Friends = () => {
         console.error('Error fetching friendships:', err);
         setError(err.message);
       }
-      // Fallback cache
       setFriends(getCachedData('friends'));
       setPendingRequests(getCachedData('pendingRequests'));
       setSentRequests(getCachedData('sentRequests'));
@@ -185,7 +175,6 @@ const Friends = () => {
     }
   }, [userId, navigate, isOnline, currentUserId]);
 
-  // Search users
   const searchUsers = useCallback(async (query) => {
     if (!query.trim() || query.length < 2) {
       setSearchResults([]);
@@ -218,11 +207,15 @@ const Friends = () => {
         const pendingIds = new Set(pendingRequests.map(p => p.userID));
         const sentIds = new Set(sentRequests.map(s => s.userID));
 
-        const filtered = data.filter(user =>
+        const processedResults = data.map(user => ({
+          ...user,
+          isSentRequest: sentIds.has(user.userID)
+        }));
+
+        const filtered = processedResults.filter(user =>
           user.userID !== currentUserId &&
           !friendIds.has(user.userID) &&
-          !pendingIds.has(user.userID) &&
-          !sentIds.has(user.userID)
+          !pendingIds.has(user.userID)
         );
 
         setSearchResults(filtered);
@@ -302,7 +295,14 @@ const Friends = () => {
       const res = await fetch(`${API_URL}/friendships/suggestions/random`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setSuggestions(data);
+      
+      const sentIds = new Set(sentRequests.map(s => s.userID));
+      const processedSuggestions = data.map(user => ({
+        ...user,
+        isSentRequest: sentIds.has(user.userID)
+      }));
+      
+      setSuggestions(processedSuggestions);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -361,12 +361,24 @@ const Friends = () => {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/friendships/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/friendships/${userId}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
       if (!res.ok) throw new Error();
 
       const newSent = sentRequests.filter(u => u.userID !== userId);
       setSentRequests(newSent);
       setCachedData('sentRequests', newSent);
+
+      setSearchResults(prev => prev.map(user => 
+        user.userID === userId ? { ...user, isSentRequest: false } : user
+      ));
+      
+      setSuggestions(prev => prev.map(user => 
+        user.userID === userId ? { ...user, isSentRequest: false } : user
+      ));
 
       showNotification('success', 'Đã hủy lời mời');
     } catch {
@@ -425,13 +437,21 @@ const Friends = () => {
           ...requestedUser,
           FriendshipID: data.friendship.friendshipID,
           Status: 'pending',
-          CreatedAt: data.friendship.requestedAt
+          CreatedAt: data.friendship.requestedAt,
+          isSentRequest: true
         };
+        
         const newSent = [...sentRequests, newRequest];
         setSentRequests(newSent);
         setCachedData('sentRequests', newSent);
 
-        setSuggestions(suggestions.filter(u => u.userID !== userId));
+        setSearchResults(prev => prev.map(user => 
+          user.userID === userId ? { ...user, isSentRequest: true } : user
+        ));
+        
+        setSuggestions(prev => prev.map(user => 
+          user.userID === userId ? { ...user, isSentRequest: true } : user
+        ));
       }
 
       setTimeout(async () => {
@@ -450,18 +470,59 @@ const Friends = () => {
   };
 
   const navigateToProfile = (id) => navigate(`/profile/${id}`);
-  const navigateToChat = (user) => {
-    navigate('/chat', {
-      state: {
-        selectedUser: {
-          UserID: user.userID,
-          FullName: user.fullName || user.username,
-          Username: user.username,
-          Image: user.image || user.avatar
+  const navigateToChat = async (user) => {
+    try {
+      setActionLoading(true);
+      
+      const token = localStorage.getItem('token');
+      
+      console.log('Gửi request tạo conversation:', {
+        participantIds: [user.userID],
+        type: "private",
+        name: null
+      });
+
+      const response = await fetch(`${API_URL}/chat/conversations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        source: 'friends'
+        body: JSON.stringify({
+          participants: [user.userID],
+          type: "private",
+          name: null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Lỗi từ server:', errorData);
+        throw new Error(errorData.message || 'Không thể tạo cuộc trò chuyện');
       }
-    });
+
+      const conversationData = await response.json();
+      console.log('Tạo conversation thành công:', conversationData);
+      
+      navigate('/chat', {
+        state: {
+          selectedConversation: conversationData.conversation,
+          selectedUser: {
+            UserID: user.userID,
+            FullName: user.fullName || user.username,
+            Username: user.username,
+            Image: user.image || user.avatar
+          },
+          source: 'friends'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Lỗi tạo conversation:', error);
+      showNotification('error', error.message || 'Không thể bắt đầu trò chuyện');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const showNotification = (type, msg) => {
@@ -480,7 +541,6 @@ const Friends = () => {
     );
   };
 
-  // Pull to refresh
   useEffect(() => {
     const handleTouchStart = (e) => window.scrollY === 0 && setTouchStartY(e.touches[0].clientY);
     const handleTouchMove = (e) => touchStartY > 0 && window.scrollY === 0 && setTouchDiff(Math.min(e.touches[0].clientY - touchStartY, 100));
@@ -560,7 +620,6 @@ const Friends = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-50/50" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
-      {/* Network & Notifications */}
       {!isOnline && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm shadow-md border border-red-100 z-50 flex items-center">
           <ExclamationCircleIcon className="h-5 w-5 mr-2" />
@@ -582,7 +641,6 @@ const Friends = () => {
         </div>
       )}
 
-      {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white shadow-sm border-b">
         <div className="p-3 flex items-center justify-between">
           <div className="flex items-center">
@@ -612,7 +670,6 @@ const Friends = () => {
       </div>
 
       <div className="flex h-screen md:pt-0 pt-16" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
-        {/* Sidebar */}
         <div className={`${showSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:static top-0 left-0 bottom-0 z-30 md:w-80 w-3/4 bg-white border-r flex flex-col h-full md:pt-0 pt-16`}>
           {isRefreshing && <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500"><div className="h-full bg-blue-300 animate-pulse w-1/3"></div></div>}
           <div className="md:hidden absolute top-4 right-4"><button onClick={() => setShowSidebar(false)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-xl"><XMarkIcon className="h-5 w-5" /></button></div>
@@ -654,7 +711,6 @@ const Friends = () => {
 
         {showSidebar && window.innerWidth < 768 && <div className="fixed inset-0 bg-black bg-opacity-50 z-20" onClick={() => setShowSidebar(false)}></div>}
 
-        {/* Main Content */}
         <div className="flex-1 overflow-auto pb-16 md:pb-0">
           {isRefreshing && <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500"><div className="h-full bg-blue-300 animate-pulse w-1/3"></div></div>}
           <div className="p-3 md:p-6">
@@ -679,10 +735,8 @@ const Friends = () => {
               </div>
             )}
 
-            {/* User List */}
             {!showTabLoading && !showSentLoading && filteredUsers.length > 0 && (
               <>
-                {/* Mobile List */}
                 <div className="grid grid-cols-1 gap-3 sm:hidden px-2">
                   {filteredUsers.map(user => (
                     <div key={user.userID} className="bg-white rounded-xl p-4 border flex items-center gap-4">
@@ -715,7 +769,29 @@ const Friends = () => {
                               </>
                             )}
                             {(activeTab === 'suggestions' || activeTab === 'search') && (
-                              <button onClick={() => sendFriendRequest(user.userID)} className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"><UserPlusIcon className="h-4 w-4 mr-1.5" /> Kết bạn</button>
+                              user.isSentRequest ? (
+                                <>
+                                  <div className="flex items-center text-xs text-gray-400 mb-2">
+                                    <ClockIcon className="h-4 w-4 mr-1" /> 
+                                    Đã gửi lời mời
+                                  </div>
+                                  <button 
+                                    onClick={() => cancelFriendRequest(user.userID)} 
+                                    className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium"
+                                  >
+                                    <XMarkIcon className="h-4 w-4 mr-1.5" /> 
+                                    Hủy
+                                  </button>
+                                </>
+                              ) : (
+                                <button 
+                                  onClick={() => sendFriendRequest(user.userID)} 
+                                  className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"
+                                >
+                                  <UserPlusIcon className="h-4 w-4 mr-1.5" /> 
+                                  Kết bạn
+                                </button>
+                              )
                             )}
                           </div>
                         )}
@@ -724,7 +800,6 @@ const Friends = () => {
                   ))}
                 </div>
 
-                {/* Desktop Grid */}
                 <div className={`hidden sm:grid ${activeTab === 'sent' ? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'} gap-4 md:gap-6`}>
                   {filteredUsers.map(user => (
                     <div key={user.userID} className={`bg-white rounded-xl ${activeTab === 'sent' ? 'p-5 md:p-6' : 'p-4 md:p-5'} border hover:shadow-md transition-all group`}>
@@ -765,7 +840,29 @@ const Friends = () => {
                                   </>
                                 )}
                                 {(activeTab === 'suggestions' || activeTab === 'search') && (
-                                  <button onClick={() => sendFriendRequest(user.userID)} className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"><UserPlusIcon className="h-4 w-4 mr-2" /> Kết bạn</button>
+                                  user.isSentRequest ? (
+                                    <>
+                                      <div className="flex items-center justify-center space-x-2 text-xs text-gray-500 mb-2">
+                                        <ClockIcon className="h-4 w-4" /> 
+                                        <span>Đã gửi lời mời</span>
+                                      </div>
+                                      <button 
+                                        onClick={() => cancelFriendRequest(user.userID)} 
+                                        className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center"
+                                      >
+                                        <XMarkIcon className="h-4 w-4 mr-2" /> 
+                                        Hủy lời mời
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button 
+                                      onClick={() => sendFriendRequest(user.userID)} 
+                                      className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"
+                                    >
+                                      <UserPlusIcon className="h-4 w-4 mr-2" /> 
+                                      Kết bạn
+                                    </button>
+                                  )
                                 )}
                               </>
                             )}
@@ -778,7 +875,6 @@ const Friends = () => {
               </>
             )}
 
-            {/* Empty State */}
             {!showTabLoading && !showSentLoading && filteredUsers.length === 0 && (
               <div className="text-center py-12 md:py-16">
                 <div className="bg-gray-50 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-5">
@@ -801,7 +897,6 @@ const Friends = () => {
         </div>
       </div>
 
-      {/* Mobile Bottom Nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 md:hidden">
         <div className="flex items-center justify-around py-2">
           {[

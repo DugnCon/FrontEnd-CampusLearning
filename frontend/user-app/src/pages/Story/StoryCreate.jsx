@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: StoryCreate.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState } from 'react';
 
 const StoryCreate = () => {
@@ -17,7 +11,7 @@ const StoryCreate = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5004/api/stories', {
+      const response = await fetch('http://localhost:8080/api/stories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

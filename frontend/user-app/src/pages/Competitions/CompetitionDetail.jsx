@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: CompetitionDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getCompetitionDetails, registerForCompetition, startCompetition, getScoreboard } from '@/api/competitionService';
@@ -38,12 +31,12 @@ const CompetitionDetail = () => {
       const response = await getCompetitionDetails(id);
       if (response.success) {
         console.log('Refreshed competition data:', response.data);
-        console.log('Refreshed participant count:', response.data.CurrentParticipants);
+        console.log('Refreshed participant count:', response.data.currentParticipants);
         setCompetition(response.data);
         
         // If the competition data shows the user is already registered,
         // log this information for debugging
-        if (response.data.isRegistered) {
+        if (response.data.registered) {
           console.log('User is already registered for this competition');
         }
       } else {
@@ -81,14 +74,19 @@ const CompetitionDetail = () => {
     
     try {
       setScoreboardLoading(true);
+      console.log('🔄 Fetching scoreboard for competition:', id);
       const response = await getScoreboard(id);
+      console.log('📊 Scoreboard API Response:', response);
+      
       if (response.success) {
+        console.log('✅ Scoreboard data received:', response.data);
         setScoreboard(response.data);
       } else {
+        console.error('❌ Failed to load scoreboard:', response);
         toast.error('Failed to load scoreboard');
       }
     } catch (err) {
-      console.error('Error fetching scoreboard:', err);
+      console.error('❌ Error fetching scoreboard:', err);
       toast.error('An error occurred while fetching scoreboard');
     } finally {
       setScoreboardLoading(false);
@@ -171,7 +169,7 @@ const CompetitionDetail = () => {
               if (updatedCompetition.success) {
                 setCompetition({
                   ...updatedCompetition.data,
-                  isRegistered: true // Ensure isRegistered is true
+                  registered: true // Ensure isRegistered is true
                 });
               }
               break;
@@ -236,8 +234,8 @@ const CompetitionDetail = () => {
     if (!competition) return '';
     
     const now = new Date();
-    const start = new Date(competition.StartTime);
-    const end = new Date(competition.EndTime);
+    const start = new Date(competition.startTime);
+    const end = new Date(competition.endTime);
     
     if (now < start) {
       return 'upcoming';
@@ -327,11 +325,11 @@ const CompetitionDetail = () => {
     }
 
     const status = getCompetitionStatus();
-    const isRegistered = competition.isRegistered || justRegistered;
+    const isRegistered = competition.registered || justRegistered;
     const participantStatus = competition.participantStatus;
 
     // User is registered and has started the competition
-    if (isRegistered && participantStatus && participantStatus.Status === 'active') {
+    if (isRegistered && participantStatus && participantStatus.status === 'active') {
       if (isMobile) {
         return (
           <div>
@@ -349,7 +347,7 @@ const CompetitionDetail = () => {
               </div>
             </div>
             <div className="mt-2 text-sm text-gray-500 text-center">
-              Cuộc thi kết thúc vào: {formatDateTime(participantStatus.EndTime)}
+              Cuộc thi kết thúc vào: {formatDateTime(participantStatus.endTime)}
             </div>
           </div>
         );
@@ -357,7 +355,7 @@ const CompetitionDetail = () => {
       return (
         <div>
           <Link
-            to={`/competitions/${id}/problems/${competition.problems[0]?.ProblemID}`}
+            to={`/competitions/${id}/problems/${competition.problems[0]?.problemID}`}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md block text-center"
           >
             Tiếp tục thi đấu
@@ -370,7 +368,7 @@ const CompetitionDetail = () => {
     }
 
     // User is registered but hasn't started yet (or just registered)
-    if (isRegistered && (!participantStatus || participantStatus.Status === 'registered' || justRegistered)) {
+    if (isRegistered && (!participantStatus || participantStatus.status === 'registered' || justRegistered)) {
       if (status === 'ongoing' || justRegistered) {
         if (isMobile) {
           return (
@@ -505,43 +503,59 @@ const CompetitionDetail = () => {
   const renderContent = () => {
     if (!competition) return null;
 
+    // FIX: Cập nhật các biến kiểm tra theo đúng structure từ API
+    const hasProblems = competition.problems && Array.isArray(competition.problems);
+    const hasScoreboard = scoreboard && scoreboard.scoreboard && Array.isArray(scoreboard.scoreboard);
+    const hasScoreboardProblems = scoreboard && scoreboard.problems && Array.isArray(scoreboard.problems);
+
+    console.log('🔍 Debug renderContent:', {
+      tabActive,
+      hasProblems,
+      hasScoreboard,
+      hasScoreboardProblems,
+      competitionProblems: competition.problems,
+      scoreboardData: scoreboard,
+      scoreboardEntries: scoreboard?.scoreboard,
+      scoreboardProblems: scoreboard?.problems
+    });
+
     switch (tabActive) {
       case 'overview':
         return (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-bold mb-4">Mô tả cuộc thi</h2>
             <div className="prose max-w-none">
-              <p>{competition.Description}</p>
+              <p>{competition.description}</p>
             </div>
             
             <h3 className="text-xl font-semibold mt-8 mb-4">Thông tin chung</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-md">
                 <h4 className="text-sm font-medium text-gray-500">Thời gian bắt đầu</h4>
-                <p>{formatDateTime(competition.StartTime)}</p>
+                <p>{formatDateTime(competition.startTime)}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-md">
                 <h4 className="text-sm font-medium text-gray-500">Thời gian kết thúc</h4>
-                <p>{formatDateTime(competition.EndTime)}</p>
+                <p>{formatDateTime(competition.endTime)}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-md">
                 <h4 className="text-sm font-medium text-gray-500">Thời lượng</h4>
-                <p>{competition.Duration} phút</p>
+                <p>{competition.duration} phút</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-md">
                 <h4 className="text-sm font-medium text-gray-500">Độ khó</h4>
-                <p className={getDifficultyColor(competition.Difficulty)}>
-                  {competition.Difficulty || 'Trung bình'}
+                <p className={getDifficultyColor(competition.difficulty)}>
+                  {competition.difficulty || 'Trung bình'}
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-md">
                 <h4 className="text-sm font-medium text-gray-500">Số lượng người tham gia</h4>
-                <p>{competition.CurrentParticipants} / {competition.MaxParticipants}</p>
+                <p>{competition.currentParticipants} / {competition.maxParticipants}</p>
               </div>
-              {competition.OrganizerName && (
+              {competition.organizerName && (
                 <div className="bg-gray-50 p-4 rounded-md">
                   <h4 className="text-sm font-medium text-gray-500">Tổ chức bởi</h4>
-                  <p>{competition.OrganizerName}</p>
+                  <p>{competition.organizerName}</p>
                 </div>
               )}
             </div>
@@ -552,7 +566,7 @@ const CompetitionDetail = () => {
         return (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-bold mb-4">Danh sách bài tập</h2>
-            {!competition.isRegistered ? (
+            {!competition.registered ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">Bạn cần đăng ký tham gia cuộc thi để xem chi tiết bài tập</p>
                 <button
@@ -590,6 +604,10 @@ const CompetitionDetail = () => {
                 </button>
                 )}
               </div>
+            ) : !hasProblems ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Chưa có bài tập nào</p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -610,26 +628,27 @@ const CompetitionDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {competition.problems.map((problem) => (
-                      <tr key={problem.ProblemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
+                    {/* FIX: Thêm optional chaining và kiểm tra mảng */}
+                    {competition.problems?.map((problem) => (
+                      <tr key={problem.problemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
                         if (isMobile) {
                           toast.warning("Không thể làm bài trên thiết bị di động. Vui lòng sử dụng máy tính với trình duyệt Chrome.");
                         } else {
-                          navigate(`/competitions/${id}/problems/${problem.ProblemID}`);
+                          navigate(`/competitions/${id}/problems/${problem.problemID}`);
                         }
                       }}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-blue-600 hover:text-blue-800">
-                            {problem.Title}
+                            {problem.title}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-sm ${getDifficultyColor(problem.Difficulty)}`}>
-                            {problem.Difficulty}
+                          <span className={`text-sm ${getDifficultyColor(problem.difficulty)}`}>
+                            {problem.difficulty}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {problem.Points}
+                          {problem.points}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {/* Show user's submission status */}
@@ -663,10 +682,16 @@ const CompetitionDetail = () => {
             ) : !scoreboard ? (
               <div className="text-center py-12">
                 <p className="text-gray-500">Không thể tải bảng xếp hạng</p>
+                <button 
+                  onClick={fetchScoreboard}
+                  className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Thử lại
+                </button>
               </div>
-            ) : scoreboard.participants.length === 0 ? (
+            ) : !hasScoreboard ? (
               <div className="text-center py-12">
-                <p className="text-gray-500">Chưa có người tham gia</p>
+                <p className="text-gray-500">Chưa có dữ liệu xếp hạng</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -685,58 +710,85 @@ const CompetitionDetail = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Số bài đã giải
                       </th>
-                      {scoreboard.problems.map(problem => (
-                        <th key={problem.ProblemID} scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {problem.Title.split(' ')[0]}
+                      {/* FIX: Hiển thị các cột bài tập */}
+                      {hasScoreboardProblems && scoreboard.problems.map(problem => (
+                        <th key={problem.problemID} scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {problem.title || `Bài ${problem.problemID}`}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {scoreboard.participants.map((participant) => (
-                      <tr key={participant.ParticipantID}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {participant.rank}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Avatar 
-                              src={participant.Image} 
-                              alt={participant.FullName || "Người dùng"}
-                              name={participant.FullName}
-                              size="small"
-                            />
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
-                                {participant.FullName}
+                    {/* FIX: Sử dụng scoreboard.scoreboard thay vì scoreboard.participants */}
+                    {scoreboard.scoreboard.map((participant, index) => {
+                      console.log('📊 Rendering participant:', participant);
+                      return (
+                        <tr key={participant.userID || index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {participant.rank || index + 1}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Avatar 
+                                src={participant.userImage} 
+                                alt={participant.userName || "Người dùng"}
+                                name={participant.userName}
+                                size="small"
+                              />
+                              <div className="ml-3">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {participant.userName}
+                                </div>
+                                {participant.userID && (
+                                  <div className="text-sm text-gray-500">
+                                    ID: {participant.userID}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {participant.Score}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {participant.TotalProblemsSolved}
-                        </td>
-                        {scoreboard.problems.map(problem => {
-                          const submission = participant.problems[problem.ProblemID];
-                          return (
-                            <td key={problem.ProblemID} className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                              {submission ? (
-                                submission.accepted ? (
-                                  <span className="text-green-600 font-medium">{submission.score}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {participant.totalScore || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {participant.totalProblemsSolved || 0}/{participant.totalProblemsAttempted || 0}
+                          </td>
+                          {/* FIX: Hiển thị điểm từng bài theo problemStats */}
+                          {hasScoreboardProblems && scoreboard.problems.map(problem => {
+                            // Tìm problem stat tương ứng
+                            const problemStat = participant.problemStats?.find(
+                              stat => stat.problemID === problem.problemID
+                            );
+                            
+                            console.log(`📊 Problem ${problem.problemID} stat:`, problemStat);
+                            
+                            return (
+                              <td key={problem.problemID} className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                {problemStat ? (
+                                  problemStat.status === 'accepted' ? (
+                                    <div>
+                                      <span className="text-green-600 font-medium">{problemStat.score}</span>
+                                      <div className="text-xs text-gray-400">
+                                        {problemStat.attempts} lượt
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <span className="text-red-600">-{problemStat.attempts}</span>
+                                      <div className="text-xs text-gray-400">
+                                        {problemStat.status}
+                                      </div>
+                                    </div>
+                                  )
                                 ) : (
-                                  <span className="text-red-600">-{submission.attempts}</span>
-                                )
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -799,8 +851,8 @@ const CompetitionDetail = () => {
       {/* Cover image */}
       <div className="relative w-full h-64 md:h-80 rounded-xl overflow-hidden mb-6">
         <img
-          src={competition.CoverImageURL || 'https://placehold.co/1200x400?text=Competition+Cover'}
-          alt={competition.Title}
+          src={competition.coverImageURL || 'https://placehold.co/1200x400?text=Competition+Cover'}
+          alt={competition.title}
           className="w-full h-full object-cover"
           onError={(e) => {
             e.target.onerror = null;
@@ -810,23 +862,23 @@ const CompetitionDetail = () => {
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
           <div className="p-6 text-white w-full">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">{competition.Title}</h1>
+              <h1 className="text-3xl font-bold">{competition.title}</h1>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(status)}`}>
                 {getStatusLabel(status)}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-3">
               <span className="text-sm bg-black bg-opacity-30 px-2 py-1 rounded">
-                Bắt đầu: {formatDateTime(competition.StartTime)}
+                Bắt đầu: {formatDateTime(competition.startTime)}
               </span>
               <span className="text-sm bg-black bg-opacity-30 px-2 py-1 rounded">
-                Kết thúc: {formatDateTime(competition.EndTime)}
+                Kết thúc: {formatDateTime(competition.endTime)}
               </span>
               <span className="text-sm bg-black bg-opacity-30 px-2 py-1 rounded">
-                Thời lượng: {competition.Duration} phút
+                Thời lượng: {competition.duration} phút
               </span>
               <span className="text-sm bg-black bg-opacity-30 px-2 py-1 rounded">
-                Độ khó: {competition.Difficulty}
+                Độ khó: {competition.difficulty}
               </span>
             </div>
           </div>
@@ -885,7 +937,7 @@ const CompetitionDetail = () => {
             <h2 className="text-xl font-semibold mb-4">Tham gia cuộc thi</h2>
             
             {/* Registration status */}
-            {competition.isRegistered && (
+            {competition.registered && (
               <div className="bg-blue-50 border border-blue-100 rounded-md p-3 mb-4">
                 <div className="flex items-center text-blue-800">
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -893,9 +945,9 @@ const CompetitionDetail = () => {
                   </svg>
                   <span className="font-medium">Bạn đã đăng ký tham gia</span>
                 </div>
-                {competition.participantStatus?.StartTime && (
+                {competition.participantStatus?.startTime && (
                   <p className="mt-1 text-sm text-blue-700">
-                    Bắt đầu lúc: {formatDateTime(competition.participantStatus.StartTime)}
+                    Bắt đầu lúc: {formatDateTime(competition.participantStatus.startTime)}
                   </p>
                 )}
               </div>
@@ -916,12 +968,12 @@ const CompetitionDetail = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Người tham gia:</span>
-                  <span className="text-sm font-medium">{competition.CurrentParticipants} / {competition.MaxParticipants}</span>
+                  <span className="text-sm font-medium">{competition.currentParticipants} / {competition.maxParticipants}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Độ khó:</span>
-                  <span className={`text-sm font-medium ${getDifficultyColor(competition.Difficulty)}`}>
-                    {competition.Difficulty}
+                  <span className={`text-sm font-medium ${getDifficultyColor(competition.difficulty)}`}>
+                    {competition.difficulty}
                   </span>
                 </div>
               </div>
@@ -933,4 +985,4 @@ const CompetitionDetail = () => {
   );
 };
 
-export default CompetitionDetail; 
+export default CompetitionDetail;

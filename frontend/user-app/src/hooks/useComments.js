@@ -63,42 +63,54 @@ const useComments = ({ onUpdatePost } = {}) => {
    * @param {number|null} parentCommentId - Parent comment ID for replies
    */
   const addComment = useCallback(async (postId, content, parentCommentId = null) => {
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
+  
+  try {
+    let result;
     
-    try {
-      let result;
-      
-      if (parentCommentId) {
-        result = await postService.addReply(postId, parentCommentId, content);
-      } else {
-        result = await postService.addComment(postId, content);
-      }
-      
-      // Add new comment to the list
-      setComments(prevComments => [result.comment, ...prevComments]);
-      
-      // Update pagination
-      setPagination(prev => ({
-        ...prev,
-        totalComments: prev.totalComments + 1,
-        totalPages: Math.ceil((prev.totalComments + 1) / prev.limit)
-      }));
-      
-      // Notify parent component about the comment count change
-      if (onUpdatePost) {
-        onUpdatePost(postId, 1);
-      }
-      
-      return result.comment;
-    } catch (err) {
-      console.error('Error adding comment:', err);
-      setError('Failed to add comment');
-      throw err;
-    } finally {
-      setIsLoading(false);
+    if (parentCommentId) {
+      result = await postService.addReply(postId, parentCommentId, content);
+    } else {
+      result = await postService.addComment(postId, content);
     }
-  }, [onUpdatePost]);
+    
+    // Normalize the comment object to match component expectations
+    const normalizedComment = {
+      commentID: result.comment.CommentID || result.comment.commentID,
+      content: result.comment.Content || result.comment.content,
+      fullName: result.comment.FullName || result.comment.fullName,
+      userImage: result.comment.UserImage || result.comment.userImage,
+      userID: result.comment.UserID || result.comment.userID,
+      likesCount: result.comment.LikesCount || result.comment.likesCount || 0,
+      isLiked: result.comment.IsLiked || result.comment.isLiked || false,
+      createdAt: result.comment.CreatedAt || result.comment.createdAt || new Date().toISOString()
+    };
+    
+    // Add new comment to the list
+    setComments(prevComments => [normalizedComment, ...prevComments]);
+    
+    // Update pagination
+    setPagination(prev => ({
+      ...prev,
+      totalComments: prev.totalComments + 1,
+      totalPages: Math.ceil((prev.totalComments + 1) / prev.limit)
+    }));
+    
+    // Notify parent component about the comment count change
+    if (onUpdatePost) {
+      onUpdatePost(postId, 1);
+    }
+    
+    return normalizedComment;
+  } catch (err) {
+    console.error('Error adding comment:', err);
+    setError('Failed to add comment');
+    throw err;
+  } finally {
+    setIsLoading(false);
+  }
+}, [onUpdatePost]);
 
   /**
    * Like or unlike a comment

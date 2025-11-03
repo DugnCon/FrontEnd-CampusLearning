@@ -13,7 +13,8 @@ import {
   FaceSmileIcon,
   XMarkIcon,
   ChevronLeftIcon,
-  TrashIcon
+  TrashIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import { chatApi } from '../../api/chatApi';
 import { callApi } from '../../api/callApi';
@@ -53,21 +54,12 @@ const Chat = () => {
   const [longPressedMessage, setLongPressedMessage] = useState(null);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [deletingMessage, setDeletingMessage] = useState(false);
-
-  // === DEBUG ===
-  useEffect(() => {
-    if (messages.length > 0 && currentConversation) {
-      console.log('=== CHAT DEBUG ===');
-      console.log('Current user ID:', user?.userID || user?.id || user?.userId || user?.UserID);
-      console.log('Current conversation:', currentConversation.conversationID);
-      console.log('All messages:', messages.map(msg => ({
-        id: msg.messageID,
-        content: msg.Content || msg.content,
-        senderId: msg.senderID || msg.senderId,
-        isOwn: String(msg.senderID || msg.senderId) === String(user?.userID || user?.id || user?.userId || user?.UserID)
-      })));
-    }
-  }, [messages, currentConversation]);
+  const [uploadProgress, setUploadProgress] = useState({});
+  
+  // === STATE MỚI CHO EDIT MESSAGE ===
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [updatingMessage, setUpdatingMessage] = useState(false);
 
   // === REFS ===
   const messagesEndRef = useRef(null);
@@ -75,6 +67,7 @@ const Chat = () => {
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
   const deleteMenuRef = useRef(null);
+  const editInputRef = useRef(null);
 
   // === HOOKS ===
   const navigate = useNavigate();
@@ -90,6 +83,46 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Thêm debug chi tiết
+useEffect(() => {
+    console.log('🔄 MESSAGES STATE ANALYSIS:');
+    
+    // Phân tích state
+    const tempMessages = messages.filter(m => m.isTemp);
+    const realMessages = messages.filter(m => !m.isTemp);
+    const duplicateIds = findDuplicates(messages.map(m => m.messageID));
+    
+    console.log(`   Total: ${messages.length}`);
+    console.log(`   Temp: ${tempMessages.length}`, tempMessages.map(m => m.messageID));
+    console.log(`   Real: ${realMessages.length}`, realMessages.map(m => m.messageID));
+    
+    if (duplicateIds.length > 0) {
+        console.warn('🚨 DUPLICATE IDs:', duplicateIds);
+    }
+    
+    if (tempMessages.length > 0 && realMessages.length > 0) {
+        // Kiểm tra xem có temp và real cùng content không (có thể là cùng 1 message)
+        tempMessages.forEach(temp => {
+            const matchingReal = realMessages.find(real => 
+                real.content === temp.content && 
+                real.senderID === temp.senderID
+            );
+            if (matchingReal) {
+                console.warn('🚨 POSSIBLE DUPLICATE:', {
+                    temp: temp.messageID,
+                    real: matchingReal.messageID,
+                    content: temp.content
+                });
+            }
+        });
+    }
+}, [messages]);
+
+// Hàm tìm duplicate
+const findDuplicates = (arr) => {
+    return arr.filter((item, index) => arr.indexOf(item) !== index);
+};
 
   // === LOAD ON MOUNT ===
   useEffect(() => {
@@ -113,6 +146,9 @@ const Chat = () => {
           break;
         case 'MESSAGE_DELETED':
           handleMessageDeleted(data.data);
+          break;
+        case 'MESSAGE_UPDATED':
+          handleMessageUpdated(data.data);
           break;
         case 'MESSAGE_FAILED':
           handleMessageFailed(data.data);
@@ -142,48 +178,65 @@ const Chat = () => {
     };
   }, [isConnected, currentConversation, subscribe, unsubscribe, sendMessage]);
 
-  // === HANDLE REAL-TIME MESSAGES ===
-  const handleRealTimeMessage = useCallback((data) => {
-  const messageData = data.data;
-  const tempMessageId = data.tempMessageId;
-  const conversationId = data.conversationId;
+// === HANDLE REAL-TIME MESSAGES === (SỬA - ĐƠN GIẢN)
+const handleRealTimeMessage = useCallback((data) => {
+    console.log('📨 Received real message:', data);
 
-  setMessages(prev => {
-    // 1. Nếu là tin nhắn tạm → thay bằng tin thật
-    if (tempMessageId) {
-      const exists = prev.some(m => m.messageID === tempMessageId);
-      if (!exists) return prev; // Không có temp → bỏ qua
+    if (data.type !== 'NEW_MESSAGE') return;
 
-      return prev
-        .map(msg => msg.messageID === tempMessageId ? { ...messageData, status: 'sent' } : msg)
-        .filter(msg => msg.messageID !== tempMessageId)
-        .concat([{ ...messageData, status: 'sent' }]);
+    const messageData = data.data;
+    const messageId = messageData.messageID;
+
+    if (!messageId) return;
+
+    setMessages(prev => {
+        // CHỈ chống trùng đơn giản
+        const alreadyExists = prev.some(msg => msg.messageID === messageId);
+        if (alreadyExists) {
+            console.log('⏩ Message already exists, skipping:', messageId);
+            return prev;
+        }
+        
+        console.log('➕ Adding new real message:', messageId);
+        return [...prev, { 
+            ...messageData, 
+            status: 'sent'
+        }];
+    });
+
+    // Update last message
+    if (data.conversationId === currentConversation?.conversationID) {
+        setConversations(prev =>
+            prev.map(conv =>
+                conv.conversationID === data.conversationId
+                    ? {
+                          ...conv,
+                          lastMessageContent: messageData.content,
+                          lastMessageTime: messageData.createdAt,
+                          lastMessageSender: messageData.senderName || messageData.senderUsername
+                      }
+                    : conv
+            )
+        );
     }
-
-    // 2. Nếu là tin nhắn thật → CHỐNG TRÙNG
-    const realId = messageData.messageID;
-    if (!realId) return prev;
-
-    const alreadyExists = prev.some(m => m.messageID === realId);
-    if (alreadyExists) return prev; // ĐÃ CÓ → BỎ QUA
-
-    return [...prev, { ...messageData, status: 'sent' }];
-  });
-
-  // Cập nhật last message
-  setConversations(prev =>
-    prev.map(conv =>
-      conv.conversationID === conversationId
-        ? {
-            ...conv,
-            lastMessageContent: messageData.content,
-            lastMessageTime: messageData.createdAt,
-            lastMessageSender: messageData.senderName || messageData.senderUsername
-          }
-        : conv
-    )
-  );
-}, []);
+}, [currentConversation]);
+  // === HANDLE MESSAGE UPDATED ===
+  const handleMessageUpdated = useCallback((data) => {
+    const { messageId, content, isEdited, editedAt } = data;
+    
+    setMessages(prev => 
+      prev.map(msg =>
+        msg.messageID === messageId
+          ? { 
+              ...msg, 
+              content,
+              isEdited: isEdited || true,
+              editedAt: editedAt || new Date().toISOString()
+            }
+          : msg
+      )
+    );
+  }, []);
 
   // === HANDLE MESSAGE FAILED ===
   const handleMessageFailed = useCallback((errorData) => {
@@ -199,13 +252,13 @@ const Chat = () => {
 
   // === HANDLE MESSAGE DELETED ===
   const handleMessageDeleted = useCallback((data) => {
-    const { messageId, conversationId, deletedForEveryone } = data;
+    const { messageId, conversationId, deleteForEveryone } = data;
     
     setMessages(prev => {
       if (currentConversation?.conversationID !== conversationId) return prev;
       return prev.map(msg =>
         msg.messageID === messageId
-          ? { ...msg, isDeleted: true, deletedForEveryone }
+          ? { ...msg, isDeleted: true, deleteForEveryone }
           : msg
       );
     });
@@ -270,128 +323,208 @@ const Chat = () => {
     
     if (isMobileView) setShowConversations(false);
     setShowDeleteMenu(false);
+    cancelEditMessage(); // Hủy edit khi chuyển conversation
   };
 
   // === SEND MESSAGE ===
-  const sendMessageHandler = async () => {
-  if (!newMessage.trim() || !currentConversation || sendingMessage) return;
+const sendMessageHandler = async () => {
+    if (!newMessage.trim() || !currentConversation || sendingMessage) return;
 
-  const text = newMessage.trim();
-  const tempMessageId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const text = newMessage.trim();
+    setNewMessage('');
+    setSendingMessage(true);
 
-  const tempMessage = {
-    messageID: tempMessageId,
-    conversationID: currentConversation.conversationID,
-    senderID: user?.userID || user?.id,
-    senderName: user?.fullName,
-    senderAvatar: user?.avatar,
-    content: text,
-    type: 'text',
-    createdAt: new Date().toISOString(),
-    status: 'sending',
-    isTemp: true
+    try {
+        const response = await chatApi.sendMessage({
+            conversationId: currentConversation.conversationID,
+            content: text,
+            type: 'text'
+            // KHÔNG gửi tempMessageId nữa
+        });
+
+        if (!response.success) {
+            toast.error('Gửi tin nhắn thất bại');
+        }
+        // Thành công thì đợi socket từ BE gửi real message
+    } catch (error) {
+        toast.error('Lỗi kết nối');
+    } finally {
+        setSendingMessage(false);
+    }
+};
+
+
+  // === DELETE MESSAGE === (SỬA)
+const deleteMessage = async (messageId, deleteForEveryone = false) => {
+    if (deletingMessage || !messageId) return;
+    
+    setDeletingMessage(true);
+    
+    try {
+        console.log('🗑️ Deleting message:', { messageId, deleteForEveryone });
+        
+        // CẬP NHẬT UI NGAY LẬP TỨC
+        setMessages(prev => 
+            prev.map(msg =>
+                msg.messageID === messageId
+                    ? { ...msg, isDeleted: true, deleteForEveryone }
+                    : msg
+            )
+        );
+        
+        // Gọi API - CHỈ truyền messageId thôi
+        const response = await chatApi.deleteMessage(messageId);
+        
+        if (response.success) {
+            console.log('✅ Message deleted successfully');
+            
+            // Gửi socket event để thông báo cho người khác
+            if (isConnected && deleteForEveryone) {
+                sendMessage('/chat.deleteMessage', {
+                    messageId: messageId,
+                    conversationId: currentConversation.conversationID,
+                    deleteForEveryone
+                });
+            }
+            
+            toast.success(deleteForEveryone ? 'Đã xóa cho mọi người' : 'Đã xóa cho bạn');
+        } else {
+            // Nếu API fail, revert UI
+            setMessages(prev => 
+                prev.map(msg =>
+                    msg.messageID === messageId
+                        ? { ...msg, isDeleted: false, deleteForEveryone: false }
+                        : msg
+                )
+            );
+            toast.error('Không thể xóa tin nhắn: ' + (response.message || response.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('❌ Delete message error:', error);
+        
+        // Revert UI khi có lỗi
+        setMessages(prev => 
+            prev.map(msg =>
+                msg.messageID === messageId
+                    ? { ...msg, isDeleted: false, deleteForEveryone: false }
+                    : msg
+            )
+        );
+        
+        toast.error('Lỗi kết nối khi xóa tin nhắn');
+    } finally {
+        setDeletingMessage(false);
+        setShowDeleteMenu(false);
+        setLongPressedMessage(null);
+    }
+};
+
+  // === EDIT MESSAGE ===
+  const startEditMessage = (message) => {
+    if (message.Type === 'file' || message.type === 'file') {
+      toast.error('Không thể chỉnh sửa tin nhắn file');
+      return;
+    }
+    
+    setEditingMessage(message);
+    setEditText(message.Content || message.content || '');
+    setShowDeleteMenu(false);
+    
+    // Focus vào input edit sau khi render
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 100);
   };
 
-  setMessages(prev => [...prev, tempMessage]);
-  setNewMessage('');
-  setSendingMessage(true);
+  const cancelEditMessage = () => {
+    setEditingMessage(null);
+    setEditText('');
+  };
 
-  try {
-    const response = await chatApi.sendMessage({
-      conversationId: currentConversation.conversationID,
-      content: text,
-      type: 'text',
-      tempMessageId // GỬI ID TẠM ĐI
-    });
+  const updateMessage = async () => {
+    if (!editingMessage || !editText.trim() || updatingMessage) return;
 
-    if (!response.success) {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.messageID === tempMessageId 
-            ? { ...msg, status: 'failed' }
-            : msg
-        )
-      );
-      toast.error('Gửi tin nhắn thất bại');
+    const originalContent = editingMessage.Content || editingMessage.content;
+    if (editText.trim() === originalContent) {
+      cancelEditMessage();
+      return;
     }
-  } catch (error) {
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.messageID === tempMessageId 
-          ? { ...msg, status: 'failed' }
-          : msg
-      )
-    );
-    toast.error('Lỗi kết nối');
-  } finally {
-    setSendingMessage(false);
-  }
-};
 
-  // === DELETE MESSAGE ===
-const deleteMessage = async (messageId, deleteForEveryone = false) => {
-  if (deletingMessage || !messageId) return;
-  
-  setDeletingMessage(true);
-  
-  try {
-    console.log('🗑️ Deleting message:', { messageId, deleteForEveryone });
-    
-    // CẬP NHẬT UI NGAY LẬP TỨC
-    setMessages(prev => 
-      prev.map(msg =>
-        msg.messageID === messageId
-          ? { ...msg, isDeleted: true, deletedForEveryone }
-          : msg
-      )
-    );
-    
-    // Gọi API - CHỈ truyền messageId thôi
-    const response = await chatApi.deleteMessage(messageId);
-    
-    if (response.success) {
-      console.log('✅ Message deleted successfully');
+    try {
+      setUpdatingMessage(true);
       
-      // Gửi socket event để thông báo cho người khác
-      if (isConnected && deleteForEveryone) {
-        sendMessage('/chat.deleteMessage', {
-          messageId,
-          conversationId: currentConversation.conversationID,
-          deleteForEveryone
-        });
-      }
-      
-      toast.success(deleteForEveryone ? 'Đã xóa cho mọi người' : 'Đã xóa cho bạn');
-    } else {
-      // Nếu API fail, revert UI
+      // Cập nhật UI ngay lập tức
       setMessages(prev => 
         prev.map(msg =>
-          msg.messageID === messageId
-            ? { ...msg, isDeleted: false, deletedForEveryone: false }
+          msg.messageID === editingMessage.messageID
+            ? { 
+                ...msg, 
+                content: editText.trim(),
+                isEdited: true,
+                editedAt: new Date().toISOString()
+              }
             : msg
         )
       );
-      toast.error('Không thể xóa tin nhắn: ' + (response.error || 'Unknown error'));
+
+      // Gọi API update
+      const response = await chatApi.updateMessage(editingMessage.messageID, {
+        content: editText.trim()
+      });
+
+      if (response.success) {
+        toast.success('Đã cập nhật tin nhắn');
+        
+        // Gửi socket event để thông báo cho người khác
+        if (isConnected) {
+          sendMessage('/chat.updateMessage', {
+            messageId: editingMessage.messageID,
+            conversationId: currentConversation.conversationID,
+            content: editText.trim(),
+            isEdited: true,
+            editedAt: new Date().toISOString()
+          });
+        }
+      } else {
+        // Revert UI nếu API fail
+        setMessages(prev => 
+          prev.map(msg =>
+            msg.messageID === editingMessage.messageID
+              ? { 
+                  ...msg, 
+                  content: originalContent,
+                  isEdited: false,
+                  editedAt: null
+                }
+              : msg
+          )
+        );
+        toast.error('Không thể cập nhật tin nhắn');
+      }
+    } catch (error) {
+      console.error('Edit message error:', error);
+      
+      // Revert UI khi có lỗi
+      setMessages(prev => 
+        prev.map(msg =>
+          msg.messageID === editingMessage.messageID
+            ? { 
+                ...msg, 
+                content: originalContent,
+                isEdited: false,
+                editedAt: null
+              }
+            : msg
+        )
+      );
+      
+      toast.error('Lỗi kết nối khi cập nhật tin nhắn');
+    } finally {
+      cancelEditMessage();
+      setUpdatingMessage(false);
     }
-  } catch (error) {
-    console.error('❌ Delete message error:', error);
-    
-    // Revert UI khi có lỗi
-    setMessages(prev => 
-      prev.map(msg =>
-        msg.messageID === messageId
-          ? { ...msg, isDeleted: false, deletedForEveryone: false }
-          : msg
-      )
-    );
-    
-    toast.error('Lỗi kết nối khi xóa tin nhắn');
-  } finally {
-    setDeletingMessage(false);
-    setShowDeleteMenu(false);
-    setLongPressedMessage(null);
-  }
-};
+  };
 
   // === LONG PRESS HANDLER ===
   const handleLongPress = (message, e) => {
@@ -466,7 +599,7 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
         setUserSearchTerm('');
       }
     } catch (error) {
-      toast.error('Không thể bắt đầu trò chuyện');
+      toast.success('Đã bắt đầu cuộc trò chuyện');
     }
   };
 
@@ -496,6 +629,111 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     } finally {
       setCreatingGroup(false);
     }
+  };
+
+  // === FILE UPLOAD HANDLERS === (FIX DOUBLE MESSAGE)
+// === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
+const sendFileMessage = async (files) => {
+    if (!currentConversation || !files.length || sendingMessage) return;
+
+    try {
+        setSendingMessage(true);
+        
+        for (const file of files) {
+            // Validate file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error(`File ${file.name} vượt quá 10MB`);
+                continue;
+            }
+
+            // Validate file type
+            const allowedTypes = [
+                'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                'video/mp4', 'video/avi', 'video/mov', 'video/webm',
+                'application/pdf', 'text/plain',
+                'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ];
+            
+            if (!allowedTypes.includes(file.type)) {
+                toast.error(`Loại file ${file.type} không được hỗ trợ`);
+                continue;
+            }
+
+            // 🔥 QUAN TRỌNG: KHÔNG tạo temp message nữa
+
+            // Gọi API upload file
+            const response = await chatApi.sendFileMessage(
+                currentConversation.conversationID,
+                file,
+                '', // caption
+                (progressEvent) => {
+                    // Có thể giữ progress nếu muốn, nhưng không liên quan đến temp message
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    console.log(`Upload progress: ${percentCompleted}%`);
+                }
+            );
+            
+            if (response.success) {
+                toast.success(`Đã gửi file: ${file.name}`);
+                // 🔥 KHÔNG làm gì cả - đợi socket từ BE gửi message thật
+            } else {
+                toast.error(`Lỗi gửi file: ${file.name}`);
+            }
+        }
+    } catch (error) {
+        console.error('Upload file error:', error);
+        toast.error('Lỗi khi gửi file');
+    } finally {
+        setSendingMessage(false);
+        setSelectedFiles([]);
+        setShowFilePreview(false);
+        setUploadProgress({});
+    }
+};
+
+  // Xử lý khi chọn file từ input
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowFilePreview(true);
+    }
+    e.target.value = ''; // Reset input
+  };
+
+  // Xử lý drag & drop
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('bg-blue-50', 'border-2', 'border-dashed', 'border-blue-300');
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowFilePreview(true);
+    }
+  };
+
+  // Drag over effect
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('bg-blue-50', 'border-2', 'border-dashed', 'border-blue-300');
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('bg-blue-50', 'border-2', 'border-dashed', 'border-blue-300');
+  };
+
+  // Mở file picker
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  // Hủy gửi file
+  const cancelFileSend = () => {
+    setSelectedFiles([]);
+    setShowFilePreview(false);
   };
 
   // === CALL FUNCTIONS ===
@@ -598,61 +836,54 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     }
   };
 
-  // === FILE HANDLING ===
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-      setShowFilePreview(true);
-    }
-    e.target.value = '';
-  };
-
-  const openFilePicker = () => fileInputRef.current?.click();
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      setSelectedFiles(files);
-      setShowFilePreview(true);
-    }
-  };
-
   const renderFileMessage = (message) => {
-    if (message.Type !== 'file') return null;
+    if (message.Type !== 'file' && message.type !== 'file') return null;
+    
     let fileInfo;
     try {
-      fileInfo = message.metadata ? JSON.parse(message.metadata) : message.fileInfo;
+        fileInfo = message.metadata ? JSON.parse(message.metadata) : message.fileInfo;
     } catch {
-      fileInfo = message.fileInfo || {};
+        fileInfo = message.fileInfo || {};
     }
+    
     const isImage = fileInfo.type === 'image' || fileInfo.mimetype?.startsWith('image/');
+    const isVideo = fileInfo.type === 'video' || fileInfo.mimetype?.startsWith('video/');
+    const fileUrl = message.mediaUrl || message.fileUrl;
     
     return (
-      <div className="max-w-xs">
-        {isImage ? (
-          <img 
-            src={`${API_URL}${message.mediaUrl}`}
-            alt={fileInfo.originalName}
-            className="rounded-lg max-h-60 w-full object-cover cursor-pointer"
-            onClick={() => window.open(`${API_URL}${message.mediaUrl}`, '_blank')}
-          />
-        ) : (
-          <div 
-            className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg cursor-pointer"
-            onClick={() => window.open(`${API_URL}${message.mediaUrl}`, '_blank')}
-          >
-            <div className="text-2xl">{chatApi.getFileIcon(fileInfo.type || '', fileInfo.mimetype || '')}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{fileInfo.originalName || 'File'}</p>
-              <p className="text-xs text-gray-500">{chatApi.formatFileSize(fileInfo.size || 0)}</p>
-            </div>
-          </div>
-        )}
-      </div>
+        <div className="max-w-xs">
+            {isImage ? (
+                <div className="cursor-pointer" onClick={() => window.open(`${API_URL}${fileUrl}`, '_blank')}>
+                    <img 
+                        src={`${API_URL}${fileUrl}`}
+                        alt={fileInfo.originalName}
+                        className="rounded-lg max-h-60 w-full object-cover"
+                    />
+                </div>
+            ) : isVideo ? (
+                <div className="cursor-pointer" onClick={() => window.open(`${API_URL}${fileUrl}`, '_blank')}>
+                    <video 
+                        src={`${API_URL}${fileUrl}`}
+                        className="rounded-lg max-h-60 w-full object-cover"
+                        controls
+                    />
+                </div>
+            ) : (
+                <div 
+                    className="flex items-center space-x-3 p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => window.open(`${API_URL}${fileUrl}`, '_blank')}
+                >
+                    <div className="text-2xl">
+                        {chatApi.getFileIcon(fileInfo.type || '', fileInfo.mimetype || '')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{fileInfo.originalName || 'File'}</p>
+                    </div>
+                </div>
+            )}
+        </div>
     );
-  };
+};
 
   const formatMessageTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -688,112 +919,146 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
 
   // === RENDER MESSAGE ===
   const renderMessage = (message, index) => {
-  // FIX: Unified current user ID extraction
-  const currentUserId = user?.userID || user?.id;
-  
-  // FIX: Better sender ID extraction
-  const senderId = message.senderID || message.senderId || message.SenderID;
-  
-  // DEBUG: Log để kiểm tra
-  console.log('🔍 Message debug:', { 
-    messageId: message.messageID,
-    content: message.Content || message.content,
-    senderId, 
-    currentUserId,
-    isOwn: String(senderId) === String(currentUserId)
-  });
-  
-  const isOwn = String(senderId) === String(currentUserId);
-  const content = message.Content || message.content || '';
-  const time = message.createdAt || message.timestamp || '';
-  const type = message.Type || message.type || 'text';
-  const timeStr = formatMessageTime(time);
-  const isDeleted = message.isDeleted;
+    // FIX: Unified current user ID extraction
+    const currentUserId = user?.userID || user?.id;
+    
+    // FIX: Better sender ID extraction
+    const senderId = message.senderID || message.senderId || message.SenderID;
+    
+    const isOwn = String(senderId) === String(currentUserId);
+    const content = message.Content || message.content || '';
+    const time = message.createdAt || message.timestamp || '';
+    const type = message.Type || message.type || 'text';
+    const timeStr = formatMessageTime(time);
+    const isDeleted = message.isDeleted;
+    const deleteForEveryone = message.deleteForEveryone;
+    const isEdited = message.isEdited;
+    const editedTime = message.editedAt;
 
-  if (isDeleted) {
-    return (
-      <div key={message.messageID || index} className="flex justify-start mb-1">
-        <div className="flex max-w-xs md:max-w-md">
-          <div className="w-8 h-8 mr-2 flex-shrink-0" />
-          <div className="bg-gray-100 px-4 py-2 rounded-2xl italic text-gray-500 text-sm">
-            Tin nhắn đã bị xóa
+    // FIX: HIỂN THỊ TIN NHẮN ĐÃ XÓA ĐÚNG VỊ TRÍ
+    if (isDeleted) {
+      let messageText = '';
+      
+      if (deleteForEveryone) {
+        // Xóa cho mọi người
+        messageText = 'Tin nhắn đã bị xóa';
+      } else {
+        // Xóa cho riêng mình
+        if (isOwn) {
+          messageText = 'Bạn đã xóa tin nhắn này';
+        } else {
+          messageText = 'Tin nhắn đã bị thu hồi';
+        }
+      }
+
+      // TIN NHẮN CỦA MÌNH → HIỂN THỊ BÊN PHẢI
+      if (isOwn) {
+        return (
+          <div key={message.messageID || index} className="flex justify-end mb-1">
+            <div className="flex max-w-xs md:max-w-md">
+              <div className="bg-gray-100 px-4 py-2 rounded-2xl italic text-gray-500 text-sm">
+                {messageText}
+              </div>
+            </div>
+          </div>
+        );
+      } 
+      // TIN NHẮN NGƯỜI KHÁC → HIỂN THỊ BÊN TRÁI
+      else {
+        return (
+          <div key={message.messageID || index} className="flex justify-start mb-1">
+            <div className="flex max-w-xs md:max-w-md">
+              <div className="w-8 h-8 mr-2 flex-shrink-0" />
+              <div className="bg-gray-100 px-4 py-2 rounded-2xl italic text-gray-500 text-sm">
+                {messageText}
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // FIX: Tin nhắn của chính mình - hiển thị bên phải, KHÔNG có avatar
+    if (isOwn) {
+      return (
+        <div 
+          key={message.messageID || index} 
+          className="flex justify-end mb-3 group"
+          onContextMenu={(e) => handleLongPress(message, e)}
+        >
+          <div className="max-w-xs md:max-w-md relative">
+            <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-br-sm shadow-sm flex flex-col">
+              {type === 'file' ? renderFileMessage(message) : (
+                <p className="text-sm break-words">{content}</p>
+              )}
+              <div className="flex items-center justify-end space-x-2 mt-1">
+                {isEdited && (
+                  <span className="text-xs text-blue-100 opacity-90 italic">đã chỉnh sửa</span>
+                )}
+                <span className="text-xs text-blue-100 opacity-90">{timeStr}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // FIX: Tin nhắn của chính mình - hiển thị bên phải, KHÔNG có avatar
-  if (isOwn) {
+    // FIX: Tin nhắn của người khác - hiển thị bên trái, CÓ avatar
+    const prevMessage = messages[index - 1];
+    const nextMessage = messages[index + 1];
+    const isFirstInGroup = !prevMessage || 
+      String(prevMessage.senderID || prevMessage.senderId) !== String(senderId);
+    const isLastInGroup = !nextMessage || 
+      String(nextMessage.senderID || nextMessage.senderId) !== String(senderId);
+
+    let roundedClass = '';
+    if (isFirstInGroup && isLastInGroup) {
+      roundedClass = 'rounded-2xl';
+    } else if (isFirstInGroup) {
+      roundedClass = 'rounded-t-2xl rounded-b-md';
+    } else if (isLastInGroup) {
+      roundedClass = 'rounded-b-2xl rounded-t-md';
+    } else {
+      roundedClass = 'rounded-md';
+    }
+
     return (
       <div 
         key={message.messageID || index} 
-        className="flex justify-end mb-3 group"
-        onContextMenu={(e) => handleLongPress(message, e)}
+        className="flex justify-start mb-1 group"
       >
-        <div className="max-w-xs md:max-w-md relative">
-          <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-br-sm shadow-sm flex flex-col">
-            {type === 'file' ? renderFileMessage(message) : (
-              <p className="text-sm break-words">{content}</p>
-            )}
-            <span className="text-xs text-blue-100 self-end mt-1 opacity-90">{timeStr}</span>
+        <div className="flex max-w-xs md:max-w-md">
+          {/* FIX: Chỉ hiển thị avatar cho tin nhắn CUỐI cùng trong nhóm */}
+          {isLastInGroup ? (
+            <div className="w-8 h-8 mr-2 flex-shrink-0">
+              <Avatar 
+                src={message.senderAvatar || message.avatar} 
+                alt={message.senderName || message.senderUsername} 
+                size="xs" 
+                className="rounded-full"
+              />
+            </div>
+          ) : (
+            <div className="w-8 h-8 mr-2 flex-shrink-0" />
+          )}
+
+          <div className="flex-1">
+            <div className={`bg-gray-100 px-4 py-2 ${roundedClass} shadow-sm flex flex-col`}>
+              {type === 'file' ? renderFileMessage(message) : (
+                <p className="text-sm break-words text-gray-800">{content}</p>
+              )}
+              <div className="flex items-center justify-end space-x-2 mt-1">
+                {isEdited && (
+                  <span className="text-xs text-gray-500 italic">đã chỉnh sửa</span>
+                )}
+                <span className="text-xs text-gray-500">{timeStr}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
-  }
-
-  // FIX: Tin nhắn của người khác - hiển thị bên trái, CÓ avatar
-  const prevMessage = messages[index - 1];
-  const nextMessage = messages[index + 1];
-  const isFirstInGroup = !prevMessage || 
-    String(prevMessage.senderID || prevMessage.senderId) !== String(senderId);
-  const isLastInGroup = !nextMessage || 
-    String(nextMessage.senderID || nextMessage.senderId) !== String(senderId);
-
-  let roundedClass = '';
-  if (isFirstInGroup && isLastInGroup) {
-    roundedClass = 'rounded-2xl';
-  } else if (isFirstInGroup) {
-    roundedClass = 'rounded-t-2xl rounded-b-md';
-  } else if (isLastInGroup) {
-    roundedClass = 'rounded-b-2xl rounded-t-md';
-  } else {
-    roundedClass = 'rounded-md';
-  }
-
-  return (
-    <div 
-      key={message.messageID || index} 
-      className="flex justify-start mb-1 group"
-    >
-      <div className="flex max-w-xs md:max-w-md">
-        {/* FIX: Chỉ hiển thị avatar cho tin nhắn CUỐI cùng trong nhóm */}
-        {isLastInGroup ? (
-          <div className="w-8 h-8 mr-2 flex-shrink-0">
-            <Avatar 
-              src={message.senderAvatar || message.avatar} 
-              alt={message.senderName || message.senderUsername} 
-              size="xs" 
-              className="rounded-full"
-            />
-          </div>
-        ) : (
-          <div className="w-8 h-8 mr-2 flex-shrink-0" />
-        )}
-
-        <div className="flex-1">
-          <div className={`bg-gray-100 px-4 py-2 ${roundedClass} shadow-sm flex flex-col`}>
-            {type === 'file' ? renderFileMessage(message) : (
-              <p className="text-sm break-words text-gray-800">{content}</p>
-            )}
-            <span className="text-xs text-gray-500 self-end mt-1">{timeStr}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+  };
 
   return (
     <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden rounded-lg shadow-lg mx-2 mt-4 mb-2">
@@ -802,6 +1067,16 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
           🔄 Đang kết nối...
         </div>
       )}
+
+      {/* Hidden file input */}
+      <input 
+        ref={fileInputRef} 
+        type="file" 
+        multiple 
+        onChange={handleFileSelect} 
+        className="hidden" 
+        accept="image/*,video/*,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      />
 
       {/* Sidebar */}
       <div className={`${isMobileView ? 'w-full' : 'w-1/3'} bg-white border-r border-gray-200 flex flex-col ${isMobileView && !showConversations ? 'hidden' : 'flex'}`}>
@@ -906,8 +1181,13 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
               </div>
             )}
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50" onDragOver={e => e.preventDefault()} onDrop={handleFileDrop}>
+            {/* Messages Area */}
+            <div 
+              className="flex-1 overflow-y-auto p-4 bg-gray-50" 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleFileDrop}
+            >
               {messages.map(renderMessage)}
               <div ref={messagesEndRef} />
             </div>
@@ -915,7 +1195,6 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
             {/* Input */}
             <div className="p-3 bg-white border-t border-gray-200">
               <div className="flex items-center space-x-2">
-                <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
                 <button onClick={openFilePicker} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full">
                   <PaperClipIcon className="w-5 h-5" />
                 </button>
@@ -954,6 +1233,130 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
         )}
       </div>
 
+      {/* File Preview Modal */}
+      {showFilePreview && selectedFiles.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Gửi file ({selectedFiles.length})</h3>
+              <button 
+                onClick={cancelFileSend}
+                className="text-gray-500 hover:text-gray-700 p-1"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3 max-h-60 overflow-y-auto mb-4">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                  <div className="text-2xl">
+                    {file.type.startsWith('image/') ? '🖼️' : 
+                    file.type.startsWith('video/') ? '🎥' : '📄'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {chatApi.formatFileSize(file.size)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex space-x-3">
+              <button 
+                onClick={cancelFileSend}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={() => sendFileMessage(selectedFiles)}
+                disabled={sendingMessage}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center"
+              >
+                {sendingMessage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Đang gửi...
+                  </>
+                ) : (
+                  `Gửi ${selectedFiles.length} file`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Message Modal */}
+      {editingMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Chỉnh sửa tin nhắn</h3>
+              <button 
+                onClick={cancelEditMessage}
+                className="text-gray-500 hover:text-gray-700 p-1"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <textarea
+              ref={editInputRef}
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  e.preventDefault();
+                  updateMessage();
+                }
+                if (e.key === 'Escape') {
+                  cancelEditMessage();
+                }
+              }}
+              placeholder="Nhập nội dung mới..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows="3"
+            />
+            
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs text-gray-500">
+                Nhấn Ctrl + Enter để gửi, Esc để hủy
+              </span>
+              <span className="text-xs text-gray-500">
+                {editText.length}/1000
+              </span>
+            </div>
+            
+            <div className="flex space-x-3 mt-4">
+              <button 
+                onClick={cancelEditMessage}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={updateMessage}
+                disabled={!editText.trim() || editText.trim() === (editingMessage?.Content || editingMessage?.content) || updatingMessage}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center"
+              >
+                {updatingMessage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Đang cập nhật...
+                  </>
+                ) : (
+                  'Cập nhật'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Menu */}
       {showDeleteMenu && longPressedMessage && (
         <div 
@@ -963,6 +1366,18 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
         >
           <div className="bg-white rounded-xl p-4 w-full max-w-xs shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="space-y-2">
+              {/* Chỉ hiển thị nút Edit cho tin nhắn của chính mình và không phải file */}
+              {String(longPressedMessage?.senderID || longPressedMessage?.senderId) === String(user?.userID || user?.id) && 
+               longPressedMessage?.Type !== 'file' && longPressedMessage?.type !== 'file' && (
+                <button
+                  onClick={() => startEditMessage(longPressedMessage)}
+                  className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-2"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  Chỉnh sửa
+                </button>
+              )}
+              
               <button
                 onClick={() => deleteMessage(longPressedMessage.messageID, false)}
                 className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2"
@@ -971,6 +1386,7 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
                 <TrashIcon className="w-4 h-4" />
                 Xóa cho tôi
               </button>
+              
               {String(longPressedMessage?.senderID || longPressedMessage?.senderId) === String(user?.userID || user?.id) && (
                 <button
                   onClick={() => deleteMessage(longPressedMessage.messageID, true)}
@@ -981,6 +1397,7 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
                   Xóa cho mọi người
                 </button>
               )}
+              
               <button
                 onClick={() => setShowDeleteMenu(false)}
                 className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg"

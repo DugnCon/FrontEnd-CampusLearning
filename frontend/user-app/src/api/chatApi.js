@@ -116,15 +116,20 @@ export const chatApi = {
   },
 
   // Delete a message
-  deleteMessage: async (messageId) => {
-    try {
-      const response = await chatApiClient.delete(`/messages/${messageId}`);
-      return response;
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      throw error;
-    }
-  },
+  // Sửa hàm deleteMessage trong chatApi.js
+deleteMessage: async (messageId, deleteForEveryone = false) => {
+  try {
+    const response = await chatApiClient.delete(`/messages/${messageId}`, {
+      params: { 
+        deleteForEveryone: deleteForEveryone 
+      }
+    });
+    return response;
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw error;
+  }
+},
 
   // Leave a conversation
   leaveConversation: async (conversationId) => {

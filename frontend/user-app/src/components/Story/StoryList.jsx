@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: StoryList.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState, useEffect } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '../index';
@@ -44,7 +38,7 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
         // If onViewStory prop is provided, use it instead of internal viewer
         if (onViewStory) {
-            const storyIndex = stories.findIndex(s => s.StoryID === story.StoryID);
+            const storyIndex = stories.findIndex(s => s.storyID === story.storyID);
             if (storyIndex !== -1) {
                 onViewStory(storyIndex, stories);
                 return;
@@ -53,7 +47,7 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
         // Mark story as viewed
         try {
-            await viewStory(story.StoryID);
+            await viewStory(story.storyID);
         } catch (error) {
             console.error('Mark story as viewed error:', error);
         }
@@ -61,29 +55,29 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
     const renderStoryItem = (story) => (
         <div
-            key={story.StoryID}
+            key={story.storyID}
             onClick={() => handleStoryClick(story)}
             className="relative cursor-pointer group"
         >
             <div className="relative w-full h-40 rounded-lg overflow-hidden">
-                {story.MediaType === 'image' ? (
+                {story.mediaType === 'image' ? (
                     <img
-                        src={story.MediaUrl}
+                        src={story.mediaUrl}
                         alt="Story"
                         className="w-full h-full object-cover"
                     />
-                ) : story.MediaType === 'video' ? (
+                ) : story.mediaType === 'video' ? (
                     <video
-                        src={story.MediaUrl}
+                        src={story.mediaUrl}
                         className="w-full h-full object-cover"
                     />
                 ) : (
                     <div
                         className="w-full h-full flex items-center justify-center p-4"
-                        style={{ backgroundColor: story.BackgroundColor || '#1d4ed8' }}
+                        style={{ backgroundColor: story.backgroundColor || '#1d4ed8' }}
                     >
-                        <p className={`text-white text-center ${story.FontStyle || 'font-sans'}`}>
-                            {story.TextContent}
+                        <p className={`text-white text-center ${story.fontStyle || 'font-sans'}`}>
+                            {story.textContent}
                         </p>
                     </div>
                 )}
@@ -94,19 +88,19 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
                 {/* User info */}
                 <div className="absolute top-2 left-2 flex items-center">
                     <Avatar
-                        src={story.User?.Image}
-                        name={story.User?.FullName}
+                        src={story.user?.image}
+                        name={story.user?.fullName}
                         size="small"
                         className="ring-2 ring-white"
                     />
                     <span className="ml-2 text-white text-sm font-medium truncate">
-                        {story.User?.FullName}
+                        {story.user?.fullName}
                     </span>
                 </div>
                 
                 {/* Time */}
                 <div className="absolute bottom-2 left-2 text-white text-xs">
-                    {new Date(story.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
             </div>
         </div>
@@ -137,15 +131,15 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
                     </button>
                     
                     <div className="w-full max-w-lg">
-                        {selectedStory.MediaType === 'image' ? (
+                        {selectedStory.mediaType === 'image' ? (
                             <img
-                                src={selectedStory.MediaUrl}
+                                src={selectedStory.mediaUrl}
                                 alt="Story"
                                 className="w-full h-auto"
                             />
-                        ) : selectedStory.MediaType === 'video' ? (
+                        ) : selectedStory.mediaType === 'video' ? (
                             <video
-                                src={selectedStory.MediaUrl}
+                                src={selectedStory.mediaUrl}
                                 className="w-full h-auto"
                                 controls
                                 autoPlay
@@ -153,10 +147,10 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
                         ) : (
                             <div
                                 className="w-full h-96 flex items-center justify-center p-8"
-                                style={{ backgroundColor: selectedStory.BackgroundColor || '#1d4ed8' }}
+                                style={{ backgroundColor: selectedStory.backgroundColor || '#1d4ed8' }}
                             >
-                                <p className={`text-white text-2xl text-center ${selectedStory.FontStyle || 'font-sans'}`}>
-                                    {selectedStory.TextContent}
+                                <p className={`text-white text-2xl text-center ${selectedStory.fontStyle || 'font-sans'}`}>
+                                    {selectedStory.textContent}
                                 </p>
                             </div>
                         )}

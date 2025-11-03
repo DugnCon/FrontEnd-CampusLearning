@@ -13,6 +13,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5004,
+    allowedHosts: ['.ngrok-free.app'],
     proxy: {
       '/uploads': {
         target: 'http://localhost:8080',

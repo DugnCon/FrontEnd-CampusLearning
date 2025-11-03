@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: storyApi.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -26,7 +20,7 @@ const getAuthConfig = () => {
 // Get all stories
 export const getAllStories = async () => {
   try {
-    const response = await axios.get(`${API_URL}/api/stories`, getAuthConfig());
+    const response = await axios.get(`${API_URL}/stories`, getAuthConfig());
     return response.data;
   } catch (error) {
     console.error('Error fetching stories:', error);
@@ -59,7 +53,7 @@ export const createStory = async (storyData) => {
     }
     
     const response = await axios.post(
-      `${API_URL}/api/stories`, 
+      `${API_URL}/stories`, 
       formData,
       {
         ...getAuthConfig(),
@@ -88,7 +82,7 @@ export const viewStory = async (storyId) => {
     }
     
     const response = await axios.post(
-      `${API_URL}/api/stories/${storyId}/view`, 
+      `${API_URL}/stories/${storyId}/view`, 
       {},
       {
         headers: {
@@ -107,7 +101,7 @@ export const viewStory = async (storyId) => {
 export const getStoryViewers = async (storyId) => {
   try {
     const response = await axios.get(
-      `${API_URL}/api/stories/${storyId}/viewers`,
+      `${API_URL}/stories/${storyId}/viewers`,
       getAuthConfig()
     );
     return response.data;
@@ -121,7 +115,7 @@ export const getStoryViewers = async (storyId) => {
 export const deleteStory = async (storyId) => {
   try {
     const response = await axios.delete(
-      `${API_URL}/api/stories/${storyId}`,
+      `${API_URL}/stories/${storyId}`,
       getAuthConfig()
     );
     return response.data;
@@ -135,7 +129,7 @@ export const deleteStory = async (storyId) => {
 export const getUserStories = async (userId) => {
   try {
     const response = await axios.get(
-      `${API_URL}/api/stories/user/${userId}`,
+      `${API_URL}/stories/user/${userId}`,
       getAuthConfig()
     );
     return response.data;
@@ -149,7 +143,7 @@ export const getUserStories = async (userId) => {
 export const likeStory = async (storyId) => {
   try {
     const response = await axios.post(
-      `${API_URL}/api/stories/${storyId}/like`,
+      `${API_URL}/stories/${storyId}/like`,
       {},
       getAuthConfig()
     );
@@ -164,7 +158,7 @@ export const likeStory = async (storyId) => {
 export const replyToStory = async (storyId, content) => {
   try {
     const response = await axios.post(
-      `${API_URL}/api/stories/${storyId}/reply`,
+      `${API_URL}/stories/${storyId}/reply`,
       { content },
       getAuthConfig()
     );

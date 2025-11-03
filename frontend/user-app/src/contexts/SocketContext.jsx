@@ -1,207 +1,240 @@
 // contexts/SocketContext.js
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { API_URL } from '../config';
 
+// Tạo context
 const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
   const [stompClient, setStompClient] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [user, setUser] = useState(null);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
-  const subscriptionsRef = useRef(new Map()); // Lưu trữ các subscription
+  const subscriptionsRef = useRef(new Map());
+  const clientRef = useRef(null);
 
-  const MAX_RETRY_ATTEMPTS = 3;
+  const MAX_RETRY_ATTEMPTS = 5;
+  const reconnectDelay = useRef(1000);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+  // 🔥 XÁC ĐỊNH URL DỰA TRÊN MÔI TRƯỜNG
+  const getSocketUrl = useCallback(() => {
+    const isNgrok = window.location.hostname.includes('ngrok');
+    const origin = window.location.origin;
 
-    if (!storedUser || !token) return;
-
-    try {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-
-      // Khởi tạo STOMP client
-      const client = new Client({
-        webSocketFactory: () => new SockJS(`${API_URL}/ws`),
-        connectHeaders: {
-          Authorization: `Bearer ${token}`
-        },
-        debug: (str) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('STOMP Debug:', str);
-          }
-        },
-        reconnectDelay: 5000,
-        heartbeatIncoming: 4000,
-        heartbeatOutgoing: 4000,
-        onConnect: (frame) => {
-          console.log('✅ STOMP Connected successfully');
-          setIsConnected(true);
-          setConnectionAttempts(0);
-          setStompClient(client);
-        },
-        onStompError: (frame) => {
-          console.error('❌ STOMP Error:', frame.headers?.message || frame.body);
-          setIsConnected(false);
-          
-          if (connectionAttempts < MAX_RETRY_ATTEMPTS) {
-            setConnectionAttempts(prev => prev + 1);
-          }
-        },
-        onDisconnect: () => {
-          console.log('🔴 STOMP Disconnected');
-          setIsConnected(false);
-        },
-        onWebSocketClose: (event) => {
-          console.log('🔴 WebSocket Closed:', event);
-          setIsConnected(false);
-        },
-        onWebSocketError: (event) => {
-          console.error('❌ WebSocket Error:', event);
-          setIsConnected(false);
-        }
-      });
-
-      // Kích hoạt kết nối
-      client.activate();
-
-      // Cleanup khi unmount
-      return () => {
-        if (client) {
-          // Hủy tất cả subscriptions
-          subscriptionsRef.current.forEach((subscription, destination) => {
-            try {
-              subscription.unsubscribe();
-              console.log(`Unsubscribed from ${destination}`);
-            } catch (error) {
-              console.warn(`Error unsubscribing from ${destination}:`, error);
-            }
-          });
-          subscriptionsRef.current.clear();
-          
-          // Ngắt kết nối
-          client.deactivate();
-          console.log('STOMP client deactivated');
-        }
-      };
-    } catch (error) {
-      console.error('Error setting up STOMP:', error);
+    if (isNgrok) {
+      const url = `${origin}/ws`;
+      console.log('Using Ngrok HTTPS SockJS URL:', url);
+      return url;
+    } else {
+      const localUrl = `http://localhost:8080/ws`;
+      console.log('Using Local HTTP SockJS URL:', localUrl);
+      return localUrl;
     }
   }, []);
 
-  // Tự động reconnect khi token thay đổi
-  useEffect(() => {
-    if (!stompClient) return;
-    if (isConnected || connectionAttempts >= MAX_RETRY_ATTEMPTS) return;
+  // 🔥 TẠO SOCKJS FACTORY – HOẠT ĐỘNG VỚI CẢ HTTPS & HTTP
+  const createSockJSFactory = useCallback(() => {
+    const url = getSocketUrl();
+    return () => {
+      console.log('Creating SockJS connection to:', url);
+      return new SockJS(url);
+    };
+  }, [getSocketUrl]);
 
+  // 🔥 CLEANUP KHI UNMOUNT
+  const cleanup = useCallback(() => {
+    console.log('Cleaning up socket...');
+    subscriptionsRef.current.forEach((sub, dest) => {
+      try {
+        sub.unsubscribe();
+        console.log(`Unsubscribed from ${dest}`);
+      } catch (e) { /* ignore */ }
+    });
+    subscriptionsRef.current.clear();
+
+    if (clientRef.current) {
+      clientRef.current.deactivate();
+      console.log('STOMP client deactivated');
+      clientRef.current = null;
+    }
+    setIsConnected(false);
+  }, []);
+
+  // 🔥 CONNECT FUNCTION
+  const connect = useCallback(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        // STOMP sẽ tự động reconnect với connectHeaders mới
-        console.log('Attempting to reconnect STOMP...');
-      } catch (err) {
-        console.warn('Reconnect failed:', err.message);
-      }
+    if (!token) {
+      console.log('No token, skip socket connect');
+      return;
     }
-  }, [stompClient, isConnected, connectionAttempts]);
 
-  // Subscribe to a topic
-  const subscribe = (destination, callback) => {
-    if (!stompClient || !isConnected) {
-      console.warn('STOMP not connected, cannot subscribe to:', destination);
-      return null;
+    if (clientRef.current?.active) {
+      console.log('Already connected');
+      return;
     }
-    
-    try {
-      // Kiểm tra nếu đã subscribe rồi thì hủy cái cũ
-      if (subscriptionsRef.current.has(destination)) {
-        subscriptionsRef.current.get(destination).unsubscribe();
-      }
 
-      const subscription = stompClient.subscribe(destination, (message) => {
-        try {
-          const data = JSON.parse(message.body);
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`📨 Received from ${destination}:`, data);
-          }
-          callback(data);
-        } catch (error) {
-          console.error(`Parse error for ${destination}:`, error);
+    if (connectionAttempts >= MAX_RETRY_ATTEMPTS) {
+      console.warn('Max retry attempts reached');
+      return;
+    }
+
+    console.log(`Connecting... (attempt ${connectionAttempts + 1})`);
+
+    const client = new Client({
+      webSocketFactory: createSockJSFactory(),
+      connectHeaders: {
+        Authorization: `Bearer ${token}`
+      },
+      debug: (str) => {
+        if (str.includes('ERROR') || str.includes('close') || str.includes('Whoops')) {
+          console.log('STOMP:', str);
         }
-      });
+      },
+      reconnectDelay: reconnectDelay.current,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      connectionTimeout: 10000,
 
-      subscriptionsRef.current.set(destination, subscription);
-      console.log(`✅ Subscribed to ${destination}`);
-      return subscription;
+      onConnect: () => {
+        console.log('STOMP CONNECTED SUCCESSFULLY!');
+        setIsConnected(true);
+        setConnectionAttempts(0);
+        reconnectDelay.current = 1000;
+        setStompClient(client);
+        clientRef.current = client;
+      },
 
-    } catch (error) {
-      console.error(`Subscribe error for ${destination}:`, error);
+      onStompError: (frame) => {
+        console.error('STOMP ERROR:', frame.headers?.message || frame.body);
+        setIsConnected(false);
+        reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000);
+        setConnectionAttempts(prev => prev + 1);
+      },
+
+      onWebSocketClose: () => {
+        console.log('WebSocket closed');
+        setIsConnected(false);
+      },
+
+      onWebSocketError: (e) => {
+        console.error('WebSocket error:', e);
+        setIsConnected(false);
+        reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000);
+        setConnectionAttempts(prev => prev + 1);
+      }
+    });
+
+    client.activate();
+    clientRef.current = client;
+  }, [createSockJSFactory, connectionAttempts]);
+
+  // 🔥 AUTO CONNECT KHI CÓ TOKEN
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && !isConnected) {
+      const timer = setTimeout(connect, 500);
+      return () => clearTimeout(timer);
+    } else if (!token) {
+      cleanup();
+    }
+  }, [connect, isConnected, cleanup]);
+
+  // 🔥 AUTO RECONNECT
+  useEffect(() => {
+    if (!isConnected && localStorage.getItem('token') && connectionAttempts < MAX_RETRY_ATTEMPTS) {
+      const timer = setTimeout(connect, reconnectDelay.current);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, connectionAttempts, connect]);
+
+  // 🔥 SUBSCRIBE
+  const subscribe = useCallback((destination, callback) => {
+    if (!stompClient || !isConnected) {
+      console.warn('Not connected, cannot subscribe:', destination);
       return null;
     }
-  };
 
-  // Unsubscribe from topic
-  const unsubscribe = (destination) => {
-    const subscription = subscriptionsRef.current.get(destination);
-    if (subscription) {
+    if (subscriptionsRef.current.has(destination)) {
+      subscriptionsRef.current.get(destination).unsubscribe();
+    }
+
+    const sub = stompClient.subscribe(destination, (msg) => {
       try {
-        subscription.unsubscribe();
-        subscriptionsRef.current.delete(destination);
-        console.log(`✅ Unsubscribed from ${destination}`);
-      } catch (error) {
-        console.error(`Unsubscribe error for ${destination}:`, error);
+        const data = JSON.parse(msg.body);
+        console.log(`Received [${destination}]:`, data);
+        callback(data);
+      } catch (e) {
+        console.error('Parse error:', e);
       }
-    }
-  };
+    });
 
-  // Send message to server
-  const sendMessage = (destination, body) => {
-    if (!stompClient || !isConnected) {
-      console.warn('STOMP not connected, cannot send to:', destination);
-      return false;
+    subscriptionsRef.current.set(destination, sub);
+    console.log(`Subscribed to ${destination}`);
+    return sub;
+  }, [stompClient, isConnected]);
+
+  // 🔥 UNSUBSCRIBE
+  const unsubscribe = useCallback((destination) => {
+    const sub = subscriptionsRef.current.get(destination);
+    if (sub) {
+      sub.unsubscribe();
+      subscriptionsRef.current.delete(destination);
+      console.log(`Unsubscribed from ${destination}`);
     }
-    
+  }, []);
+
+  // 🔥 SEND
+  const sendMessage = useCallback((destination, body) => {
+    if (!stompClient || !isConnected) return false;
+
     try {
-      const fullDestination = `/app${destination}`;
       stompClient.publish({
-        destination: fullDestination,
+        destination: `/app${destination}`,
         body: JSON.stringify(body)
       });
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`📤 Sent to ${fullDestination}:`, body);
-      }
+      console.log(`Sent to /app${destination}:`, body);
       return true;
-    } catch (error) {
-      console.error(`Send error to ${destination}:`, error);
+    } catch (e) {
+      console.error('Send error:', e);
       return false;
     }
-  };
+  }, [stompClient, isConnected]);
 
-  // Get all active subscriptions (for debugging)
-  const getSubscriptions = () => {
-    return Array.from(subscriptionsRef.current.keys());
-  };
+  // 🔥 MANUAL RECONNECT
+  const manualReconnect = useCallback(() => {
+    console.log('Manual reconnect...');
+    cleanup();
+    setConnectionAttempts(0);
+    reconnectDelay.current = 1000;
+    setTimeout(connect, 500);
+  }, [cleanup, connect]);
+
+  // 🔥 TEST CONNECTION
+  const testConnection = useCallback(() => {
+    const url = getSocketUrl();
+    console.log('Testing direct SockJS to:', url);
+    const sock = new SockJS(url);
+    sock.onopen = () => {
+      console.log('Direct SockJS test: OPEN');
+      sock.close();
+    };
+    sock.onerror = (e) => console.error('Direct SockJS test: ERROR', e);
+  }, [getSocketUrl]);
 
   const value = {
-    // STOMP specific
     stompClient,
     isConnected,
+    onlineUsers,
+    setOnlineUsers,
     subscribe,
     unsubscribe,
     sendMessage,
-    getSubscriptions,
-    
-    // Common
-    user,
-    onlineUsers,
-    connectionAttempts
+    connectionAttempts,
+    maxRetryAttempts: MAX_RETRY_ATTEMPTS,
+    manualReconnect,
+    testConnection,
+    getConnectionStatus: () => isConnected ? 'connected' : 'disconnected'
   };
 
   return (
@@ -213,8 +246,6 @@ export const SocketProvider = ({ children }) => {
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
-  }
+  if (!context) throw new Error('useSocket must be used within SocketProvider');
   return context;
 };

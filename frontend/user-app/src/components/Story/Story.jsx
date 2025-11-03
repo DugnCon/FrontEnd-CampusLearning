@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: Story.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../index';
@@ -29,14 +23,14 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                     onNext?.();
                     return 100;
                 }
-                return prev + (100 / (story.Duration || 15));
+                return prev + (100 / (story.duration || 15));
             });
         }, 1000);
 
         // Mark story as viewed using the API service
         const markAsViewed = async () => {
             try {
-                await viewStory(story.StoryID);
+                await viewStory(story.storyID);
             } catch (error) {
                 console.error('Error marking story as viewed:', error);
             }
@@ -45,7 +39,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         markAsViewed();
 
         return () => clearInterval(timer);
-    }, [story.StoryID, story.Duration, onNext]);
+    }, [story.storyID, story.duration, onNext]);
 
     const handleClick = (e) => {
         const rect = progressRef.current.getBoundingClientRect();
@@ -78,7 +72,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         
         try {
             setLoadingViewers(true);
-            const response = await getStoryViewers(story.StoryID);
+            const response = await getStoryViewers(story.storyID);
             setViewers(response.viewers || []);
             setShowViewers(true);
         } catch (error) {
@@ -90,7 +84,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
     
     const handleLike = async () => {
         try {
-            const res = await likeStory(story.StoryID);
+            const res = await likeStory(story.storyID);
             if (res.liked) {
                 setLiked(true);
             }
@@ -103,7 +97,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         const message = prompt('Nhập tin nhắn trả lời story:');
         if (!message) return;
         try {
-            const { conversationId } = await replyToStory(story.StoryID, message);
+            const { conversationId } = await replyToStory(story.storyID, message);
             alert('Tin nhắn đã được gửi');
             navigate('/chat');
         } catch (error) {
@@ -119,12 +113,12 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
             <div className="story-header">
                 <div className="story-user-info">
                     <Avatar
-                        src={story.User?.Image}
-                        name={story.User?.FullName}
+                        src={story.user?.image}
+                        name={story.user?.fullName}
                         size="small"
                         className="ring-2 ring-white"
                     />
-                    <span className="story-username">{story.User?.FullName}</span>
+                    <span className="story-username">{story.user?.fullName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                     {onDelete && (
@@ -150,26 +144,26 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                 />
             </div>
             
-            <div className="story-content" style={{ backgroundColor: story.BackgroundColor }}>
-                {story.MediaType === 'image' && (
+            <div className="story-content" style={{ backgroundColor: story.backgroundColor }}>
+                {story.mediaType === 'image' && (
                     <img 
-                        src={story.MediaUrl} 
+                        src={story.mediaUrl} 
                         alt="Story" 
                         className="story-media"
                     />
                 )}
-                {story.MediaType === 'video' && (
+                {story.mediaType === 'video' && (
                     <video 
-                        src={story.MediaUrl} 
+                        src={story.mediaUrl} 
                         className="story-media"
                         autoPlay
                         loop
                         muted
                     />
                 )}
-                {story.TextContent && (
+                {story.textContent && (
                     <div className="story-text">
-                        {story.TextContent}
+                        {story.textContent}
                     </div>
                 )}
             </div>
@@ -219,16 +213,16 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                         <div className="story-viewers-content">
                             {viewers.length > 0 ? (
                                 viewers.map((viewer) => (
-                                    <div key={viewer.ViewID} className="story-viewer-item">
+                                    <div key={viewer.viewID} className="story-viewer-item">
                                         <Avatar
-                                            src={viewer.Viewer?.Image}
-                                            name={viewer.Viewer?.FullName}
+                                            src={viewer.viewer?.image}
+                                            name={viewer.viewer?.fullName}
                                             size="small"
                                         />
                                         <div className="story-viewer-info">
-                                            <span className="story-viewer-name">{viewer.Viewer?.FullName}</span>
+                                            <span className="story-viewer-name">{viewer.viewer?.fullName}</span>
                                             <span className="story-viewer-time">
-                                                {new Date(viewer.ViewedAt).toLocaleString()}
+                                                {new Date(viewer.viewedAt).toLocaleString()}
                                             </span>
                                         </div>
                                     </div>

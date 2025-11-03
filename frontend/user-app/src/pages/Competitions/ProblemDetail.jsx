@@ -9,9 +9,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProblemDetails, submitSolution, getSubmissionDetails, getCompetitionDetails, startCompetition } from '@/api/competitionService';
 import { toast } from 'react-toastify';
-import Editor from '@monaco-editor/react';
 import { format } from 'date-fns';
 import Avatar from '../../components/common/Avatar';
+
+// Import CodeMirror (nhẹ hơn Monaco)
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { cpp } from '@codemirror/lang-cpp';
+import { java } from '@codemirror/lang-java';
+import { python } from '@codemirror/lang-python';
 
 const ProblemDetail = () => {
   const { competitionId, problemId } = useParams();
@@ -24,14 +30,11 @@ const ProblemDetail = () => {
   const [submitting, setSubmitting] = useState(false);
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('cpp');
-  const [tabActive, setTabActive] = useState('problem'); // 'problem', 'submissions'
+  const [tabActive, setTabActive] = useState('problem');
   const [results, setResults] = useState(null);
   const [viewingSubmission, setViewingSubmission] = useState(null);
-  const editorRef = useRef(null);
-  // Whether we are currently inspecting a past submission
+  
   const isViewingSubmission = viewingSubmission !== null;
-
-  // Dynamic editor height: larger when no results displayed to avoid empty blank area
   const editorHeight = results ? '500px' : '700px';
 
   // Language options
@@ -73,19 +76,94 @@ public class Main {
 `
   };
 
+  // Get CodeMirror language extension
+  const getLanguageExtension = (lang) => {
+    switch (lang) {
+      case 'cpp':
+      case 'c':
+        return cpp();
+      case 'java':
+        return java();
+      case 'python':
+        return python();
+      case 'javascript':
+        return javascript();
+      default:
+        return cpp();
+    }
+  };
+
+  // Normalize data from BE (UPPERCASE) to FE (lowercase)
+  const normalizeProblemData = (problemData) => {
+    if (!problemData) return null;
+    
+    return {
+      // Problem details
+      title: problemData.Title || problemData.title || 'Không có tiêu đề',
+      description: problemData.Description || problemData.description || '',
+      difficulty: problemData.Difficulty || problemData.difficulty || 'Trung bình',
+      points: problemData.Points || problemData.points || 0,
+      inputFormat: problemData.InputFormat || problemData.inputFormat || '',
+      outputFormat: problemData.OutputFormat || problemData.outputFormat || '',
+      constraints: problemData.Constraints || problemData.constraints || '',
+      sampleInput: problemData.SampleInput || problemData.sampleInput || '',
+      sampleOutput: problemData.SampleOutput || problemData.sampleOutput || '',
+      explanation: problemData.Explanation || problemData.explanation || '',
+      starterCode: problemData.StarterCode || problemData.starterCode || '',
+      timeLimit: problemData.TimeLimit || problemData.timeLimit || 1,
+      memoryLimit: problemData.MemoryLimit || problemData.memoryLimit || 256,
+      
+      // Handle test cases
+      testCasesVisible: (() => {
+        try {
+          const testCases = problemData.TestCasesVisible || problemData.testCasesVisible;
+          if (!testCases) return [];
+          if (typeof testCases === 'string') {
+            return JSON.parse(testCases);
+          }
+          return Array.isArray(testCases) ? testCases : [];
+        } catch (error) {
+          console.error('Lỗi phân tích test cases:', error);
+          return [];
+        }
+      })()
+    };
+  };
+
+  const normalizeSubmissionData = (submissionData) => {
+    if (!submissionData) return null;
+    
+    return {
+      submissionID: submissionData.SubmissionID || submissionData.submissionID,
+      status: submissionData.Status || submissionData.status || 'pending',
+      score: submissionData.Score || submissionData.score || 0,
+      language: submissionData.Language || submissionData.language || 'cpp',
+      executionTime: submissionData.ExecutionTime || submissionData.executionTime,
+      memoryUsed: submissionData.MemoryUsed || submissionData.memoryUsed,
+      submittedAt: submissionData.SubmittedAt || submissionData.submittedAt,
+      errorMessage: submissionData.ErrorMessage || submissionData.errorMessage,
+      sourceCode: submissionData.SourceCode || submissionData.sourceCode,
+      userName: submissionData.UserName || submissionData.userName,
+      userImage: submissionData.UserImage || submissionData.userImage
+    };
+  };
+
   // Fetch competition details for problem list and data
   useEffect(() => {
     const fetchCompetitionDetails = async () => {
       try {
+        console.log('🔄 Fetching competition details...');
         const response = await getCompetitionDetails(competitionId);
-        if (response.success && response.data.problems) {
+        
+        if (response.success && response.data && response.data.problems) {
           setProblemList(response.data.problems);
           setCompetitionData(response.data);
+          console.log('✅ Competition details loaded:', response.data.problems.length, 'problems');
         } else {
-          console.error('Không thể tải danh sách bài tập');
+          console.error('❌ Không thể tải danh sách bài tập:', response);
         }
       } catch (err) {
-        console.error('Lỗi khi tải chi tiết cuộc thi:', err);
+        console.error('❌ Lỗi khi tải chi tiết cuộc thi:', err);
       }
     };
 
@@ -93,74 +171,60 @@ public class Main {
   }, [competitionId]);
 
   // Determine if competition has ended
-  const isCompetitionEnded = competitionData && new Date() > new Date(competitionData.EndTime);
+  const isCompetitionEnded = competitionData && new Date() > new Date(competitionData.endTime);
 
+  // Fetch problem details
   useEffect(() => {
     const fetchProblemDetails = async () => {
       try {
         setLoading(true);
+        console.log('🔄 Fetching problem details...');
+        
         const response = await getProblemDetails(competitionId, problemId);
+        console.log('📥 Problem API response:', response);
         
         // Handle different error types
         if (!response.success) {
           if (response.isAuthError) {
             toast.error('Vui lòng đăng nhập để xem chi tiết bài tập');
             navigate('/login', { state: { from: `/competitions/${competitionId}/problems/${problemId}` } });
-            setLoading(false);
             return;
           }
           
           if (response.isPermissionError) {
             toast.error(response.message || 'Bạn không có quyền xem bài tập này');
-            setLoading(false);
             return;
           }
           
           if (response.isServerError) {
             toast.error(response.message || 'Lỗi máy chủ xảy ra');
-            setLoading(false);
             return;
           }
           
-          // Handle any other error
           toast.error(response.message || 'Không thể tải chi tiết bài tập');
-          setLoading(false);
           return;
         }
         
-        setProblem(response.data);
+        // Normalize problem data
+        const normalizedProblem = normalizeProblemData(response.data);
+        console.log('✅ Normalized problem:', normalizedProblem);
+        setProblem(normalizedProblem);
         
-        // Set submissions from the correct location in the response
-        if (response.userSubmissions) {
-          setSubmissions(response.userSubmissions);
-        }
+        // Normalize submissions data
+        const submissionsData = response.userSubmissions || [];
+        const normalizedSubmissions = submissionsData.map(normalizeSubmissionData).filter(Boolean);
+        console.log('✅ Normalized submissions:', normalizedSubmissions);
+        setSubmissions(normalizedSubmissions);
         
-        // Set initial code from starter code or language template
-        if (response.data.StarterCode) {
-          setCode(response.data.StarterCode);
+        // Set initial code
+        if (normalizedProblem.starterCode) {
+          setCode(normalizedProblem.starterCode);
         } else {
           setCode(starterCodes[language]);
         }
-
-        // Parse test cases if available
-        try {
-          if (response.data.TestCasesVisible) {
-            try {
-              // Try to parse as JSON
-              const visibleTestCases = JSON.parse(response.data.TestCasesVisible);
-              response.data.TestCasesVisible = Array.isArray(visibleTestCases) ? visibleTestCases : [];
-            } catch (error) {
-              console.error('Lỗi phân tích test case hiển thị:', error);
-              response.data.TestCasesVisible = [];
-            }
-          }
-        } catch (error) {
-          console.error('Lỗi xử lý test case:', error);
-          response.data.TestCasesVisible = [];
-        }
         
       } catch (err) {
-        console.error('Lỗi khi tải chi tiết bài tập:', err);
+        console.error('❌ Lỗi khi tải chi tiết bài tập:', err);
         toast.error('Đã xảy ra lỗi khi tải chi tiết bài tập');
       } finally {
         setLoading(false);
@@ -175,15 +239,9 @@ public class Main {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
     
-    // If user hasn't written any code yet, set the starter code for the new language
     if (!code || code === starterCodes[language]) {
       setCode(starterCodes[newLanguage]);
     }
-  };
-
-  // Handle editor mount
-  const handleEditorDidMount = (editor, monaco) => {
-    editorRef.current = editor;
   };
 
   // Submit solution
@@ -197,6 +255,7 @@ public class Main {
       setSubmitting(true);
       setResults(null);
       
+      console.log('🔄 Submitting solution...');
       let response = await submitSolution(competitionId, problemId, code, language);
       
       // If backend indicates competition hasn't started, attempt to start automatically then retry ONCE
@@ -208,6 +267,8 @@ public class Main {
           response = await submitSolution(competitionId, problemId, code, language);
         } else {
           toast.error(startRes.message || 'Không thể bắt đầu cuộc thi.');
+          setSubmitting(false);
+          return;
         }
       }
       
@@ -215,24 +276,16 @@ public class Main {
         toast.success('Nộp bài thành công');
         
         // Polling for submission results
-        let submissionStatus = 'pending';
         let attempts = 0;
         const maxAttempts = 10;
-        const pollingInterval = 2000; // 2 seconds
+        const pollingInterval = 2000;
         
         const checkSubmissionStatus = async () => {
           try {
             attempts++;
-            console.log(`Kiểm tra trạng thái bài nộp (lần ${attempts}/${maxAttempts})...`);
+            console.log(`🔄 Kiểm tra trạng thái bài nộp (lần ${attempts}/${maxAttempts})...`);
             
-            // Fetch the latest problem data including submissions
             const problemData = await getProblemDetails(competitionId, problemId);
-            
-            if (problemData.isServerError) {
-              toast.error(problemData.message || 'Lỗi máy chủ xảy ra');
-              setSubmitting(false);
-              return;
-            }
             
             if (!problemData.success) {
               toast.error(problemData.message || 'Không thể kiểm tra trạng thái bài nộp');
@@ -240,8 +293,12 @@ public class Main {
               return;
             }
             
+            // Normalize submissions data
+            const submissionsData = problemData.userSubmissions || [];
+            const normalizedSubmissions = submissionsData.map(normalizeSubmissionData).filter(Boolean);
+            
             // Find the latest submission
-            const latestSubmission = problemData.userSubmissions?.[0];
+            const latestSubmission = normalizedSubmissions[0];
             
             if (!latestSubmission) {
               console.error('Không tìm thấy bài nộp nào sau khi gửi code');
@@ -249,11 +306,11 @@ public class Main {
               return;
             }
             
-            console.log('Trạng thái bài nộp mới nhất:', latestSubmission.Status);
-            submissionStatus = latestSubmission.Status.toLowerCase();
+            console.log('📊 Trạng thái bài nộp mới nhất:', latestSubmission.status);
+            const submissionStatus = latestSubmission.status.toLowerCase();
             
             // Update UI with the latest submission
-            setSubmissions(problemData.userSubmissions || []);
+            setSubmissions(normalizedSubmissions);
             
             // If still pending/running and we haven't exceeded max attempts, poll again
             if (['pending', 'running', 'compiling'].includes(submissionStatus) && attempts < maxAttempts) {
@@ -263,33 +320,30 @@ public class Main {
               setSubmitting(false);
               
               // Handle the final submission status
-              if (submissionStatus === 'accepted') {
-                toast.success('Bài làm được chấp nhận! 🎉');
-              } else if (submissionStatus === 'wrong_answer') {
-                toast.error('Sai đáp án. Hãy thử lại!');
-              } else if (submissionStatus === 'compilation_error') {
-                toast.error('Lỗi biên dịch. Kiểm tra cú pháp code của bạn.');
-              } else if (submissionStatus === 'runtime_error') {
-                toast.error('Lỗi thực thi. Kiểm tra logic code của bạn.');
-              } else if (submissionStatus === 'time_limit_exceeded') {
-                toast.error('Quá thời gian giới hạn. Hãy tối ưu giải pháp của bạn.');
-              } else if (submissionStatus === 'memory_limit_exceeded') {
-                toast.error('Quá bộ nhớ giới hạn. Hãy tối ưu giải pháp của bạn.');
-              } else {
-                toast.error('Đã xảy ra lỗi khi chấm bài của bạn.');
-              }
+              const statusMessages = {
+                'accepted': 'Bài làm được chấm nhận! 🎉',
+                'wrong_answer': 'Sai đáp án. Hãy thử lại!',
+                'compilation_error': 'Lỗi biên dịch. Kiểm tra cú pháp code của bạn.',
+                'runtime_error': 'Lỗi thực thi. Kiểm tra logic code của bạn.',
+                'time_limit_exceeded': 'Quá thời gian giới hạn. Hãy tối ưu giải pháp của bạn.',
+                'memory_limit_exceeded': 'Quá bộ nhớ giới hạn. Hãy tối ưu giải pháp của bạn.'
+              };
+              
+              toast[submissionStatus === 'accepted' ? 'success' : 'error'](
+                statusMessages[submissionStatus] || 'Đã xảy ra lỗi khi chấm bài của bạn.'
+              );
               
               // Display detailed results
               setResults({
                 status: submissionStatus,
-                message: latestSubmission.ErrorMessage || null,
-                score: latestSubmission.Score,
-                executionTime: latestSubmission.ExecutionTime,
-                memoryUsed: latestSubmission.MemoryUsed
+                message: latestSubmission.errorMessage || null,
+                score: latestSubmission.score || 0,
+                executionTime: latestSubmission.executionTime,
+                memoryUsed: latestSubmission.memoryUsed
               });
             }
           } catch (error) {
-            console.error('Lỗi khi kiểm tra trạng thái bài nộp:', error);
+            console.error('❌ Lỗi khi kiểm tra trạng thái bài nộp:', error);
             setSubmitting(false);
             toast.error('Không thể kiểm tra trạng thái bài nộp');
           }
@@ -302,7 +356,7 @@ public class Main {
         setSubmitting(false);
       }
     } catch (error) {
-      console.error('Lỗi khi nộp code:', error);
+      console.error('❌ Lỗi khi nộp code:', error);
       toast.error(error.response?.data?.message || 'Lỗi khi nộp code');
       setSubmitting(false);
     }
@@ -311,46 +365,55 @@ public class Main {
   // View a specific submission
   const handleViewSubmission = async (submissionId) => {
     try {
+      console.log('🔄 Fetching submission details...');
       const response = await getSubmissionDetails(submissionId);
+      
       if (response.success) {
-        setViewingSubmission(response.data);
+        const normalizedSubmission = normalizeSubmissionData(response.data);
+        setViewingSubmission(normalizedSubmission);
         setTabActive('submissions');
+        console.log('✅ Submission details loaded:', normalizedSubmission);
       } else {
         toast.error('Không thể tải chi tiết bài nộp');
       }
     } catch (err) {
-      console.error('Lỗi khi tải chi tiết bài nộp:', err);
+      console.error('❌ Lỗi khi tải chi tiết bài nộp:', err);
       toast.error('Lỗi khi tải chi tiết bài nộp');
     }
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'accepted':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Đạt</span>;
-      case 'wrong_answer':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Sai đáp án</span>;
-      case 'compilation_error':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Lỗi biên dịch</span>;
-      case 'runtime_error':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">Lỗi thực thi</span>;
-      case 'time_limit_exceeded':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Quá thời gian</span>;
-      case 'memory_limit_exceeded':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">Quá bộ nhớ</span>;
-      case 'pending':
-      case 'running':
-      case 'compiling':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 flex items-center">
+    const statusConfig = {
+      'accepted': { color: 'green', text: 'Đạt' },
+      'wrong_answer': { color: 'red', text: 'Sai đáp án' },
+      'compilation_error': { color: 'yellow', text: 'Lỗi biên dịch' },
+      'runtime_error': { color: 'orange', text: 'Lỗi thực thi' },
+      'time_limit_exceeded': { color: 'purple', text: 'Quá thời gian' },
+      'memory_limit_exceeded': { color: 'indigo', text: 'Quá bộ nhớ' },
+      'pending': { color: 'blue', text: 'Đang chờ' },
+      'running': { color: 'blue', text: 'Đang chạy' },
+      'compiling': { color: 'blue', text: 'Đang biên dịch' }
+    };
+    
+    const config = statusConfig[status] || { color: 'gray', text: status };
+    
+    if (['pending', 'running', 'compiling'].includes(status)) {
+      return (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full bg-${config.color}-100 text-${config.color}-800 flex items-center`}>
           <svg className="w-3 h-3 mr-1 animate-spin" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          {status === 'pending' ? 'Đang chờ' : status === 'running' ? 'Đang chạy' : 'Đang biên dịch'}
-        </span>;
-      default:
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">{status}</span>;
+          {config.text}
+        </span>
+      );
     }
+    
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full bg-${config.color}-100 text-${config.color}-800`}>
+        {config.text}
+      </span>
+    );
   };
 
   const formatDateTime = (dateTime) => {
@@ -368,6 +431,7 @@ public class Main {
         <div className="flex justify-center items-center py-32">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
+        <div className="text-center text-gray-500">Đang tải bài tập...</div>
       </div>
     );
   }
@@ -396,7 +460,7 @@ public class Main {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Problem description - now 35% */}
+        {/* Problem description */}
         <div className="lg:col-span-4 bg-white rounded-lg shadow-md overflow-hidden">
           <div className="flex border-b">
             <button
@@ -425,34 +489,34 @@ public class Main {
             {tabActive === 'problem' ? (
               <>
                 <div className="flex justify-between items-start mb-4">
-                  <h1 className="text-2xl font-bold">{problem.Title}</h1>
+                  <h1 className="text-2xl font-bold">{problem.title}</h1>
                   <div className="flex items-center">
                     <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-                      problem.Difficulty === 'Dễ' ? 'bg-green-100 text-green-800' : 
-                      problem.Difficulty === 'Trung bình' ? 'bg-yellow-100 text-yellow-800' : 
+                      (problem.difficulty === 'Dễ' || problem.difficulty === 'Easy') ? 'bg-green-100 text-green-800' : 
+                      (problem.difficulty === 'Trung bình' || problem.difficulty === 'Medium') ? 'bg-yellow-100 text-yellow-800' : 
                       'bg-red-100 text-red-800'
                     }`}>
-                      {problem.Difficulty}
+                      {problem.difficulty}
                     </span>
-                    <span className="ml-2 text-sm text-gray-500">{problem.Points} điểm</span>
+                    <span className="ml-2 text-sm text-gray-500">{problem.points} điểm</span>
                   </div>
                 </div>
                 
-                {/* Add problem list section to allow selection */}
+                {/* Problem list navigation */}
                 <div className="mb-6 border-b pb-4">
                   <h3 className="text-md font-semibold mb-2">Danh sách bài tập</h3>
                   <div className="flex flex-wrap gap-2">
                     {problemList && problemList.map((p) => (
                       <button
-                        key={p.ProblemID}
-                        onClick={() => p.ProblemID !== parseInt(problemId) && navigate(`/competitions/${competitionId}/problems/${p.ProblemID}`)}
+                        key={p.problemID}
+                        onClick={() => p.problemID !== parseInt(problemId) && navigate(`/competitions/${competitionId}/problems/${p.problemID}`)}
                         className={`px-3 py-1 text-sm rounded-full ${
-                          p.ProblemID === parseInt(problemId)
+                          p.problemID === parseInt(problemId)
                             ? 'bg-blue-600 text-white'
                             : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                         }`}
                       >
-                        {p.Title}
+                        {p.title}
                       </button>
                     ))}
                   </div>
@@ -460,63 +524,63 @@ public class Main {
                 
                 <div className="prose max-w-none">
                   <div className="mb-6">
-                    <p>{problem.Description}</p>
+                    <p>{problem.description}</p>
                   </div>
                   
-                  {problem.InputFormat && (
+                  {problem.inputFormat && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Định dạng đầu vào</h3>
-                      <p>{problem.InputFormat}</p>
+                      <p>{problem.inputFormat}</p>
                     </div>
                   )}
                   
-                  {problem.OutputFormat && (
+                  {problem.outputFormat && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Định dạng đầu ra</h3>
-                      <p>{problem.OutputFormat}</p>
+                      <p>{problem.outputFormat}</p>
                     </div>
                   )}
                   
-                  {problem.Constraints && (
+                  {problem.constraints && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Ràng buộc</h3>
-                      <p>{problem.Constraints}</p>
+                      <p>{problem.constraints}</p>
                     </div>
                   )}
                   
-                  {(problem.SampleInput || problem.SampleOutput) && (
+                  {(problem.sampleInput || problem.sampleOutput) && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Ví dụ</h3>
                       <div className="grid grid-cols-1 gap-4">
-                        {problem.SampleInput && (
+                        {problem.sampleInput && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Đầu vào mẫu</h4>
-                            <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.SampleInput}</pre>
+                            <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.sampleInput}</pre>
                           </div>
                         )}
                         
-                        {problem.SampleOutput && (
+                        {problem.sampleOutput && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Đầu ra mẫu</h4>
-                            <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.SampleOutput}</pre>
+                            <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.sampleOutput}</pre>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
                   
-                  {problem.Explanation && (
+                  {problem.explanation && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Giải thích</h3>
-                      <p>{problem.Explanation}</p>
+                      <p>{problem.explanation}</p>
                     </div>
                   )}
                   
-                  {problem.TestCasesVisible && problem.TestCasesVisible.length > 0 && (
+                  {problem.testCasesVisible && problem.testCasesVisible.length > 0 && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Test Case</h3>
                       <div className="space-y-4">
-                        {problem.TestCasesVisible.map((testCase, index) => (
+                        {problem.testCasesVisible.map((testCase, index) => (
                           <div key={index} className="border rounded-md p-4">
                             <div className="grid grid-cols-1 gap-4">
                               <div>
@@ -544,13 +608,13 @@ public class Main {
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center">
                         <Avatar 
-                          src={viewingSubmission.UserImage} 
-                          alt={viewingSubmission.UserName || "Người dùng"} 
-                          name={viewingSubmission.UserName || "Người dùng"}
+                          src={viewingSubmission.userImage} 
+                          alt={viewingSubmission.userName || "Người dùng"} 
+                          name={viewingSubmission.userName || "Người dùng"}
                           size="small" 
                           className="mr-3" 
                         />
-                        <h3 className="text-lg font-semibold">Bài nộp #{viewingSubmission.SubmissionID}</h3>
+                        <h3 className="text-lg font-semibold">Bài nộp #{viewingSubmission.submissionID}</h3>
                       </div>
                       <button 
                         onClick={() => setViewingSubmission(null)}
@@ -563,35 +627,35 @@ public class Main {
                     <div className="mb-4 grid grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm text-gray-500">Trạng thái:</span>
-                        <div className="mt-1">{getStatusBadge(viewingSubmission.Status)}</div>
+                        <div className="mt-1">{getStatusBadge(viewingSubmission.status)}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Điểm:</span>
-                        <div className="mt-1 font-medium">{viewingSubmission.Score} điểm</div>
+                        <div className="mt-1 font-medium">{viewingSubmission.score} điểm</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Thời gian:</span>
-                        <div className="mt-1">{viewingSubmission.ExecutionTime ? `${viewingSubmission.ExecutionTime} giây` : '-'}</div>
+                        <div className="mt-1">{viewingSubmission.executionTime ? `${viewingSubmission.executionTime} giây` : '-'}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Bộ nhớ:</span>
-                        <div className="mt-1">{viewingSubmission.MemoryUsed ? `${viewingSubmission.MemoryUsed} KB` : '-'}</div>
+                        <div className="mt-1">{viewingSubmission.memoryUsed ? `${viewingSubmission.memoryUsed} KB` : '-'}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Ngôn ngữ:</span>
-                        <div className="mt-1">{viewingSubmission.Language}</div>
+                        <div className="mt-1">{viewingSubmission.language}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Thời gian nộp:</span>
-                        <div className="mt-1">{formatDateTime(viewingSubmission.SubmittedAt)}</div>
+                        <div className="mt-1">{formatDateTime(viewingSubmission.submittedAt)}</div>
                       </div>
                     </div>
                     
-                    {viewingSubmission.ErrorMessage && (
+                    {viewingSubmission.errorMessage && (
                       <div className="mb-4">
                         <h4 className="text-sm font-medium text-red-600 mb-2">Lỗi:</h4>
                         <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
-                          {viewingSubmission.ErrorMessage}
+                          {viewingSubmission.errorMessage}
                         </pre>
                       </div>
                     )}
@@ -630,38 +694,38 @@ public class Main {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {submissions.map((submission) => (
-                          <tr key={submission.SubmissionID} 
+                          <tr key={submission.submissionID} 
                               className="hover:bg-gray-50 cursor-pointer" 
-                              onClick={() => handleViewSubmission(submission.SubmissionID)}>
+                              onClick={() => handleViewSubmission(submission.submissionID)}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               <div className="flex items-center">
                                 <Avatar 
-                                  src={submission.UserImage} 
-                                  alt={submission.UserName || "Người dùng"} 
-                                  name={submission.UserName || "Người dùng"}
+                                  src={submission.userImage} 
+                                  alt={submission.userName || "Người dùng"} 
+                                  name={submission.userName || "Người dùng"}
                                   size="small" 
                                   className="mr-2" 
                                 />
-                                {submission.SubmissionID}
+                                {submission.submissionID}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {getStatusBadge(submission.Status)}
+                              {getStatusBadge(submission.status)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {submission.Score}
+                              {submission.score}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {submission.Language}
+                              {submission.language}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {submission.ExecutionTime ? `${submission.ExecutionTime} s` : '-'}
+                              {submission.executionTime ? `${submission.executionTime} s` : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {submission.MemoryUsed ? `${submission.MemoryUsed} KB` : '-'}
+                              {submission.memoryUsed ? `${submission.memoryUsed} KB` : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDateTime(submission.SubmittedAt)}
+                              {formatDateTime(submission.submittedAt)}
                             </td>
                           </tr>
                         ))}
@@ -674,14 +738,14 @@ public class Main {
           </div>
         </div>
         
-        {/* Code editor - now 65% */}
+        {/* Code editor với CodeMirror */}
         <div className="lg:col-span-8 bg-white rounded-lg shadow-md overflow-hidden">
           <div className="border-b px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <label htmlFor="language" className="text-sm font-medium text-gray-700">Ngôn ngữ:</label>
               <select
                 id="language"
-                value={isViewingSubmission ? viewingSubmission.Language : language}
+                value={isViewingSubmission ? viewingSubmission.language : language}
                 onChange={handleLanguageChange}
                 disabled={isViewingSubmission || isCompetitionEnded}
                 className="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -718,17 +782,30 @@ public class Main {
           </div>
           
           <div className="border-b">
-            <Editor
+            <CodeMirror
+              value={isViewingSubmission ? viewingSubmission.sourceCode : code}
               height={editorHeight}
-              language={isViewingSubmission ? viewingSubmission.Language : language}
-              value={isViewingSubmission ? viewingSubmission.SourceCode : code}
+              extensions={[getLanguageExtension(isViewingSubmission ? viewingSubmission.language : language)]}
               onChange={isViewingSubmission || isCompetitionEnded ? undefined : setCode}
-              onMount={handleEditorDidMount}
-              options={{
-                readOnly: isViewingSubmission || isCompetitionEnded,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                fontSize: 14,
+              readOnly={isViewingSubmission || isCompetitionEnded}
+              theme="light"
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLine: true,
+                highlightSelectionMatches: true,
+                indentOnInput: true,
+                syntaxHighlighting: true,
+                bracketMatching: true,
+                autocompletion: true,
+                foldGutter: true,
+                dropCursor: true,
+                allowMultipleSelections: true,
+                indentUnit: 4,
+                tabSize: 4,
+              }}
+              style={{
+                fontSize: '14px',
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace'
               }}
             />
           </div>
@@ -745,7 +822,7 @@ public class Main {
                 
                 <div className="flex items-center">
                   <span className="text-sm font-medium mr-2">Điểm:</span>
-                  <span className="text-sm font-medium">{results.score} / {problem.Points}</span>
+                  <span className="text-sm font-medium">{results.score} / {problem.points}</span>
                 </div>
                 
                 {results.executionTime && (
@@ -768,27 +845,6 @@ public class Main {
                     <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
                       {results.message}
                     </pre>
-                    
-                    {/* Display detailed comparison info if available */}
-                    {results.message.includes('Outputs differ') && results.diffInfo && (
-                      <div className="mt-2 border-t border-red-200 pt-2">
-                        <h4 className="text-sm font-medium text-red-600 mb-1">Chi tiết lỗi so sánh:</h4>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <div>
-                            <div className="text-xs font-medium text-red-700 mb-1">Kết quả mong đợi:</div>
-                            <pre className="bg-green-50 p-2 rounded-md text-xs overflow-x-auto whitespace-pre-wrap text-green-800">
-                              {results.diffInfo.expectedContext}
-                            </pre>
-                          </div>
-                          <div>
-                            <div className="text-xs font-medium text-red-700 mb-1">Kết quả của bạn:</div>
-                            <pre className="bg-red-50 p-2 rounded-md text-xs overflow-x-auto whitespace-pre-wrap text-red-800">
-                              {results.diffInfo.actualContext}
-                            </pre>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -800,4 +856,4 @@ public class Main {
   );
 };
 
-export default ProblemDetail; 
+export default ProblemDetail;

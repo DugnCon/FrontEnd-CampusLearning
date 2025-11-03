@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../index';
-import { TrashIcon, EyeIcon, UserGroupIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, EyeIcon, UserGroupIcon, HeartIcon, ChatBubbleLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { viewStory, getStoryViewers, likeStory, replyToStory } from '../../api/storyApi';
 import './Story.css';
 
@@ -11,6 +10,9 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
     const [viewers, setViewers] = useState([]);
     const [showViewers, setShowViewers] = useState(false);
     const [loadingViewers, setLoadingViewers] = useState(false);
+    const [showReplyModal, setShowReplyModal] = useState(false);
+    const [replyMessage, setReplyMessage] = useState('');
+    const [sendingReply, setSendingReply] = useState(false);
     const progressRef = useRef(null);
     const navigate = useNavigate();
     const [liked, setLiked] = useState(false);
@@ -55,14 +57,18 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         } else if (e.key === 'ArrowLeft') {
             onPrevious?.();
         } else if (e.key === 'Escape') {
-            onClose();
+            if (showReplyModal) {
+                setShowReplyModal(false);
+            } else {
+                onClose();
+            }
         }
     };
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onNext, onPrevious, onClose]);
+    }, [onNext, onPrevious, onClose, showReplyModal]);
     
     const fetchViewers = async () => {
         if (showViewers) {
@@ -93,16 +99,91 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         }
     };
 
-    const handleReply = async () => {
-        const message = prompt('Nhập tin nhắn trả lời story:');
-        if (!message) return;
+    const handleReplyClick = () => {
+        setShowReplyModal(true);
+    };
+
+    const handleCloseReplyModal = () => {
+        setShowReplyModal(false);
+        setReplyMessage('');
+    };
+
+    const handleSendReply = async () => {
+        if (!replyMessage.trim()) return;
+        
+        setSendingReply(true);
         try {
-            const { conversationId } = await replyToStory(story.storyID, message);
-            alert('Tin nhắn đã được gửi');
+            console.log('🔄 Sending reply to story:', story.storyID);
+            console.log('📝 Message:', replyMessage);
+
+            const response = await replyToStory(story.storyID, replyMessage);
+            console.log('✅ Response:', response);
+            
+            alert('Tin nhắn đã được gửi!');
+            setShowReplyModal(false);
+            setReplyMessage('');
             navigate('/chat');
+            
         } catch (error) {
-            console.error('Error replying to story:', error);
-            alert('Không thể gửi tin nhắn. Vui lòng thử lại.');
+            console.error('❌ Error sending reply:', error);
+            
+            if (error.response) {
+                console.log('🔴 BACKEND ERROR DETAILS:');
+                console.log('Status:', error.response.status);
+                console.log('Data:', error.response.data);
+                
+                const errorMessage = error.response.data?.message || 'Lỗi không xác định';
+                alert(`Lỗi: ${errorMessage}`);
+            } else {
+                alert('Không thể gửi tin nhắn. Vui lòng thử lại.');
+            }
+        } finally {
+            setSendingReply(false);
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            handleSendReply();
+        }
+    };
+
+    // Render story preview for reply modal
+    const renderStoryPreview = () => {
+        if (story.mediaType === 'image') {
+            return (
+                <img 
+                    src={story.mediaUrl} 
+                    alt="Story preview" 
+                    className="story-reply-preview-image"
+                />
+            );
+        } else if (story.mediaType === 'video') {
+            return (
+                <video 
+                    src={story.mediaUrl} 
+                    className="story-reply-preview-video"
+                    muted
+                    autoPlay
+                    loop
+                />
+            );
+        } else {
+            return (
+                <div 
+                    className="story-reply-preview-text"
+                    style={{ backgroundColor: story.backgroundColor }}
+                >
+                    <p style={{ 
+                        color: 'white', 
+                        fontSize: '18px',
+                        fontFamily: story.fontStyle || 'inherit',
+                        fontWeight: '600'
+                    }}>
+                        {story.textContent}
+                    </p>
+                </div>
+            );
         }
     };
 
@@ -196,7 +277,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                             <button className="story-like-btn" onClick={handleLike} aria-label="Thả tim">
                                 <HeartIcon className="w-4 h-4" />
                             </button>
-                            <button className="story-reply-btn" onClick={handleReply} aria-label="Trả lời story">
+                            <button className="story-reply-btn" onClick={handleReplyClick} aria-label="Trả lời story">
                                 <ChatBubbleLeftIcon className="w-4 h-4" />
                             </button>
                         </>
@@ -235,6 +316,76 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                 )}
             </div>
 
+            {/* Story Reply Modal */}
+            {showReplyModal && (
+                <div className="story-reply-modal">
+                    <div className="story-reply-backdrop" onClick={handleCloseReplyModal} />
+                    
+                    <div className="story-reply-container">
+                        {/* Story Preview Background */}
+                        <div className="story-reply-preview">
+                            {renderStoryPreview()}
+                            
+                            {/* User Info Overlay */}
+                            <div className="story-reply-user-info">
+                                <Avatar
+                                    src={story.user?.image}
+                                    name={story.user?.fullName}
+                                    size="small"
+                                    className="ring-2 ring-white"
+                                />
+                                <span className="story-reply-username">
+                                    {story.user?.fullName}
+                                </span>
+                            </div>
+                            
+                            {/* Close Button */}
+                            <button 
+                                className="story-reply-close"
+                                onClick={handleCloseReplyModal}
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        {/* Reply Input Area */}
+                        <div className="story-reply-input-container">
+                            <textarea
+                                className="story-reply-input"
+                                placeholder="Nhập tin nhắn trả lời..."
+                                value={replyMessage}
+                                onChange={(e) => setReplyMessage(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                maxLength={500}
+                                autoFocus
+                                rows={3}
+                            />
+                            
+                            <div className={`story-reply-counter ${replyMessage.length > 450 ? 'warning' : ''}`}>
+                                {replyMessage.length}/500
+                            </div>
+                            
+                            <div className="story-reply-actions">
+                                <button 
+                                    className="story-reply-cancel"
+                                    onClick={handleCloseReplyModal}
+                                    disabled={sendingReply}
+                                >
+                                    Hủy
+                                </button>
+                                <button 
+                                    className="story-reply-send"
+                                    onClick={handleSendReply}
+                                    disabled={!replyMessage.trim() || sendingReply}
+                                >
+                                    {sendingReply ? 'Đang gửi...' : 'Gửi'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="story-navigation">
                 <button className="story-nav-btn story-nav-prev" onClick={onPrevious} />
                 <button className="story-nav-btn story-nav-next" onClick={onNext} />
@@ -243,4 +394,4 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
     );
 };
 
-export default Story; 
+export default Story;

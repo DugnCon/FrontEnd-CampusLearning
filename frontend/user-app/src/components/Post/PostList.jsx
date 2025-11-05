@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: PostList.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -35,6 +28,8 @@ import {
 
 import { Avatar } from '../index';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 // Custom styles for Markdown elements
 const markdownStyles = {
   table: 'min-w-full border border-gray-300 border-collapse my-4',
@@ -62,7 +57,7 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
   if (!isOpen || !media || media.length === 0) return null;
 
   const currentMedia = media[currentIndex];
-  const isVideo = currentMedia.mediaType === 'video';
+  const isVideo = currentMedia?.mediaType === 'video';
   
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') onClose();
@@ -70,11 +65,9 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
     if (e.key === 'ArrowLeft') onPrev();
   };
 
-  // Add keyboard event listener when modal is open
   useEffect(() => {
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
-      // Prevent body scrolling when modal is open
       document.body.style.overflow = 'hidden';
     }
     
@@ -87,7 +80,7 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
   // Prepare the media URL
   let mediaUrl = '';
   try {
-    if (!currentMedia.mediaUrl) {
+    if (!currentMedia?.mediaUrl) {
       mediaUrl = '/placeholder-image.svg';
     } else if (currentMedia.mediaUrl.startsWith('http')) {
       mediaUrl = currentMedia.mediaUrl;
@@ -168,20 +161,20 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
   );
 };
 
-const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia, onLocationFilter, onBookmark, onReport }) => {
-  const [posts, setPosts] = useState(initialPosts || []);
+const PostList = ({ initialPosts, onLike, onComment, onShare, onDelete, onReport, onEdit, onRefreshMedia, onLocationFilter, onBookmark }) => {
+  const [posts, setPosts] = useState(Array.isArray(initialPosts) ? initialPosts : []);
   const [editingPost, setEditingPost] = useState(null);
 
   useEffect(() => {
     if (initialPosts) {
-      setPosts(initialPosts);
+      setPosts(Array.isArray(initialPosts) ? initialPosts : []);
     }
   }, [initialPosts]);
 
   const handleDeletePost = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -197,19 +190,17 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
       setPosts(updatedPosts);
     } catch (error) {
       console.error('Error deleting post:', error);
-      // You might want to show an error message to the user here
     }
   };
 
   const handleReportPost = async (postId, reportData) => {
     try {
-      // Use the provided onReport function if available, otherwise use the local implementation
       if (onReport) {
         return await onReport(postId, reportData);
       }
       
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/reports', {
+      const response = await fetch(`${API_URL}/api/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +216,6 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
         throw new Error('Failed to report post');
       }
       
-      // Show success message
       alert('Báo cáo đã được gửi thành công!');
       return true;
     } catch (error) {
@@ -238,7 +228,7 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
   const handleSharePost = async (postId, shareData) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}/share`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -273,7 +263,7 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
   const handleEditPost = async (postId, updatedContent) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -326,7 +316,7 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
     <div className="space-y-6">
       {posts.map((post) => (
         <PostCard
-          key={post.postID}
+          key={post.postID || post.PostID || `post-${Math.random()}`}
           post={post}
           onLike={onLike}
           onComment={onComment}
@@ -337,8 +327,8 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
           onRefreshMedia={onRefreshMedia}
           onLocationFilter={onLocationFilter}
           onBookmark={onBookmark}
-          isEditing={editingPost === post.postID}
-          setEditing={(isEditing) => setEditingPost(isEditing ? post.postID : null)}
+          isEditing={editingPost === (post.postID || post.PostID)}
+          setEditing={(isEditing) => setEditingPost(isEditing ? (post.postID || post.PostID) : null)}
         />
       ))}
     </div>
@@ -346,25 +336,48 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
 };
 
 const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit, onRefreshMedia, onLocationFilter, onBookmark, isEditing, setEditing }) => {
-  const [isLiked, setIsLiked] = useState(post.IsLiked === 1);
+  // 🔥 VALIDATION: Kiểm tra post có tồn tại không
+  if (!post) {
+    console.error('Post is undefined');
+    return null;
+  }
+
+  // 🔥 TẠO SAFE POST OBJECT với fallback values
+  const safePost = {
+    postID: post.postID || post.PostID || `post-${Math.random()}`,
+    content: post.Content || post.content || '',
+    fullName: post.FullName || post.fullName || post.username || 'Unknown User',
+    userImage: post.UserImage || post.userImage || post.avatar || post.profileImage || '',
+    userID: post.userID || post.UserID || '',
+    likesCount: post.LikesCount || post.likesCount || 0,
+    commentsCount: post.CommentsCount || post.commentsCount || 0,
+    sharesCount: post.SharesCount || post.sharesCount || 0,
+    isLiked: post.IsLiked || post.isLiked || false,
+    isBookmarked: post.IsBookmarked || post.isBookmarked || false,
+    createdAt: post.createdAt || post.CreatedAt || new Date().toISOString(),
+    media: Array.isArray(post.media) ? post.media : [],
+    Location: post.Location || null,
+    Visibility: post.Visibility || 'public',
+    isEdited: post.IsEdited || post.isEdited || false
+  };
+
+  const [isLiked, setIsLiked] = useState(safePost.isLiked);
   const [showOptions, setShowOptions] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked === 1);
+  const [isBookmarked, setIsBookmarked] = useState(safePost.isBookmarked);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [commentError, setCommentError] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [editedContent, setEditedContent] = useState(post.Content);
+  const [editedContent, setEditedContent] = useState(safePost.content);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const [editMedia, setEditMedia] = useState(post.media || []);
+  const [editMedia, setEditMedia] = useState(safePost.media);
   const [newMedia, setNewMedia] = useState([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
-  // State for AI summarization
   const [aiSummary, setAiSummary] = useState(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  // New state for lightbox
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const fileInputRef = useRef(null);
@@ -376,13 +389,15 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
 
   const handleLike = () => {
     setIsLiked(!isLiked);
-    onLike(post.PostID);
+    if (onLike) {
+      onLike(safePost.postID);
+    }
   };
 
   const handleBookmark = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${post.postID}/bookmark`, {
+      const response = await fetch(`${API_URL}/posts/${safePost.postID}/bookmark`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -393,12 +408,10 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         throw new Error('Failed to bookmark post');
       }
       
-      // Toggle bookmark state locally
       setIsBookmarked(!isBookmarked);
       
-      // Call the onBookmark prop if provided
       if (onBookmark) {
-        onBookmark(post.postID);
+        onBookmark(safePost.postID);
       }
     } catch (error) {
       console.error('Error bookmarking post:', error);
@@ -406,38 +419,42 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    
-    if (diffInSeconds < 60) {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - date) / 1000);
+      
+      if (diffInSeconds < 60) {
+        return 'Vừa xong';
+      }
+      
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      if (diffInMinutes < 60) {
+        return `${diffInMinutes} phút trước`;
+      }
+      
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) {
+        return `${diffInHours} giờ trước`;
+      }
+      
+      const diffInDays = Math.floor(diffInHours / 24);
+      if (diffInDays < 7) {
+        return `${diffInDays} ngày trước`;
+      }
+      
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
       return 'Vừa xong';
     }
-    
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes} phút trước`;
-    }
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) {
-      return `${diffInHours} giờ trước`;
-    }
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) {
-      return `${diffInDays} ngày trước`;
-    }
-    
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
   };
 
   const getVisibilityIcon = () => {
-    switch (post.Visibility) {
+    switch (safePost.Visibility) {
       case 'private':
         return <LockClosedIcon className="w-3.5 h-3.5 text-gray-500" />;
       case 'friends':
@@ -445,7 +462,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       default:
         return <GlobeAltIcon className="w-3.5 h-3.5 text-gray-500" />;
     }
-  }
+  };
 
   const handleCommentToggle = () => {
     setShowComments(!showComments);
@@ -459,7 +476,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     setCommentError(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${post.postID}/comments`, {
+      const response = await fetch(`${API_URL}/posts/${safePost.postID}/comments`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -470,10 +487,11 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       }
       
       const data = await response.json();
-      setComments(data.comments || []);
+      setComments(Array.isArray(data.comments) ? data.comments : []);
     } catch (error) {
       console.error('Error fetching comments:', error);
       setCommentError('Failed to load comments');
+      setComments([]);
     } finally {
       setIsLoadingComments(false);
     }
@@ -487,7 +505,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     setSubmittingComment(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${post.postID}/comments`, {
+      const response = await fetch(`${API_URL}/posts/${safePost.postID}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -501,12 +519,22 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       }
       
       const data = await response.json();
-      setComments([data.comment, ...comments]);
+      const newCommentData = data.comment || {
+        commentID: `temp_${Date.now()}`,
+        content: newComment,
+        fullName: JSON.parse(localStorage.getItem('user') || '{}').FullName || 'You',
+        userImage: JSON.parse(localStorage.getItem('user') || '{}').ProfileImage || '',
+        userID: JSON.parse(localStorage.getItem('user') || '{}').UserID,
+        likesCount: 0,
+        isLiked: false,
+        createdAt: new Date().toISOString()
+      };
+      
+      setComments(prev => [newCommentData, ...prev]);
       setNewComment('');
       
-      // Update comment count
       if (onComment) {
-        onComment(post.PostID);
+        onComment(safePost.postID);
       }
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -519,7 +547,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   const handleLikeComment = async (commentId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/comments/${commentId}/like`, {
+      const response = await fetch(`${API_URL}/posts/comments/${commentId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -530,13 +558,12 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         throw new Error('Failed to like comment');
       }
       
-      // Update comment in state
-      setComments(comments.map(comment => 
-        comment.commentID === commentId 
+      setComments(prev => prev.map(comment => 
+        comment && comment.commentID === commentId 
           ? { 
               ...comment, 
-              LikesCount: comment.IsLiked ? comment.LikesCount - 1 : comment.LikesCount + 1,
-              IsLiked: !comment.isLiked 
+              likesCount: comment.IsLiked ? (comment.likesCount || 0) - 1 : (comment.likesCount || 0) + 1,
+              isLiked: !comment.isLiked 
             } 
           : comment
       ));
@@ -545,10 +572,13 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     }
   };
 
+  // 🔥 FIXED: API DELETE COMMENT theo format /posts/{postId}/comments/{commentId}
   const handleDeleteComment = async (commentId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/comments/${commentId}`, {
+      
+      // 🔥 SỬ DỤNG ĐÚNG FORMAT API
+      const response = await fetch(`${API_URL}/posts/${safePost.postID}/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -559,15 +589,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         throw new Error('Failed to delete comment');
       }
       
-      // Remove comment from state
-      setComments(comments.filter(comment => comment.commentID !== commentId));
+      setComments(prev => prev.filter(comment => comment && comment.commentID !== commentId));
       
-      // Update comment count in the post
       if (onComment) {
-        onComment(post.PostID, -1);
+        onComment(safePost.postID, -1);
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
+      alert('Không thể xóa bình luận. Vui lòng thử lại sau.');
     }
   };
 
@@ -576,10 +605,10 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     
     setIsSubmittingEdit(true);
     try {
-      // First update the post content
-      await onEdit(post.PostID, editedContent);
+      if (onEdit) {
+        await onEdit(safePost.postID, editedContent);
+      }
       
-      // Then handle any new media uploads
       if (newMedia.length > 0) {
         const token = localStorage.getItem('token');
         const formData = new FormData();
@@ -589,7 +618,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         });
         
         setUploadingMedia(true);
-        const mediaResponse = await fetch(`/api/posts/${post.postID}/media`, {
+        const mediaResponse = await fetch(`${API_URL}/posts/${safePost.postID}/media`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -601,9 +630,8 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
           throw new Error('Failed to upload media');
         }
         
-        // Refresh post data to get updated media list
         if (onRefreshMedia) {
-          await onRefreshMedia(post.postID);
+          await onRefreshMedia(safePost.postID);
         }
         
         setNewMedia([]);
@@ -612,7 +640,6 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       setEditing(false);
     } catch (error) {
       console.error('Failed to update post:', error);
-      // You might want to show an error message to the user here
     } finally {
       setIsSubmittingEdit(false);
       setUploadingMedia(false);
@@ -620,8 +647,8 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   };
 
   const handleCancelEdit = () => {
-    setEditedContent(post.content);
-    setEditMedia(post.media || []);
+    setEditedContent(safePost.content);
+    setEditMedia(safePost.media);
     setNewMedia([]);
     setEditing(false);
   };
@@ -640,7 +667,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   const handleRemoveExistingMedia = async (mediaId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${post.postID}/media/${mediaId}`, {
+      const response = await fetch(`${API_URL}/posts/${safePost.postID}/media/${mediaId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -651,39 +678,32 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         throw new Error('Failed to delete media');
       }
       
-      // Remove from UI
       setEditMedia(editMedia.filter(media => media.mediaID !== mediaId));
       
-      // Refresh post data to get updated media list
       if (onRefreshMedia) {
-        await onRefreshMedia(post.postID);
+        await onRefreshMedia(safePost.postID);
       }
     } catch (error) {
       console.error('Error removing media:', error);
-      // Show error message
     }
   };
 
   // Parse location if it exists
   let location = null;
-  if (post.Location) {
-    if (typeof post.Location === 'string') {
+  if (safePost.Location) {
+    if (typeof safePost.Location === 'string') {
       try {
-        // Try to parse as JSON
-        location = JSON.parse(post.Location);
+        location = JSON.parse(safePost.Location);
       } catch (error) {
-        // If it's not valid JSON, treat it as a plain string location name
-        location = { displayName: post.Location };
+        location = { displayName: safePost.Location };
       }
     } else {
-      // If it's already an object, use it directly
-      location = post.Location;
+      location = safePost.Location;
     }
   }
 
   const handleLocationClick = (locationData) => {
     if (onLocationFilter && locationData) {
-      // Parse province/city from location data
       let province = '';
       
       if (typeof locationData === 'string') {
@@ -703,21 +723,20 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     }
   };
 
-  // New function to handle AI summarization with Gemini API
   const handleAiSummarize = async () => {
-    if (!post.Content || isLoadingSummary) return;
+    if (!safePost.content || isLoadingSummary) return;
     
     setIsLoadingSummary(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/ai/gemini/summarize', {
+      const response = await fetch(`${API_URL}/api/ai/gemini/summarize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          content: post.Content,
+          content: safePost.content,
           maxWords: 150,
           language: 'vi'
         })
@@ -743,12 +762,12 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   };
 
   const handleNextMedia = () => {
-    const mediaCount = post.media?.length || 0;
+    const mediaCount = safePost.media?.length || 0;
     setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % mediaCount);
   };
 
   const handlePrevMedia = () => {
-    const mediaCount = post.media?.length || 0;
+    const mediaCount = safePost.media?.length || 0;
     setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + mediaCount) % mediaCount);
   };
 
@@ -759,12 +778,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     
     setSubmittingReport(true);
     try {
-      await onReport(post.postID, {
-        title: reportTitle,
-        content: reportContent,
-        category: reportCategory,
-        targetType: 'POST'
-      });
+      if (onReport) {
+        await onReport(safePost.postID, {
+          title: reportTitle,
+          content: reportContent,
+          category: reportCategory,
+          targetType: 'POST'
+        });
+      }
       
       setShowReportDialog(false);
       setReportContent('');
@@ -781,15 +802,15 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       <div className="p-4 flex justify-between items-start">
         <div className="flex items-start space-x-3">
           <Avatar
-            src={post.UserImage || post.avatar || post.profileImage}
-            name={post.FullName || post.fullName || post.username}
-            alt={post.FullName || post.fullName || post.username}
+            src={safePost.userImage}
+            name={safePost.fullName}
+            alt={safePost.fullName}
             size="small"
             className="mr-2"
           />
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="font-medium text-gray-900">{post.FullName || post.fullName || post.username}</h3>
+              <h3 className="font-medium text-gray-900">{safePost.fullName}</h3>
               {location && !isEditing && (
                 <div 
                   className="flex items-center text-xs text-blue-700 hover:underline cursor-pointer"
@@ -801,9 +822,9 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 </div>
               )}
               {getVisibilityIcon()}
-              {post.isEdited && <span className="text-xs text-gray-500">(đã chỉnh sửa)</span>}
+              {safePost.isEdited && <span className="text-xs text-gray-500">(đã chỉnh sửa)</span>}
             </div>
-            <p className="text-sm text-gray-500">{formatDate(post.createdAt)}</p>
+            <p className="text-sm text-gray-500">{formatDate(safePost.createdAt)}</p>
           </div>
         </div>
         <div className="relative">
@@ -817,7 +838,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
               {(() => {
                 const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-                const isOwner = currentUser.UserID === post.userID || currentUser.id === post.userID;
+                const isOwner = currentUser.UserID === safePost.userID || currentUser.id === safePost.userID;
                 
                 return isOwner ? (
                   <>
@@ -833,7 +854,9 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                     </button>
                     <button
                       onClick={() => {
-                        onDelete(post.postID);
+                        if (onDelete) {
+                          onDelete(safePost.postID);
+                        }
                         setShowOptions(false);
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -878,7 +901,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                     <div key={media.mediaID} className="relative group">
                       {media.mediaType === 'image' ? (
                         <img
-                          src={media.MediaUrl.startsWith('http') ? media.mediaUrl : `/uploads/${media.MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`}
+                          src={media.MediaUrl?.startsWith('http') ? media.mediaUrl : `/uploads/${media.MediaUrl?.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`}
                           alt="Media"
                           className="w-full h-24 object-cover rounded-lg border border-gray-200"
                         />
@@ -993,10 +1016,9 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
             </div>
           </div>
         ) : (
-          post.Content && (
+          safePost.content && (
             <div className="prose max-w-none mb-4">
-              {/* Replace the notification banner with just an AI button for posts > 500 words */}
-              {post.Content.trim().split(/\s+/).length > 500 && !aiSummary && !isLoadingSummary && (
+              {safePost.content.trim().split(/\s+/).length > 500 && !aiSummary && !isLoadingSummary && (
                 <div className="flex justify-end mb-3">
                   <button
                     onClick={handleAiSummarize}
@@ -1009,7 +1031,6 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 </div>
               )}
               
-              {/* Loading state */}
               {isLoadingSummary && (
                 <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-purple-100">
                   <div className="flex items-center space-x-3">
@@ -1022,7 +1043,6 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 </div>
               )}
               
-              {/* AI Summary display */}
               {aiSummary && (
                 <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-purple-100">
                   <div className="flex justify-between items-start mb-2">
@@ -1061,16 +1081,16 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                   components={markdownComponents}
                 >
                   {(() => {
-                    const wordCount = post.Content.trim().split(/\s+/).length;
+                    const wordCount = safePost.content.trim().split(/\s+/).length;
                     const shouldTruncate = (wordCount > 200 && !showFullContent) || (aiSummary && !showFullContent);
                     return shouldTruncate
-                      ? post.Content.trim().split(/\s+/).slice(0, 200).join(' ') + '...'
-                      : post.Content;
+                      ? safePost.content.trim().split(/\s+/).slice(0, 200).join(' ') + '...'
+                      : safePost.content;
                   })()}
                 </ReactMarkdown>
               </div>
               
-              {post.Content.trim().split(/\s+/).length > 200 && (
+              {safePost.content.trim().split(/\s+/).length > 200 && (
                 <button
                   onClick={() => setShowFullContent(!showFullContent)}
                   className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 flex items-center"
@@ -1094,13 +1114,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       </div>
 
       {/* Post Media */}
-      {!isEditing && post.media && post.media.length > 0 && (
-        <div className={`${post.media.length === 1 ? '' : 'grid grid-cols-2 gap-1'} mb-2`}>
-          {post.media.map((media, index) => {
+      {!isEditing && safePost.media && safePost.media.length > 0 && (
+        <div className={`${safePost.media.length === 1 ? '' : 'grid grid-cols-2 gap-1'} mb-2`}>
+          {safePost.media.map((media, index) => {
+            if (!media) return null;
+            
             let mediaUrl = '';
             try {
               if (!media.mediaUrl) {
-                console.error('MediaUrl is missing for media:', media);
                 mediaUrl = '/placeholder-image.svg';
               } else if (media.mediaUrl.startsWith('http')) {
                 mediaUrl = media.mediaUrl;
@@ -1109,14 +1130,13 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 mediaUrl = `/uploads/${cleanPath}`;
               }
             } catch (error) {
-              console.error('Error processing media URL:', error);
               mediaUrl = '/placeholder-image.svg';
             }
             
             return (
               <div 
                 key={index} 
-                className={`overflow-hidden ${post.media.length === 1 ? 'max-h-[500px]' : 'max-h-[300px]'} relative group cursor-pointer`}
+                className={`overflow-hidden ${safePost.media.length === 1 ? 'max-h-[500px]' : 'max-h-[300px]'} relative group cursor-pointer`}
                 onClick={() => handleMediaClick(index)}
               >
                 {media.mediaType === 'image' ? (
@@ -1169,7 +1189,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       {/* Media Lightbox */}
       <MediaLightbox 
         isOpen={lightboxOpen}
-        media={post.media || []}
+        media={safePost.media}
         currentIndex={currentMediaIndex}
         onClose={() => setLightboxOpen(false)}
         onNext={handleNextMedia}
@@ -1177,18 +1197,18 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       />
 
       {/* Engagement Stats */}
-      {(post.likesCount > 0 || post.commentsCount > 0) && (
+      {(safePost.likesCount > 0 || safePost.commentsCount > 0) && (
         <div className="px-4 py-2 flex justify-between text-sm text-gray-500 border-t border-gray-100">
           <div className="flex items-center space-x-1">
             <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
               <ThumbUpSolid className="w-3 h-3 text-white" />
             </div>
-            <span>{post.likesCount}</span>
+            <span>{safePost.likesCount}</span>
           </div>
           
-          {post.commentsCount > 0 && (
+          {safePost.commentsCount > 0 && (
             <button className="hover:underline">
-              {post.commentsCount} bình luận
+              {safePost.commentsCount} bình luận
             </button>
           )}
         </div>
@@ -1226,11 +1246,8 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
 
         <button
           onClick={() => {
-            console.log('Share button clicked for post:', post.postID);
             if (onShare) {
-              onShare(post.postID);
-            } else {
-              console.error('onShare function is not provided');
+              onShare(safePost.postID);
             }
           }}
           className="flex items-center justify-center space-x-2 p-2 rounded-lg hover:bg-gray-100 text-gray-500 flex-1"
@@ -1262,7 +1279,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
             <Avatar
               src={(() => {
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
-                return user.ProfileImage || user.profileImage || user.avatar || user.avatarUrl;
+                return user.ProfileImage || user.profileImage || user.avatar || user.avatarUrl || '';
               })()}
               name={(() => {
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -1303,50 +1320,68 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
             </div>
           ) : commentError ? (
             <div className="text-center py-4 text-red-500 text-sm">{commentError}</div>
-          ) : comments.length === 0 ? (
+          ) : !comments || comments.length === 0 ? (
             <div className="text-center py-4 text-gray-500 text-sm">Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</div>
           ) : (
             <div className="space-y-4">
-              {comments.map((comment) => (
-                <div key={comment.CommentID} className="flex space-x-2">
-                  <Avatar
-                    src={comment.UserImage || comment.avatar || comment.profileImage}
-                    name={comment.FullName || comment.fullName || comment.username}
-                    alt={comment.FullName || comment.fullName || comment.username}
-                    size="small"
-                  />
-                  <div className="flex-1">
-                    <div className="bg-gray-100 rounded-lg px-3 py-2">
-                      <div className="font-medium text-sm">{comment.FullName || comment.fullName || comment.username}</div>
-                      <div className="text-sm prose prose-sm max-w-none overflow-x-auto">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={markdownComponents}
+              {comments.map((comment) => {
+                if (!comment) return null;
+                
+                const safeComment = {
+                  commentID: comment.commentID || comment.CommentID || `comment-${Math.random()}`,
+                  content: comment.content || comment.Content || '',
+                  fullName: comment.FullName || comment.fullName || comment.username || 'Unknown User',
+                  userImage: comment.UserImage || comment.userImage || comment.avatar || comment.profileImage || '',
+                  userID: comment.userID || comment.UserID || '',
+                  likesCount: comment.LikesCount || comment.likesCount || 0,
+                  isLiked: comment.IsLiked || comment.isLiked || false,
+                  createdAt: comment.createdAt || comment.CreatedAt || new Date().toISOString()
+                };
+
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const isCommentOwner = currentUser.UserID === safeComment.userID || currentUser.id === safeComment.userID;
+
+                return (
+                  <div key={safeComment.commentID} className="flex space-x-2">
+                    <Avatar
+                      src={safeComment.userImage}
+                      name={safeComment.fullName}
+                      alt={safeComment.fullName}
+                      size="small"
+                    />
+                    <div className="flex-1">
+                      <div className="bg-gray-100 rounded-lg px-3 py-2">
+                        <div className="font-medium text-sm">{safeComment.fullName}</div>
+                        <div className="text-sm prose prose-sm max-w-none overflow-x-auto">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {safeComment.content}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                      <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
+                        <span>{formatDate(safeComment.createdAt)}</span>
+                        <button 
+                          className={`font-medium ${safeComment.isLiked ? 'text-blue-500' : ''}`}
+                          onClick={() => handleLikeComment(safeComment.commentID)}
                         >
-                          {comment.content}
-                        </ReactMarkdown>
+                          Thích ({safeComment.likesCount})
+                        </button>
+                        {isCommentOwner && (
+                          <button 
+                            className="font-medium text-red-500"
+                            onClick={() => handleDeleteComment(safeComment.commentID)}
+                          >
+                            Xóa
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
-                      <span>{formatDate(comment.createdAt)}</span>
-                      <button 
-                        className={`font-medium ${comment.isLiked ? 'text-blue-500' : ''}`}
-                        onClick={() => handleLikeComment(comment.commentID)}
-                      >
-                        Thích ({comment.likesCount})
-                      </button>
-                      {comment.userID === JSON.parse(localStorage.getItem('user') || '{}').userID && (
-                        <button 
-                          className="font-medium text-red-500"
-                          onClick={() => handleDeleteComment(comment.commentID)}
-                        >
-                          Xóa
-                        </button>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1416,4 +1451,4 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   );
 };
 
-export default PostList; 
+export default PostList;

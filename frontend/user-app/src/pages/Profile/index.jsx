@@ -1,7 +1,5 @@
 /*-----------------------------------------------------------------
 * File: index.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
 * Description: This file is a component/module for the student application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
@@ -17,7 +15,6 @@ import {
   BuildingLibraryIcon,
   MapPinIcon,
   CalendarIcon,
-  IdentificationIcon,
   XMarkIcon,
   CheckIcon,
   DocumentTextIcon,
@@ -28,7 +25,6 @@ import {
   UserPlusIcon,
   UserMinusIcon,
   ClockIcon,
-  UserIcon,
   UserGroupIcon,
   BookmarkIcon,
   ShieldCheckIcon,
@@ -45,14 +41,10 @@ import { vi } from 'date-fns/locale';
 const Profile = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { userId } = useParams(); // Get userId from URL parameters
+  const { userId } = useParams();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState(null);
-  const [updateSuccess, setUpdateSuccess] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -61,131 +53,137 @@ const Profile = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   
-  // Add state for education and work experience data
   const [educationData, setEducationData] = useState([]);
   const [workExperienceData, setWorkExperienceData] = useState([]);
   
-  // Added state for bookmarked posts
   const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
   const [bookmarksLoading, setBookmarksLoading] = useState(false);
   const [bookmarksError, setBookmarksError] = useState(null);
   
-  // Friend system states
-  const [friendshipStatus, setFriendshipStatus] = useState(null); // null, 'pending', 'accepted', 'rejected', 'blocked'
+  const [friendshipStatus, setFriendshipStatus] = useState(null);
   const [friendRequestSending, setFriendRequestSending] = useState(false);
   const [friendActionSuccess, setFriendActionSuccess] = useState(null);
   const [userFriends, setUserFriends] = useState([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL
-
-  // Tab state for posts - added 'saved'
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'image', 'video', 'saved'
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+
+  // Reset states when userId changes
+  useEffect(() => {
+    setUserData(null);
+    setUserPosts([]);
+    setEducationData([]);
+    setWorkExperienceData([]);
+    setUserFriends([]);
+    setFriendshipStatus(null);
+    setIsOwnProfile(false);
+    setBookmarkedPosts([]);
+    setLoading(true);
+  }, [userId]);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      let endpoint;
+      if (userId) {
+        endpoint = `${API_URL}/users/${userId}`;
+      } else {
+        endpoint = `${API_URL}/auth/me`;
+      }
+
+      // 🔥 FIX: REMOVE cache-control headers that cause CORS issues
+      const response = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+          // ❌ REMOVED: 'Cache-Control': 'no-cache'
+        }
+        // ❌ REMOVED: cache: 'no-store'
+      });
+
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login', { 
+          state: { message: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại' }
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Không thể tải thông tin người dùng');
+      }
+
+      const data = await response.json();
+      
+      // Format dates
+      if (data.dateOfBirth) {
+        data.dateOfBirth = new Date(data.dateOfBirth).toISOString();
+      }
+      if (data.createdAt) {
+        data.createdAt = new Date(data.createdAt).toISOString();
+      }
+      if (data.lastLoginAt) {
+        data.lastLoginAt = new Date(data.lastLoginAt).toISOString();
+      }
+
+      setUserData(data);
+
+      // Get extended profile data - FIXED error handling
+      try {
+        const targetUserId = userId || data.userID;
+        if (targetUserId) {
+          const extendedProfileResponse = await userServices.getUserProfile(targetUserId);
+          if (extendedProfileResponse && extendedProfileResponse.data) {
+            const extendedData = extendedProfileResponse.data.profile || extendedProfileResponse.data;
+            
+            if (extendedData.education) {
+              setEducationData(extendedData.education);
+            }
+            
+            if (extendedData.workExperience) {
+              setWorkExperienceData(extendedData.workExperience);
+            }
+          }
+        }
+      } catch (profileError) {
+        console.error("Error fetching extended profile:", profileError);
+        // Continue without extended data - don't break the whole component
+      }
+
+      // Check if this is the user's own profile
+      if (!userId) {
+        setIsOwnProfile(true);
+      } else {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const currentUserId = currentUser.userID || currentUser.id;
+        setIsOwnProfile(currentUserId === parseInt(userId));
+        
+        if (currentUserId !== parseInt(userId)) {
+          fetchFriendshipStatus(userId);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-
-        let endpoint;
-        // If userId is provided, fetch that specific user's profile
-        if (userId) {
-          endpoint = `${API_URL}/users/${userId}`;
-        } else {
-          // Otherwise fetch the current logged in user's profile
-          endpoint = `${API_URL}/auth/me`;
-          setIsOwnProfile(true);
-        }
-
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          // Token hết hạn hoặc không hợp lệ
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login', { 
-            state: { message: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại' }
-          });
-          return;
-        }
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Không thể tải thông tin người dùng');
-        }
-
-        const data = await response.json();
-        
-        // Format dates
-        if (data.DateOfBirth) {
-          data.DateOfBirth = new Date(data.DateOfBirth).toISOString();
-        }
-        if (data.CreatedAt) {
-          data.CreatedAt = new Date(data.CreatedAt).toISOString();
-        }
-        if (data.LastLoginAt) {
-          data.LastLoginAt = new Date(data.LastLoginAt).toISOString();
-        }
-
-        setUserData(data);
-
-        // Get extended profile data with education and work experience
-        try {
-          const extendedProfileResponse = await userServices.getUserProfile(userId || data.userID);
-          const extendedData = extendedProfileResponse.data.profile;
-          
-          if (extendedData.education) {
-            setEducationData(extendedData.education);
-          }
-          
-          if (extendedData.workExperience) {
-            setWorkExperienceData(extendedData.workExperience);
-          }
-        } catch (profileError) {
-          console.error("Error fetching extended profile:", profileError);
-        }
-
-        // Check if this is the user's own profile
-        if (!userId) {
-          setIsOwnProfile(true);
-        } else {
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-          setIsOwnProfile(currentUser.userID === parseInt(userId) || currentUser.id === parseInt(userId));
-          
-          // If not own profile, check friendship status
-          if (!(currentUser.userID === parseInt(userId) || currentUser.id === parseInt(userId))) {
-            fetchFriendshipStatus(userId);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUserData();
   }, [navigate, userId]);
 
-  // Function to handle edit profile button click
-  const handleEditProfile = () => {
-    navigate('/settings', { state: { activeTab: 'general' } });
-  };
-
-  // Function to check friendship status
   const fetchFriendshipStatus = async (targetUserId) => {
     try {
       const token = localStorage.getItem('token');
@@ -200,7 +198,6 @@ const Profile = () => {
 
       if (!response.ok) {
         if (response.status === 404) {
-          // No friendship exists
           setFriendshipStatus(null);
           return;
         }
@@ -211,12 +208,10 @@ const Profile = () => {
       setFriendshipStatus(data.status);
     } catch (err) {
       console.error('Error fetching friendship status:', err);
-      // Default to no friendship if error
       setFriendshipStatus(null);
     }
   };
 
-  // Function to send a friend request
   const sendFriendRequest = async () => {
     try {
       setFriendRequestSending(true);
@@ -226,7 +221,7 @@ const Profile = () => {
       const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
-      const response = await fetch(`/api/friendships`, {
+      const response = await fetch(`${API_URL}/friendships`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -253,7 +248,6 @@ const Profile = () => {
     }
   };
 
-  // Function to accept a friend request
   const acceptFriendRequest = async () => {
     try {
       setFriendRequestSending(true);
@@ -263,7 +257,7 @@ const Profile = () => {
       const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
-      const response = await fetch(`/api/friendships/${targetUserId}/accept`, {
+      const response = await fetch(`${API_URL}/friendships/${targetUserId}/accept`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -286,7 +280,6 @@ const Profile = () => {
     }
   };
 
-  // Function to reject a friend request
   const rejectFriendRequest = async () => {
     try {
       setFriendRequestSending(true);
@@ -296,7 +289,7 @@ const Profile = () => {
       const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
-      const response = await fetch(`/api/friendships/${targetUserId}/reject`, {
+      const response = await fetch(`${API_URL}/friendships/${targetUserId}/reject`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -319,7 +312,6 @@ const Profile = () => {
     }
   };
 
-  // Function to remove a friend
   const removeFriend = async () => {
     try {
       setFriendRequestSending(true);
@@ -329,7 +321,7 @@ const Profile = () => {
       const targetUserId = userId || userData?.userID;
       if (!targetUserId) return;
 
-      const response = await fetch(`/api/friendships/${targetUserId}`, {
+      const response = await fetch(`${API_URL}/friendships/${targetUserId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -362,7 +354,7 @@ const Profile = () => {
         const targetUserId = userId || userData?.userID;
         if (!targetUserId) return;
 
-        const response = await fetch(`/api/posts/user/${targetUserId}?limit=1000`, {
+        const response = await fetch(`${API_URL}/posts/user/${targetUserId}?limit=1000`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
@@ -388,238 +380,6 @@ const Profile = () => {
     }
   }, [userData, userId]);
 
-  const handleEdit = () => {
-    setEditedData({
-      ...userData,
-      DateOfBirth: userData.DateOfBirth ? userData.DateOfBirth.split('T')[0] : ''
-    });
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setEditedData(null);
-    setIsEditing(false);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setEditedData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Reset errors
-    setError(null);
-    setFieldErrors({});
-
-    // Validate phone number
-    const phoneRegex = /^[0-9]{10,11}$/;
-    if (editedData.PhoneNumber && !phoneRegex.test(editedData.PhoneNumber)) {
-      setFieldErrors(prev => ({
-        ...prev,
-        PhoneNumber: 'Số điện thoại không hợp lệ'
-      }));
-      return;
-    }
-
-    // Validate date of birth
-    if (editedData.DateOfBirth) {
-      const birthDate = new Date(editedData.DateOfBirth);
-      const today = new Date();
-      if (birthDate > today) {
-        setFieldErrors(prev => ({
-          ...prev,
-          DateOfBirth: 'Ngày sinh không hợp lệ'
-        }));
-        return;
-      }
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Chỉ gửi các trường được phép cập nhật
-      const updateData = {
-        PhoneNumber: editedData.PhoneNumber,
-        DateOfBirth: editedData.DateOfBirth,
-        School: editedData.School,
-        Address: editedData.Address,
-        City: editedData.City
-      };
-
-      const response = await fetch('/api/users/update', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login', { 
-          state: { message: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại' }
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Không thể cập nhật thông tin');
-      }
-
-      const updatedUser = await response.json();
-
-      // Format dates
-      if (updatedUser.DateOfBirth) {
-        updatedUser.DateOfBirth = new Date(updatedUser.DateOfBirth).toISOString();
-      }
-      if (updatedUser.CreatedAt) {
-        updatedUser.CreatedAt = new Date(updatedUser.CreatedAt).toISOString();
-      }
-      if (updatedUser.LastLoginAt) {
-        updatedUser.LastLoginAt = new Date(updatedUser.LastLoginAt).toISOString();
-      }
-
-      setUserData(updatedUser);
-      setIsEditing(false);
-      setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error updating user:', err);
-      setError(err.message);
-    }
-  };
-
-  const handleLike = async (postId) => {
-    try {
-      const response = await fetch(`/api/posts/${postId}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Could not like post');
-      }
-
-      // Update like status in the UI
-      setUserPosts(userPosts.map(post => {
-        if (post.PostID === postId) {
-          return {
-            ...post,
-            IsLiked: !post.IsLiked,
-            LikesCount: post.IsLiked ? post.LikesCount - 1 : post.LikesCount + 1
-          };
-        }
-        return post;
-      }));
-    } catch (error) {
-      console.error('Error liking post:', error);
-    }
-  };
-
-  const handleComment = async (postId, change = 1) => {
-    try {
-      // Update the UI immediately to reflect comment count change
-      setUserPosts(userPosts.map(post => {
-        if (post.PostID === postId) {
-          return {
-            ...post,
-            CommentsCount: Math.max(0, post.CommentsCount + change)
-          };
-        }
-        return post;
-      }));
-      
-      // We're not actually making an API call here because the count 
-      // has already been updated on the server by the comment endpoints
-    } catch (error) {
-      console.error('Comment update error:', error);
-    }
-  };
-
-  const handleEditPost = async (postId, updatedContent) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // First update the post content
-      const response = await fetch(`/api/posts/${postId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          content: updatedContent
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Could not update post');
-      }
-
-      // Update post in the UI
-      setUserPosts(userPosts.map(post => {
-        if (post.PostID === postId) {
-          return {
-            ...post,
-            Content: updatedContent,
-            IsEdited: true
-          };
-        }
-        return post;
-      }));
-      
-      return true;
-    } catch (error) {
-      console.error('Error editing post:', error);
-      return false;
-    }
-  };
-
-  // Function to refresh posts after media changes
-  const refreshPostMedia = async (postId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Could not fetch updated post');
-      }
-
-      const updatedPost = await response.json();
-
-      // Update the post in the UI with new media
-      setUserPosts(userPosts.map(post => {
-        if (post.PostID === postId) {
-          return {
-            ...post,
-            media: updatedPost.media,
-            IsEdited: true
-          };
-        }
-        return post;
-      }));
-      
-      return true;
-    } catch (error) {
-      console.error('Error refreshing post media:', error);
-      return false;
-    }
-  };
-
   const handleProfilePictureClick = () => {
     if (isOwnProfile && fileInputRef.current) {
       fileInputRef.current.click();
@@ -633,7 +393,7 @@ const Profile = () => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
     
     if (!allowedTypes.includes(file.type)) {
-      setUploadError('Only JPG, PNG, and GIF files are allowed');
+      setUploadError('Chỉ chấp nhận file JPG, PNG và GIF');
       return;
     }
     
@@ -645,7 +405,7 @@ const Profile = () => {
       setUploadError(null);
       
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/settings/profile-picture', {
+      const response = await fetch(`${API_URL}/settings/profile-picture`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -655,39 +415,44 @@ const Profile = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload profile picture');
+        throw new Error(errorData.message || 'Không thể upload ảnh đại diện');
       }
       
       const data = await response.json();
       
-      // Update user data with new profile image
+      // 🔥 FIX: Thêm timestamp để tránh cache
+      const timestamp = new Date().getTime();
+      const newProfileImage = data.profileImage ? `${data.profileImage}?t=${timestamp}` : data.profileImage;
+      
       setUserData(prev => ({
         ...prev,
-        Image: data.profileImage
+        image: newProfileImage
       }));
       
-      // Update user data in localStorage to sync across all pages
+      // Update localStorage
       try {
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-        currentUser.Image = data.profileImage;
+        currentUser.image = newProfileImage;
         
-        // Also update avatar field which might be used by other components
         if (currentUser.avatar) {
-          currentUser.avatar = data.profileImage;
+          currentUser.avatar = newProfileImage;
         }
         
         localStorage.setItem('user', JSON.stringify(currentUser));
         
         // Update Redux store
-        dispatch(updateProfileImage(data.profileImage));
+        dispatch(updateProfileImage(newProfileImage));
         
-        // Dispatch a custom event to notify other components about the profile update
+        // Dispatch custom event
         window.dispatchEvent(new CustomEvent('profileUpdated', {
-          detail: { profileImage: data.profileImage }
+          detail: { profileImage: newProfileImage }
         }));
       } catch (storageError) {
         console.error('Error updating user in localStorage:', storageError);
       }
+      
+      // Refresh user data
+      await fetchUserData();
       
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
@@ -697,47 +462,36 @@ const Profile = () => {
       setUploadError(err.message);
     } finally {
       setUploadingImage(false);
-      // Reset the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   };
 
-  // New function to handle starting a chat with the profile user
   const handleStartChat = () => {
     try {
-      // Make sure we have all the needed user data to start a chat
       if (!userData) {
         console.error('No user data available');
-        // showToast('error', 'Không thể bắt đầu chat: Dữ liệu người dùng không có sẵn'); // Removed showToast as it's not defined
         return;
       }
       
-      // Make sure we have at least the user ID
       const userId = userData.userID || userData.id;
       if (!userId) {
         console.error('User ID is missing');
-        // showToast('error', 'Không thể bắt đầu chat: ID người dùng bị thiếu'); // Removed showToast
         return;
       }
       
-      // Prepare complete user data to pass to the chat page
       const userDataForChat = {
-        UserID: userId,
+        userID: userId,
         id: userId,
-        FullName: userData.fullName || userData.username,
-        Username: userData.username,
-        Email: userData.email,
-        Image: userData.image || userData.avatar
+        fullName: userData.fullName || userData.username,
+        username: userData.username,
+        email: userData.email,
+        image: userData.image || userData.avatar
       };
       
-      console.log('Starting chat with user:', userDataForChat);
-      
-      // Store selected user in localStorage as backup in case state is lost
       localStorage.setItem('selectedUserFromProfile', JSON.stringify(userDataForChat));
       
-      // Navigate to chat page with user data
       navigate(`/chat`, { 
         state: { 
           selectedUser: userDataForChat,
@@ -746,11 +500,9 @@ const Profile = () => {
       });
     } catch (error) {
       console.error('Error starting chat:', error);
-      // showToast('error', 'Đã xảy ra lỗi khi bắt đầu cuộc trò chuyện'); // Removed showToast
     }
   };
 
-  // New function to fetch friends
   const fetchFriends = async () => {
     try {
       setFriendsLoading(true);
@@ -778,12 +530,9 @@ const Profile = () => {
 
       const data = await response.json();
       
-      // Handle different response formats
       if (Array.isArray(data)) {
-        // Response for other user's friends
         setUserFriends(data);
       } else if (data.friends) {
-        // Response for current user's friends
         setUserFriends(data.friends);
       }
     } catch (err) {
@@ -800,16 +549,15 @@ const Profile = () => {
     }
   }, [userData, userId, isOwnProfile]);
 
-  // New function to fetch bookmarked posts
   const fetchBookmarkedPosts = async () => {
-    if (!isOwnProfile) return; // Only fetch bookmarks for own profile
+    if (!isOwnProfile) return;
     
     try {
       setBookmarksLoading(true);
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`/api/posts/bookmarks`, {
+      const response = await fetch(`${API_URL}/posts/bookmarks`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -830,18 +578,16 @@ const Profile = () => {
     }
   };
 
-  // Call fetchBookmarkedPosts when tab changes to 'saved'
   useEffect(() => {
     if (activeTab === 'saved' && isOwnProfile && bookmarkedPosts.length === 0 && !bookmarksLoading) {
       fetchBookmarkedPosts();
     }
   }, [activeTab, isOwnProfile]);
 
-  // Add handling for bookmarks
   const handleBookmark = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}/bookmark`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/bookmark`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -852,116 +598,127 @@ const Profile = () => {
         throw new Error('Failed to toggle bookmark');
       }
       
-      // If on the saved posts tab, remove the post from the list
       if (activeTab === 'saved') {
-        setBookmarkedPosts(prev => prev.filter(post => post.PostID !== postId));
+        setBookmarkedPosts(prev => prev.filter(post => post.postID !== postId));
       }
     } catch (error) {
       console.error('Error toggling bookmark:', error);
     }
   };
 
-  // Function to handle adding a new education item
-  const handleAddEducation = () => {
-    const newEducation = {
-      id: Date.now(),
-      school: '',
-      degree: '',
-      field: '',
-      startDate: '',
-      endDate: '',
-      current: false,
-      description: ''
-    };
-    
-    setEducationData(prev => [...prev, newEducation]);
-  };
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
-  // Function to update an education item
-  const handleUpdateEducation = (id, field, value) => {
-    setEducationData(prevData => 
-      prevData.map(item => 
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
-  // Function to remove an education item
-  const handleRemoveEducation = (id) => {
-    setEducationData(prevData => prevData.filter(item => item.id !== id));
-  };
-
-  // Function to add a new work experience item
-  const handleAddWorkExperience = () => {
-    const newWorkExperience = {
-      id: Date.now(),
-      company: '',
-      position: '',
-      location: '',
-      startDate: '',
-      endDate: '',
-      current: false,
-      description: ''
-    };
-    
-    setWorkExperienceData(prev => [...prev, newWorkExperience]);
-  };
-
-  // Function to update a work experience item
-  const handleUpdateWorkExperience = (id, field, value) => {
-    setWorkExperienceData(prevData => 
-      prevData.map(item => 
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
-  // Function to remove a work experience item
-  const handleRemoveWorkExperience = (id) => {
-    setWorkExperienceData(prevData => prevData.filter(item => item.id !== id));
-  };
-
-  // Function to save education
-  const handleSaveEducation = async () => {
+  const handleLike = async (postId) => {
     try {
-      // setEducationLoading(true); // Removed as per new_code
-      await userServices.updateEducation(educationData);
-      // setEditingEducation(false); // Removed as per new_code
-      setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
-      
-      // Refresh profile data
-      const response = await userServices.getUserProfile();
-      if (response.data.profile.Education) {
-        setEducationData(response.data.profile.Education);
+      const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not like post');
       }
+
+      setUserPosts(userPosts.map(post => {
+        if (post.postID === postId) {
+          return {
+            ...post,
+            liked: !post.liked,
+            likesCount: post.liked ? post.likesCount - 1 : post.likesCount + 1
+          };
+        }
+        return post;
+      }));
     } catch (error) {
-      console.error('Error saving education:', error);
-      setError('Không thể lưu thông tin học vấn');
-    } finally {
-      // setEducationLoading(false); // Removed as per new_code
+      console.error('Error liking post:', error);
     }
   };
 
-  // Function to save work experience
-  const handleSaveWorkExperience = async () => {
+  const handleComment = async (postId, change = 1) => {
     try {
-      // setWorkExpLoading(true); // Removed as per new_code
-      await userServices.updateWorkExperience(workExperienceData);
-      // setEditingWorkExperience(false); // Removed as per new_code
-      setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
-      
-      // Refresh profile data
-      const response = await userServices.getUserProfile();
-      if (response.data.profile.WorkExperience) {
-        setWorkExperienceData(response.data.profile.WorkExperience);
-      }
+      setUserPosts(userPosts.map(post => {
+        if (post.postID === postId) {
+          return {
+            ...post,
+            commentsCount: Math.max(0, post.commentsCount + change)
+          };
+        }
+        return post;
+      }));
     } catch (error) {
-      console.error('Error saving work experience:', error);
-      setError('Không thể lưu thông tin kinh nghiệm làm việc');
-    } finally {
-      // setWorkExpLoading(false); // Removed as per new_code
+      console.error('Comment update error:', error);
+    }
+  };
+
+  const handleEditPost = async (postId, updatedContent) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: updatedContent
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not update post');
+      }
+
+      setUserPosts(userPosts.map(post => {
+        if (post.postID === postId) {
+          return {
+            ...post,
+            content: updatedContent,
+            isEdited: true
+          };
+        }
+        return post;
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error editing post:', error);
+      return false;
+    }
+  };
+
+  const refreshPostMedia = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not fetch updated post');
+      }
+
+      const updatedPost = await response.json();
+
+      setUserPosts(userPosts.map(post => {
+        if (post.postID === postId) {
+          return {
+            ...post,
+            media: updatedPost.media,
+            isEdited: true
+          };
+        }
+        return post;
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error refreshing post media:', error);
+      return false;
     }
   };
 
@@ -977,6 +734,12 @@ const Profile = () => {
     return (
       <div className="text-center p-6">
         <p className="text-red-600">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Thử lại
+        </button>
       </div>
     );
   }
@@ -986,9 +749,15 @@ const Profile = () => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
+  // 🔥 FIX: Thêm cache-busting cho avatar
+  const getAvatarUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    const timestamp = new Date().getTime();
+    return `${imageUrl}?t=${timestamp}`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Success notification */}
       {updateSuccess && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
           <div className="flex items-center">
@@ -1001,7 +770,6 @@ const Profile = () => {
         </div>
       )}
       
-      {/* Friend action success notification */}
       {friendActionSuccess && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
           <div className="flex items-center">
@@ -1014,7 +782,6 @@ const Profile = () => {
         </div>
       )}
       
-      {/* Upload error notification */}
       {uploadError && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
           <div className="flex items-center">
@@ -1027,38 +794,6 @@ const Profile = () => {
         </div>
       )}
       
-      {/* Email Verification Modal */}
-      {showEmailVerification && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowEmailVerification(false)}></div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="absolute top-0 right-0 pt-4 pr-4">
-                <button
-                  type="button"
-                  className="bg-white rounded-md text-gray-400 hover:text-gray-500"
-                  onClick={() => setShowEmailVerification(false)}
-                >
-                  <span className="sr-only">Close</span>
-                  <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                </button>
-              </div>
-              <EmailVerification onClose={(success) => {
-                setShowEmailVerification(false);
-                if (success) {
-                  // Update user data after successful verification
-                  setUserData(prev => ({
-                    ...prev,
-                    EmailVerified: true
-                  }));
-                }
-              }} />
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Main container with max width */}
       <div className="max-w-full mx-auto">
         <div className="flex flex-col lg:flex-row min-h-screen">
           {/* Left Sidebar - Profile Info */}
@@ -1066,7 +801,6 @@ const Profile = () => {
             <div className="p-6 h-full">
               {/* Profile Header */}
               <div className="mb-6">
-                {/* Avatar and basic info */}
                 <div className="flex flex-col items-center sm:items-start">
                   <div className="relative mb-4">
                     {isOwnProfile && (
@@ -1081,9 +815,9 @@ const Profile = () => {
                     
                     <div className="relative">
                       <Avatar 
-                        src={userData?.Image}
-                        name={userData?.FullName}
-                        alt={userData?.FullName}
+                        src={getAvatarUrl(userData?.image)}
+                        name={userData?.fullName}
+                        alt={userData?.fullName}
                         size="xl"
                         className="w-24 h-24 border-2 border-gray-200"
                         onClick={isOwnProfile ? handleProfilePictureClick : undefined}
@@ -1101,22 +835,19 @@ const Profile = () => {
                     </div>
                   </div>
 
-                  {/* Name and username */}
                   <div className="text-center sm:text-left mb-4 w-full">
                     <h1 className="text-xl font-bold text-gray-900 mb-1">
-                      {userData?.FullName}
+                      {userData?.fullName}
                     </h1>
-                    <p className="text-gray-600 text-sm mb-2">@{userData?.Username}</p>
+                    <p className="text-gray-600 text-sm mb-2">@{userData?.username}</p>
                     <p className="text-gray-500 text-sm">
-                      {userData?.Role === 'STUDENT' ? 'Học sinh' : userData?.Role === 'TEACHER' ? 'Giáo viên' : 'Quản trị viên'}
+                      {userData?.role === 'STUDENT' ? 'Học sinh' : userData?.role === 'TEACHER' ? 'Giáo viên' : 'Quản trị viên'}
                     </p>
                   </div>
 
-                  {/* Action buttons */}
                   <div className="flex gap-2 w-full mb-6">
                     {!isOwnProfile && (
                       <>
-                        {/* Friend request button */}
                         {friendshipStatus === null && (
                           <button
                             onClick={sendFriendRequest}
@@ -1159,7 +890,6 @@ const Profile = () => {
                           </button>
                         )}
 
-                        {/* Chat button */}
                         <button
                           onClick={handleStartChat}
                           className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2"
@@ -1182,7 +912,6 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 py-4 border-t border-gray-100">
                   <div className="text-center">
                     <div className="text-lg font-semibold text-gray-900">{userPosts.length}</div>
@@ -1204,10 +933,10 @@ const Profile = () => {
               {/* Contact Information */}
               <div className="mb-6">
                 <div className="space-y-3">
-                  {userData?.Email && (
+                  {userData?.email && (
                     <div className="flex items-center text-sm text-gray-600">
                       <EnvelopeIcon className="h-4 w-4 mr-3 text-gray-400" />
-                      <span className="truncate">{userData.Email}</span>
+                      <span className="truncate">{userData.email}</span>
                       {(userData?.EmailVerified === true || userData?.emailVerified === true) ? (
                         <ShieldCheckIcon className="h-4 w-4 ml-2 text-green-500" />
                       ) : (
@@ -1216,37 +945,37 @@ const Profile = () => {
                     </div>
                   )}
                   
-                  {userData?.PhoneNumber && (
+                  {userData?.phoneNumber && (
                     <div className="flex items-center text-sm text-gray-600">
                       <PhoneIcon className="h-4 w-4 mr-3 text-gray-400" />
-                      <span>{userData.PhoneNumber}</span>
+                      <span>{userData.phoneNumber}</span>
                     </div>
                   )}
                   
-                  {userData?.School && (
+                  {userData?.school && (
                     <div className="flex items-center text-sm text-gray-600">
                       <BuildingLibraryIcon className="h-4 w-4 mr-3 text-gray-400" />
-                      <span className="truncate">{userData.School}</span>
+                      <span className="truncate">{userData.school}</span>
                     </div>
                   )}
                   
-                  {userData?.Address && (
+                  {userData?.address && (
                     <div className="flex items-center text-sm text-gray-600">
                       <MapPinIcon className="h-4 w-4 mr-3 text-gray-400" />
-                      <span className="truncate">{userData.Address}</span>
+                      <span className="truncate">{userData.address}</span>
                     </div>
                   )}
                   
-                  {userData?.DateOfBirth && (
+                  {userData?.dateOfBirth && (
                     <div className="flex items-center text-sm text-gray-600">
                       <CalendarIcon className="h-4 w-4 mr-3 text-gray-400" />
-                      <span>Ngày sinh: {formatDate(userData.DateOfBirth)}</span>
+                      <span>Ngày sinh: {formatDate(userData.dateOfBirth)}</span>
                     </div>
                   )}
                   
                   <div className="flex items-center text-sm text-gray-600">
                     <ClockIcon className="h-4 w-4 mr-3 text-gray-400" />
-                    <span>Tham gia {formatDate(userData?.CreatedAt)}</span>
+                    <span>Tham gia {formatDate(userData?.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -1310,7 +1039,7 @@ const Profile = () => {
                         onClick={() => navigate(`/profile/${friend.userID || friend.friendID}`)}
                       >
                         <Avatar 
-                          src={friend.image || friend.friendProfilePicture} 
+                          src={getAvatarUrl(friend.image || friend.friendProfilePicture)}
                           name={friend.fullName || friend.friendFullName}
                           size="sm"
                           className="w-8 h-8"
@@ -1472,7 +1201,7 @@ const Profile = () => {
                       <p className="text-gray-500 mb-4">
                         {isOwnProfile 
                           ? 'Hãy chia sẻ điều gì đó với cộng đồng!' 
-                          : `${userData?.FullName} chưa chia sẻ ${activeTab === 'all' ? 'bài viết' : activeTab === 'image' ? 'ảnh' : 'video'} nào.`
+                          : `${userData?.fullName} chưa chia sẻ ${activeTab === 'all' ? 'bài viết' : activeTab === 'image' ? 'ảnh' : 'video'} nào.`
                         }
                       </p>
                       {isOwnProfile && (

@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '../index';
 import { getAllStories, viewStory } from '../../api/storyApi';
+import StoryCreate from '../../pages/Story/StoryCreate';
 
 const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEnd, onViewStory }) => {
     const [stories, setStories] = useState([]);
@@ -27,16 +27,20 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
         }
     };
 
+    // 🔥 QUAN TRỌNG: Thêm hàm này để xử lý khi story được tạo
     const handleStoryCreated = (newStory) => {
+        console.log('New story created:', newStory);
         setStories(prevStories => [newStory, ...prevStories]);
         setShowCreateForm(false);
+        
+        // Refresh stories list
+        fetchStories();
     };
 
     const handleStoryClick = async (story) => {
         setSelectedStory(story);
         setViewingStory(true);
 
-        // If onViewStory prop is provided, use it instead of internal viewer
         if (onViewStory) {
             const storyIndex = stories.findIndex(s => s.storyID === story.storyID);
             if (storyIndex !== -1) {
@@ -45,7 +49,6 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
             }
         }
 
-        // Mark story as viewed
         try {
             await viewStory(story.storyID);
         } catch (error) {
@@ -82,10 +85,8 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
                     </div>
                 )}
                 
-                {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent" />
                 
-                {/* User info */}
                 <div className="absolute top-2 left-2 flex items-center">
                     <Avatar
                         src={story.user?.image}
@@ -98,7 +99,6 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
                     </span>
                 </div>
                 
-                {/* Time */}
                 <div className="absolute bottom-2 left-2 text-white text-xs">
                     {new Date(story.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
@@ -108,13 +108,13 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
     return (
         <div>
-            {/* Create Story Form Modal */}
+            {/* Create Story Form Modal - 🔥 SỬA LẠI PHẦN NÀY */}
             {showCreateForm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="w-full max-w-lg">
                         <StoryCreate
-                            onStoryCreated={handleStoryCreated}
-                            onClose={() => setShowCreateForm(false)}
+                            onStoryCreated={handleStoryCreated} // 🔥 TRUYỀN PROP NÀY
+                            onClose={() => setShowCreateForm(false)} // 🔥 VÀ PROP NÀY
                         />
                     </div>
                 </div>
@@ -192,4 +192,4 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
     );
 };
 
-export default StoryList; 
+export default StoryList;

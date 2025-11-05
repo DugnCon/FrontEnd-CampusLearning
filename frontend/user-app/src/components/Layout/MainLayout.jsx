@@ -155,7 +155,7 @@ const MainLayout = ({ children }) => {
         console.log('Setting current user from AuthContext:', contextUser);
         setCurrentUser(contextUser);
         // Update Redux store to keep in sync
-        dispatch(updateProfileImage(contextUser.avatar || contextUser.profileImage || contextUser.Image));
+        dispatch(updateProfileImage(contextUser.avatar || contextUser.profileImage || contextUser.image));
       } else if (authUser && Object.keys(authUser).length > 0) {
         console.log('Setting current user from Redux state:', authUser);
         setCurrentUser(authUser);
@@ -168,7 +168,7 @@ const MainLayout = ({ children }) => {
             setCurrentUser(userData);
             // If we have user data in localStorage but not in Redux, update Redux too
             if (!authUser || Object.keys(authUser).length === 0) {
-              dispatch(updateProfileImage(userData.profileImage || userData.avatar || userData.Image));
+              dispatch(updateProfileImage(userData.profileImage || userData.avatar || userData.image));
             }
           } catch (error) {
             console.error('Error parsing user data from localStorage:', error);
@@ -1108,7 +1108,7 @@ const MainLayout = ({ children }) => {
                           className="flex items-center p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 transition-all duration-200 hover:text-theme-primary dark:hover:text-theme-secondary"
                         >
                           <Avatar
-                            src={currentUser?.avatar || currentUser?.profileImage || currentUser?.Image}
+                            src={currentUser?.avatar || currentUser?.profileImage || currentUser?.image}
                             name={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                             alt={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                             size="small"
@@ -1308,7 +1308,7 @@ const MainLayout = ({ children }) => {
                               {searchType === 'users' ? (
                                 <>
                                   <Avatar
-                                    src={item.ProfileImage || item.avatar || item.Image}
+                                    src={item.profileImage || item.avatar || item.image}
                                     name={item.FullName || item.Username || item.fullName || item.username}
                                     size="medium"
                                     className="mr-3 flex-shrink-0"
@@ -1594,7 +1594,7 @@ const MainLayout = ({ children }) => {
                         className="p-2 rounded-full hover:bg-theme-accent/50 transition-all duration-200"
                       >
                         <Avatar
-                          src={currentUser?.avatar || currentUser?.profileImage || currentUser?.Image}
+                          src={currentUser?.avatar || currentUser?.profileImage || currentUser?.image}
                           name={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                           alt={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                           size="medium"
@@ -1840,7 +1840,7 @@ const MainLayout = ({ children }) => {
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-center">
                   <Avatar
-                    src={currentUser?.avatar || currentUser?.profileImage || currentUser?.Image}
+                    src={currentUser?.avatar || currentUser?.profileImage || currentUser?.image}
                     name={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                     alt={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                     size="large"

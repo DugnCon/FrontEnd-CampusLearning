@@ -968,7 +968,7 @@ const sendFileMessage = async (files) => {
         return (
           <div key={message.messageID || index} className="flex justify-start mb-1">
             <div className="flex max-w-xs md:max-w-md">
-              <div className="w-8 h-8 mr-2 flex-shrink-0" />
+              <div className="w-10 h-10 mr-2 flex-shrink-0" />
               <div className="bg-gray-100 px-4 py-2 rounded-2xl italic text-gray-500 text-sm">
                 {messageText}
               </div>
@@ -1030,16 +1030,15 @@ const sendFileMessage = async (files) => {
         <div className="flex max-w-xs md:max-w-md">
           {/* FIX: Chỉ hiển thị avatar cho tin nhắn CUỐI cùng trong nhóm */}
           {isLastInGroup ? (
-            <div className="w-8 h-8 mr-2 flex-shrink-0">
+            <div className="w-10 h-10 mr-2 flex-shrink-0">
               <Avatar 
                 src={message.senderAvatar || message.avatar} 
                 alt={message.senderName || message.senderUsername} 
-                size="xs" 
-                className="rounded-full"
+                size="small"
               />
             </div>
           ) : (
-            <div className="w-8 h-8 mr-2 flex-shrink-0" />
+            <div className="w-10 h-10 mr-2 flex-shrink-0" />
           )}
 
           <div className="flex-1">
@@ -1119,24 +1118,24 @@ const sendFileMessage = async (files) => {
                   <div className="flex items-center space-x-2">
                     <div className="relative">
                       {conv.type === 'group' ? (
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <UserGroupIcon className="w-5 h-5 text-blue-600" />
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                          <UserGroupIcon className="w-6 h-6 text-blue-600" />
                         </div>
                       ) : (
-                        <Avatar src={conv.avatar} alt={conv.title} size="sm" />
+                        <Avatar src={conv.avatar} alt={conv.title} size="medium" />
                       )}
                       {conv.unreadCount > 0 && (
-                        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                           {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between">
-                        <h3 className="text-xs font-medium text-gray-900 truncate">{conv.title || 'Cuộc trò chuyện'}</h3>
+                        <h3 className="text-sm font-medium text-gray-900 truncate">{conv.title || 'Cuộc trò chuyện'}</h3>
                         <span className="text-xs text-gray-500">{conv.lastMessageTime && formatMessageTime(conv.lastMessageTime)}</span>
                       </div>
-                      <p className="text-xs text-gray-600 truncate mt-1">{conv.lastMessageContent || 'Chưa có tin nhắn'}</p>
+                      <p className="text-sm text-gray-600 truncate mt-1">{conv.lastMessageContent || 'Chưa có tin nhắn'}</p>
                     </div>
                   </div>
                 </div>
@@ -1158,10 +1157,10 @@ const sendFileMessage = async (files) => {
                 </button>
               )}
               <div className="flex items-center space-x-3 flex-1">
-                <Avatar src={currentConversation.avatar} alt={currentConversation.title} size="sm" />
+                <Avatar src={currentConversation.avatar} alt={currentConversation.title} size="medium" />
                 <div className="min-w-0 flex-1">
                   <span className="font-semibold text-gray-900 truncate block">{currentConversation.title}</span>
-                  <span className="text-xs text-green-500 block">Đang hoạt động</span>
+                  <span className="text-sm text-green-500 block">Đang hoạt động</span>
                 </div>
               </div>
               <div className="flex space-x-2">
@@ -1441,7 +1440,7 @@ const sendFileMessage = async (files) => {
                     onClick={() => handleStartConversation(user)} 
                     className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
                   >
-                    <Avatar src={user.avatar} alt={user.fullName} size="sm" />
+                    <Avatar src={user.avatar} alt={user.fullName} size="medium" />
                     <div>
                       <p className="font-medium text-gray-900">{user.fullName}</p>
                       <p className="text-sm text-gray-500">@{user.username}</p>
@@ -1485,7 +1484,7 @@ const sendFileMessage = async (files) => {
               <div className="max-h-40 overflow-y-auto border rounded-lg p-2">
                 {searchUsers.filter(u => !selectedUsers.some(s => s.userID === u.userID)).map(u => (
                   <div key={u.userID} onClick={() => setSelectedUsers(prev => [...prev, u])} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                    <Avatar src={u.avatar} alt={u.fullName} size="sm" />
+                    <Avatar src={u.avatar} alt={u.fullName} size="medium" />
                     <div>
                       <p className="font-medium">{u.fullName}</p>
                       <p className="text-sm text-gray-500">@{u.username}</p>
@@ -1508,7 +1507,7 @@ const sendFileMessage = async (files) => {
       {incomingCall && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 text-center w-full max-w-sm shadow-2xl">
-            <Avatar src={incomingCall.initiatorPicture} alt={incomingCall.initiatorName} size="lg" className="mx-auto mb-3" />
+            <Avatar src={incomingCall.initiatorPicture} alt={incomingCall.initiatorName} size="xl" className="mx-auto mb-3" />
             <h3 className="text-lg font-semibold mb-2">{incomingCall.initiatorName}</h3>
             <p className="text-gray-500 mb-6">{incomingCall.type === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</p>
             <div className="flex space-x-4">

@@ -129,7 +129,7 @@ const authSlice = createSlice({
     },
     updateProfileImage: (state, action) => {
       if (state.user) {
-        state.user.Image = action.payload;
+        state.user.image = action.payload;
         // Also update avatar field if it exists
         if (state.user.avatar) {
           state.user.avatar = action.payload;

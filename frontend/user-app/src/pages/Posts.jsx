@@ -1,6 +1,6 @@
 import { BookmarkIcon, ChatBubbleLeftIcon, ClockIcon, FireIcon, HandThumbUpIcon, MagnifyingGlassIcon, PencilIcon, ShareIcon } from '@heroicons/react/24/outline';
 import { BookmarkIcon as BookmarkSolid, HandThumbUpIcon as ThumbUpSolid } from '@heroicons/react/24/solid';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useLocation, useNavigate } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,7 @@ import courseApi from '../api/courseApi';
 import { Avatar } from '../components/index';
 import CreatePost from '../components/Post/CreatePost';
 import SharePostModal from '../components/Post/SharePostModal';
+import { useSocket } from '../contexts/SocketContext';
 
 // Base URL for media files
 const BASE_URL = 'http://localhost:8080';
@@ -103,9 +104,427 @@ const Posts = () => {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [videoThumbnails, setVideoThumbnails] = useState({});
 
+  // WebSocket states - GIỐNG CHAT
+  const [realTimeComments, setRealTimeComments] = useState(new Map());
+  const [sendingComment, setSendingComment] = useState(false);
+  const [commentStatus, setCommentStatus] = useState({});
+  const [typingComments, setTypingComments] = useState({});
+  const [isTypingComment, setIsTypingComment] = useState(false);
+
+  // Refs - GIỐNG CHAT
+  const typingCommentTimeoutRef = useRef(null);
+  const commentInputRef = useRef(null);
+
+  const { isConnected, subscribe, unsubscribe, sendMessage } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Hàm chuẩn hóa comment từ socket
+  const normalizeCommentFromSocket = useCallback((commentData) => ({
+    commentId: commentData.commentID || commentData.commentId,
+    fullName: commentData.fullName || commentData.FullName,
+    content: commentData.content || commentData.Content,
+    createdAt: commentData.createdAt || commentData.CreatedAt || new Date().toISOString(),
+    userImage: commentData.userImage || commentData.UserImage,
+    likesCount: commentData.likesCount || commentData.LikesCount || 0,
+    isLiked: commentData.Liked || commentData.liked || false,
+    userId: commentData.userID || commentData.UserID,
+  }), []);
+
+  // === WEB SOCKET SUBSCRIPTIONS - GIỐNG CHAT ===
+  useEffect(() => {
+    if (!isConnected || !selectedVideo?.postId) return;
+
+    const commentDestination = `/topic/post.${selectedVideo.postId}.comments`;
+    const commentSub = subscribe(commentDestination, (data) => {
+      console.log('📨 Received comment event:', data);
+      
+      switch (data.type) {
+        case 'NEW_COMMENT':
+          handleRealTimeComment(data);
+          break;
+        case 'COMMENT_DELETED':
+          handleCommentDeleted(data.data);
+          break;
+        case 'COMMENT_LIKED':
+          handleCommentLiked(data.data);
+          break;
+        case 'POST_LIKED':
+          handlePostLiked(data.data);
+          break;
+        case 'TYPING_COMMENT':
+          handleUserTypingComment(data.data);
+          break;
+        default:
+          console.log('Unknown comment event type:', data.type);
+      }
+    });
+
+    const typingDestination = `/topic/post.${selectedVideo.postId}.typing`;
+    const typingSub = subscribe(typingDestination, (data) => {
+      if (data.type === 'TYPING_COMMENT') {
+        handleUserTypingComment(data.data);
+      }
+    });
+
+    // Join post room
+    sendMessage('/post.join', {
+      postId: selectedVideo.postId
+    });
+
+    return () => {
+      if (commentSub) unsubscribe(commentDestination);
+      if (typingSub) unsubscribe(typingDestination);
+    };
+  }, [isConnected, selectedVideo?.postId, subscribe, unsubscribe, sendMessage]);
+
+  // === HANDLE REAL-TIME COMMENT - GIỐNG CHAT ===
+  const handleRealTimeComment = useCallback((data) => {
+    console.log('📨 Received real comment:', data);
+
+    if (data.type !== 'NEW_COMMENT') return;
+
+    const commentData = data.data;
+    const commentId = commentData.commentID || commentData.commentId;
+
+    if (!commentId) return;
+
+    // Xóa comment tạm nếu có
+    setRealTimeComments(prev => {
+      const newMap = new Map(prev);
+      const existingComments = newMap.get(selectedVideo?.postId) || [];
+      
+      // Loại bỏ comment tạm và thêm comment thật
+      const filteredComments = existingComments.filter(c => !c.isTemp);
+      
+      // Kiểm tra trùng lặp
+      if (!filteredComments.some(c => c.commentId === commentId)) {
+        const normalizedComment = normalizeCommentFromSocket(commentData);
+        newMap.set(selectedVideo?.postId, [normalizedComment, ...filteredComments]);
+      }
+      
+      return newMap;
+    });
+
+    // Cập nhật comment count
+    if (data.postId === selectedVideo?.postId) {
+      const newCount = (selectedVideo.commentsCount || 0) + 1;
+      setSelectedVideo(prev => prev ? { ...prev, commentsCount: newCount } : prev);
+      setPosts(prev => prev.map(p => 
+        p.postId === data.postId 
+          ? { ...p, commentsCount: newCount }
+          : p
+      ));
+    }
+  }, [selectedVideo, normalizeCommentFromSocket]);
+
+  // === HANDLE COMMENT DELETED ===
+  const handleCommentDeleted = useCallback((data) => {
+    const { commentId, postId } = data;
+    
+    setRealTimeComments(prev => {
+      const newMap = new Map(prev);
+      const existingComments = newMap.get(postId) || [];
+      newMap.set(postId, existingComments.filter(c => c.commentId !== commentId));
+      return newMap;
+    });
+
+    // Cập nhật comment count
+    if (selectedVideo?.postId === postId) {
+      const newCount = Math.max(0, (selectedVideo.commentsCount || 1) - 1);
+      setSelectedVideo(prev => prev ? { ...prev, commentsCount: newCount } : prev);
+      setPosts(prev => prev.map(p => 
+        p.postId === postId 
+          ? { ...p, commentsCount: newCount }
+          : p
+      ));
+    }
+  }, [selectedVideo]);
+
+  // === HANDLE COMMENT LIKED ===
+  const handleCommentLiked = useCallback((data) => {
+    const { commentId, isLiked, likesCount } = data;
+    
+    setRealTimeComments(prev => {
+      const newMap = new Map(prev);
+      const existingComments = newMap.get(selectedVideo?.postId) || [];
+      newMap.set(selectedVideo?.postId, existingComments.map(comment =>
+        comment.commentId === commentId
+          ? { ...comment, isLiked, likesCount }
+          : comment
+      ));
+      return newMap;
+    });
+  }, [selectedVideo]);
+
+  // === HANDLE POST LIKED ===
+  const handlePostLiked = useCallback((data) => {
+    const { postId, isLiked, likesCount } = data;
+    
+    if (selectedVideo?.postId === postId) {
+      setSelectedVideo(prev => prev ? { 
+        ...prev, 
+        isLiked, 
+        likesCount 
+      } : prev);
+    }
+    
+    setPosts(prev => prev.map(post =>
+      post.postId === postId
+        ? { ...post, isLiked, likesCount }
+        : post
+    ));
+  }, [selectedVideo]);
+
+  // === HANDLE USER TYPING COMMENT ===
+  const handleUserTypingComment = useCallback((data) => {
+    const { postId, userId, username, isTyping } = data;
+    
+    if (selectedVideo?.postId === postId) {
+      setTypingComments(prev => ({
+        ...prev,
+        [postId]: isTyping 
+          ? { ...prev[postId], [userId]: username }
+          : { ...prev[postId], [userId]: undefined }
+      }));
+    }
+  }, [selectedVideo]);
+
+  // === COMMENT TYPING HANDLER - GIỐNG CHAT ===
+  const handleCommentTyping = () => {
+    if (!selectedVideo || !isConnected) return;
+
+    sendMessage('/comment.typing', {
+      postId: selectedVideo.postId,
+      isTyping: true
+    });
+
+    if (typingCommentTimeoutRef.current) {
+      clearTimeout(typingCommentTimeoutRef.current);
+    }
+
+    typingCommentTimeoutRef.current = setTimeout(() => {
+      sendMessage('/comment.typing', {
+        postId: selectedVideo.postId,
+        isTyping: false
+      });
+    }, 1000);
+  };
+
+  // === GỬI COMMENT VỚI OPTIMISTIC UPDATE - GIỐNG CHAT ===
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim() || !selectedVideo || sendingComment) return;
+
+    const text = newComment.trim();
+    setNewComment('');
+    setSendingComment(true);
+    setCommentError(null);
+
+    // Tạo comment tạm (optimistic UI) - GIỐNG CHAT
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const tempComment = {
+      commentId: `temp-${Date.now()}`,
+      fullName: user.fullName || 'You',
+      content: text,
+      createdAt: new Date().toISOString(),
+      userImage: user.profileImage || user.image,
+      likesCount: 0,
+      isLiked: false,
+      userId: user.userId || user.id,
+      isTemp: true,
+      status: 'sending'
+    };
+
+    // Thêm comment tạm ngay lập tức - GIỐNG CHAT
+    setRealTimeComments(prev => {
+      const newMap = new Map(prev);
+      const existingComments = newMap.get(selectedVideo.postId) || [];
+      newMap.set(selectedVideo.postId, [tempComment, ...existingComments]);
+      return newMap;
+    });
+
+    setCommentStatus(prev => ({ ...prev, [tempComment.commentId]: 'sending' }));
+
+    try {
+      // Gửi comment qua REST API
+      const response = await fetch(`${BASE_URL}/api/posts/${selectedVideo.postId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ content: text }),
+      });
+
+      if (!response.ok) throw new Error('Gửi comment thất bại');
+
+      // Cập nhật status thành công
+      setCommentStatus(prev => ({ ...prev, [tempComment.commentId]: 'sent' }));
+
+      // Comment thật sẽ được nhận qua WebSocket và thay thế comment tạm
+
+    } catch (error) {
+      console.error('Submit comment error:', error);
+      
+      // Cập nhật status thất bại - GIỐNG CHAT
+      setCommentStatus(prev => ({ ...prev, [tempComment.commentId]: 'failed' }));
+      
+      // Rollback sau 3 giây
+      setTimeout(() => {
+        setRealTimeComments(prev => {
+          const newMap = new Map(prev);
+          const existingComments = newMap.get(selectedVideo.postId) || [];
+          newMap.set(selectedVideo.postId, existingComments.filter(c => c.commentId !== tempComment.commentId));
+          return newMap;
+        });
+      }, 3000);
+      
+      setCommentError('Không thể gửi bình luận. Vui lòng thử lại.');
+    } finally {
+      setSendingComment(false);
+    }
+  };
+
+  // === XÓA COMMENT VỚI OPTIMISTIC UPDATE - GIỐNG CHAT ===
+  const handleDeleteComment = async (commentId, postId = null) => {
+    const targetPostId = postId || selectedVideo?.postId;
+    if (!targetPostId) return;
+
+    try {
+      // Optimistic update - xóa ngay lập tức
+      setRealTimeComments(prev => {
+        const newMap = new Map(prev);
+        const existingComments = newMap.get(targetPostId) || [];
+        newMap.set(targetPostId, existingComments.filter(c => c.commentId !== commentId));
+        return newMap;
+      });
+
+      // Gửi yêu cầu xóa
+      const response = await fetch(`${BASE_URL}/api/posts/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) throw new Error('Xóa comment thất bại');
+
+      // Gửi socket event để thông báo cho người khác
+      if (isConnected) {
+        sendMessage('/comment.delete', {
+          commentId: commentId,
+          postId: targetPostId
+        });
+      }
+
+    } catch (error) {
+      console.error('Delete comment error:', error);
+      // Có thể reload comments để khôi phục
+      if (selectedVideo) fetchComments(selectedVideo.postId);
+    }
+  };
+
+  // === LIKE COMMENT VỚI OPTIMISTIC UPDATE - GIỐNG CHAT ===
+  const handleLikeComment = async (commentId) => {
+    const allComments = getCombinedComments();
+    const comment = allComments.find(c => c.commentId === commentId);
+    if (!comment) return;
+
+    const wasLiked = comment.isLiked;
+    const delta = wasLiked ? -1 : 1;
+    const newLikesCount = (comment.likesCount || 0) + delta;
+
+    // Optimistic update
+    setRealTimeComments(prev => {
+      const newMap = new Map(prev);
+      const existingComments = newMap.get(selectedVideo?.postId) || [];
+      newMap.set(selectedVideo?.postId, existingComments.map(c =>
+        c.commentId === commentId
+          ? { ...c, isLiked: !wasLiked, likesCount: newLikesCount }
+          : c
+      ));
+      return newMap;
+    });
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/posts/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      if (!response.ok) throw new Error('Like comment failed');
+
+      // Gửi socket event
+      if (isConnected) {
+        sendMessage('/comment.like', {
+          commentId: commentId,
+          postId: selectedVideo?.postId,
+          isLiked: !wasLiked,
+          likesCount: newLikesCount
+        });
+      }
+
+    } catch (error) {
+      console.error('Like comment error:', error);
+      // Rollback
+      setRealTimeComments(prev => {
+        const newMap = new Map(prev);
+        const existingComments = newMap.get(selectedVideo?.postId) || [];
+        newMap.set(selectedVideo?.postId, existingComments.map(c =>
+          c.commentId === commentId
+            ? { ...c, isLiked: wasLiked, likesCount: comment.likesCount }
+            : c
+        ));
+        return newMap;
+      });
+    }
+  };
+
+  // === RENDER COMMENT STATUS - GIỐNG CHAT ===
+  const renderCommentStatus = (comment) => {
+    if (!comment.isTemp) return null;
+    
+    const status = commentStatus[comment.commentId];
+    
+    switch (status) {
+      case 'sending':
+        return <span className="ml-2 text-xs text-blue-500">(Đang gửi...)</span>;
+      case 'failed':
+        return <span className="ml-2 text-xs text-red-500">(Gửi thất bại)</span>;
+      default:
+        return <span className="ml-2 text-xs text-gray-500">(Đang gửi...)</span>;
+    }
+  };
+
+  // === RENDER TYPING INDICATOR - GIỐNG CHAT ===
+  const getCommentTypingText = () => {
+    const typing = typingComments[selectedVideo?.postId];
+    if (!typing) return '';
+    const names = Object.values(typing).filter(Boolean);
+    if (names.length === 1) return `${names[0]} đang viết bình luận...`;
+    if (names.length === 2) return `${names[0]} và ${names[1]} đang viết bình luận...`;
+    return `${names.length} người đang viết bình luận...`;
+  };
+
+  // Kết hợp comments từ API và real-time comments
+  const getCombinedComments = useCallback(() => {
+    if (!selectedVideo?.postId) return comments;
+    
+    const rtComments = realTimeComments.get(selectedVideo.postId) || [];
+    const apiComments = comments || [];
+    
+    // Merge và loại bỏ trùng lặp
+    const allComments = [...rtComments];
+    apiComments.forEach(apiComment => {
+      if (!allComments.some(rtComment => rtComment.commentId === apiComment.commentId)) {
+        allComments.push(apiComment);
+      }
+    });
+    
+    // Sắp xếp theo thời gian (mới nhất đầu tiên)
+    return allComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [selectedVideo?.postId, comments, realTimeComments]);
+
+  // Các hàm khác giữ nguyên...
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const postId = queryParams.get('postId');
@@ -277,7 +696,15 @@ const Posts = () => {
       });
 
       if (!response.ok) throw new Error('Like failed');
-      // API OK → UI đã đúng → không làm gì
+      
+      // Gửi socket event
+      if (isConnected) {
+        sendMessage('/post.like', {
+          postId: postId,
+          isLiked: !wasLiked,
+          likesCount: newLikesCount
+        });
+      }
     } catch (error) {
       console.error('Like error:', error);
 
@@ -302,7 +729,7 @@ const Posts = () => {
     }
   };
 
-  const handleComment = (postId, change = 1) => {
+  const handleCommentCount = (postId, change = 1) => {
     setPosts(posts.map(post =>
       post.postId === postId
         ? { ...post, commentsCount: Math.max(0, post.commentsCount + change) }
@@ -429,151 +856,6 @@ const Posts = () => {
     if (selectedVideo) fetchComments(selectedVideo.postId);
   }, [selectedVideo]);
 
-  const handleSubmitComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim() || !selectedVideo) return;
-    setSubmittingComment(true);
-    setCommentError(null);
-
-    try {
-      const response = await fetch(`${BASE_URL}/api/posts/${selectedVideo.postId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ content: newComment }),
-      });
-
-      // đọc text rồi parse để tránh crash nếu server trả non-JSON
-      const text = await response.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (err) {
-        console.warn('Non-JSON comment response:', text);
-        data = text;
-      }
-
-      if (!response.ok) {
-        console.error('Add comment failed', response.status, data);
-        throw new Error((data && data.message) || 'Không thể gửi bình luận');
-      }
-
-      // Normalize many possible shapes from server
-      const commentObjRaw = (data && (data.comment || data.data?.comment || data.data)) || data || {};
-      const normalized = normalizeCommentData(commentObjRaw);
-
-      // Use server id if provided; fallback to temp id for optimistic UI
-      const normalizedWithId = {
-        ...normalized,
-        commentId: normalized.commentId || `tmp-${Date.now()}`,
-        createdAt: normalized.createdAt || new Date().toISOString(),
-      };
-
-      // Update UI optimistically using server response (no full refetch)
-      setComments(prev => {
-        // avoid duplicate if server returns same id twice
-        if (prev.some(c => c.commentId === normalizedWithId.commentId)) return prev;
-        return [normalizedWithId, ...prev];
-      });
-      setNewComment('');
-
-      // Update counters locally (posts list + selectedVideo)
-      setPosts(prev => prev.map(p =>
-        p.postId === selectedVideo.postId
-          ? { ...p, commentsCount: (p.commentsCount || 0) + 1 }
-          : p
-      ));
-      setSelectedVideo(prev => prev ? { ...prev, commentsCount: (prev.commentsCount || 0) + 1 } : prev);
-      handleComment(selectedVideo.postId);
-    } catch (error) {
-      console.error('handleSubmitComment error:', error);
-      setCommentError(error.message || 'Không thể gửi bình luận');
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
-
-  const handleLikeComment = async (commentId) => {
-    try {
-      const response = await fetch(`${BASE_URL}/api/posts/comments/${commentId}/like`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      if (!response.ok) throw new Error('Like comment failed');
-      setComments(prev =>
-        prev.map(c =>
-          c.commentId === commentId
-            ? { ...c, isLiked: !c.isLiked, likesCount: c.isLiked ? c.likesCount - 1 : c.likesCount + 1 }
-            : c
-        )
-      );
-    } catch (error) {
-      console.error('Like comment error:', error);
-    }
-  };
-
-  const handleDeleteComment = async (commentId, postId = null) => {
-    try {
-      // prefer explicit postId param, fallback to selectedVideo
-      const targetPostId = postId || selectedVideo?.postId;
-      if (!targetPostId) {
-        console.warn('No postId provided for delete-comment');
-      }
-
-      // call DELETE with postId in URL so backend can update/return it reliably
-      const url = targetPostId
-        ? `${BASE_URL}/api/posts/${targetPostId}/comments/${commentId}`
-        : `${BASE_URL}/api/posts/comments/${commentId}`;
-
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
-      // robust parse
-      const text = await response.text();
-      let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Delete failed');
-      }
-
-      // Determine postId from response if backend returns it, otherwise use targetPostId
-      const returnedPostId =
-        data.postId ||
-        data.postID ||
-        data.data?.postId ||
-        data.data?.postID ||
-        targetPostId;
-
-      // remove comment from UI
-      setComments(prev => prev.filter(c => c.commentId !== commentId));
-
-      if (returnedPostId) {
-        // decrement counters
-        handleComment(returnedPostId, -1);
-
-        // keep posts list and selectedVideo in sync
-        setPosts(prev =>
-          prev.map(p =>
-            p.postId === returnedPostId
-              ? { ...p, commentsCount: Math.max(0, (p.commentsCount || 1) - 1) }
-              : p
-          )
-        );
-
-        if (selectedVideo?.postId === returnedPostId) {
-          setSelectedVideo(prev => prev ? { ...prev, commentsCount: Math.max(0, (prev.commentsCount || 1) - 1) } : prev);
-        }
-      }
-    } catch (error) {
-      console.error('Delete comment error:', error);
-    }
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -661,8 +943,21 @@ const Posts = () => {
     if (currentMediaIndex > 0) setCurrentMediaIndex(currentMediaIndex - 1);
   };
 
+  // Hiển thị trạng thái kết nối WebSocket - GIỐNG CHAT
+  const renderConnectionStatus = () => (
+    <div className={`fixed top-4 right-4 px-3 py-1 rounded-full text-xs font-medium z-50 ${
+      isConnected 
+        ? 'bg-green-100 text-green-800 border border-green-300' 
+        : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+    }`}>
+      {isConnected ? '🟢 Đang kết nối' : '🟡 Đang kết nối...'}
+    </div>
+  );
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
+      {renderConnectionStatus()}
+      
       {showSuccess && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
           <span>Đăng bài thành công!</span>
@@ -816,7 +1111,7 @@ const Posts = () => {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleLike(selectedVideo.postId)}
-                        className={`flex items-center space-x-1 px-M3 py-1.5 rounded-full ${
+                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-full ${
                           selectedVideo.isLiked
                             ? 'bg-blue-100 text-blue-600'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -836,7 +1131,7 @@ const Posts = () => {
 
                       <button
                         onClick={() => handleBookmark(selectedVideo.postId)}
-                        className={`p-2 rounded-full ${selectedVideo.isBookmarked ? 'bg-blue-100 text-blue-600' : 'bg541-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                        className={`p-2 rounded-full ${selectedVideo.isBookmarked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                       >
                         {selectedVideo.isBookmarked ? <BookmarkSolid className="h-5 w-5" /> : <BookmarkIcon className="h-5 w-5" />}
                       </button>
@@ -873,7 +1168,22 @@ const Posts = () => {
                 </div>
 
                 <div className="border-t border-gray-100 p-4">
-                  <h3 className="font-medium mb-4">{selectedVideo.commentsCount || 0} bình luận</h3>
+                  <h3 className="font-medium mb-4">
+                    {selectedVideo.commentsCount || 0} bình luận
+                    {!isConnected && (
+                      <span className="ml-2 text-xs text-yellow-600">
+                        (Đang tải lại...)
+                      </span>
+                    )}
+                  </h3>
+
+                  {/* Typing Indicator - GIỐNG CHAT */}
+                  {getCommentTypingText() && (
+                    <div className="px-2 py-1 bg-gray-50 rounded-lg mb-2">
+                      <p className="text-xs text-gray-500 italic">{getCommentTypingText()}</p>
+                    </div>
+                  )}
+
                   <form onSubmit={handleSubmitComment} className="flex items-center space-x-2 mb-6">
                     <Avatar
                       src={getMediaUrl(JSON.parse(localStorage.getItem('user') || '{}').profileImage)}
@@ -882,19 +1192,23 @@ const Posts = () => {
                     />
                     <div className="flex-1 relative">
                       <input
+                        ref={commentInputRef}
                         type="text"
                         className="w-full py-2 px-3 border border-gray-300 rounded-full bg-gray-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="Viết bình luận..."
                         value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
-                        disabled={submittingComment}
+                        onChange={e => { 
+                          setNewComment(e.target.value); 
+                          handleCommentTyping(); 
+                        }}
+                        disabled={sendingComment}
                       />
                       <button
                         type="submit"
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 disabled:text-gray-400"
-                        disabled={submittingComment || !newComment.trim()}
+                        disabled={sendingComment || !newComment.trim()}
                       >
-                        {submittingComment ? (
+                        {sendingComment ? (
                           <div className="w-6 h-6 border-2 border-t-blue-500 border-r-transparent rounded-full animate-spin"></div>
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -911,16 +1225,22 @@ const Posts = () => {
                     </div>
                   ) : commentError ? (
                     <div className="text-center py-4 text-red-500 text-sm">{commentError}</div>
-                  ) : comments.length === 0 ? (
+                  ) : getCombinedComments().length === 0 ? (
                     <div className="text-center py-4 text-gray-500 text-sm">Chưa có bình luận nào.</div>
                   ) : (
                     <div ref={commentsRef} className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                      {comments.map(comment => (
-                        <div key={comment.commentId} className="flex space-x-2">
+                      {getCombinedComments().map(comment => (
+                        <div 
+                          key={comment.commentId} 
+                          className={`flex space-x-2 ${comment.isTemp ? 'opacity-70' : ''}`}
+                        >
                           <Avatar src={getMediaUrl(comment.userImage)} name={comment.fullName} size="small" />
                           <div className="flex-1">
                             <div className="bg-gray-100 rounded-lg px-3 py-2">
-                              <div className="font-medium text-sm">{comment.fullName}</div>
+                              <div className="font-medium text-sm">
+                                {comment.fullName}
+                                {renderCommentStatus(comment)}
+                              </div>
                               <div className="text-sm">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                   {comment.content}
@@ -929,16 +1249,23 @@ const Posts = () => {
                             </div>
                             <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
                               <span>{formatDate(comment.createdAt)}</span>
-                              <button
-                                className={`font-medium ${comment.isLiked ? 'text-blue-500' : ''}`}
-                                onClick={() => handleLikeComment(comment.commentId)}
-                              >
-                                Thích ({comment.likesCount || 0})
-                              </button>
-                              {comment.userId === JSON.parse(localStorage.getItem('user') || '{}').userId && (
-                                <button className="font-medium text-red-500" onClick={() => handleDeleteComment(comment.commentId, selectedVideo?.postId)}>
-                                  Xóa
-                                </button>
+                              {!comment.isTemp && (
+                                <>
+                                  <button
+                                    className={`font-medium ${comment.isLiked ? 'text-blue-500' : ''}`}
+                                    onClick={() => handleLikeComment(comment.commentId)}
+                                  >
+                                    Thích ({comment.likesCount || 0})
+                                  </button>
+                                  {comment.userId === JSON.parse(localStorage.getItem('user') || '{}').userId && (
+                                    <button 
+                                      className="font-medium text-red-500" 
+                                      onClick={() => handleDeleteComment(comment.commentId, selectedVideo?.postId)}
+                                    >
+                                      Xóa
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>

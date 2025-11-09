@@ -123,14 +123,14 @@ const useComments = ({ onUpdatePost } = {}) => {
       // Update comment in state
       setComments(prevComments => 
         prevComments.map(comment => {
-          if (comment.CommentID === commentId) {
-            const newLikesCount = comment.IsLiked 
-              ? comment.LikesCount - 1 
-              : comment.LikesCount + 1;
+          if (comment.commentID === commentId) {
+            const newLikesCount = comment.isLiked 
+              ? comment.likesCount - 1 
+              : comment.likesCount + 1;
             
             return {
               ...comment,
-              IsLiked: !comment.IsLiked,
+              IsLiked: !comment.isLiked,
               LikesCount: newLikesCount
             };
           }
@@ -154,7 +154,7 @@ const useComments = ({ onUpdatePost } = {}) => {
       
       // Remove comment from state
       setComments(prevComments => 
-        prevComments.filter(comment => comment.CommentID !== commentId)
+        prevComments.filter(comment => comment.commentID !== commentId)
       );
       
       // Update pagination

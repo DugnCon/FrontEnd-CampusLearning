@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+
 const Friends = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,6 +57,7 @@ const Friends = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchTimeoutRef = useRef(null);
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
+  
 
   const getCacheKey = (type) => {
     if (!currentUserId) return null;
@@ -740,7 +742,12 @@ const Friends = () => {
                 <div className="grid grid-cols-1 gap-3 sm:hidden px-2">
                   {filteredUsers.map(user => (
                     <div key={user.userID} className="bg-white rounded-xl p-4 border flex items-center gap-4">
-                      <Avatar src={user.image || user.avatar} name={user.fullName || user.username} size="lg" className="rounded-xl" />
+                      <Avatar 
+                        src={user.image || user.avatar} 
+                        name={user.fullName || user.username} 
+                        size="medium" 
+                        className="rounded-xl w-14 h-14 flex-shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-gray-900 truncate text-base">{user.fullName || user.username}</div>
                         <div className="text-sm text-gray-500 truncate mb-1">@{user.username}</div>
@@ -795,6 +802,7 @@ const Friends = () => {
                             )}
                           </div>
                         )}
+                        
                       </div>
                     </div>
                   ))}

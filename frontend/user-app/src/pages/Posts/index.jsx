@@ -65,11 +65,11 @@ const Posts = () => {
 
       // Update like status in the UI
       setPosts(posts.map(post => {
-        if (post.PostID === postId) {
+        if (post.postID === postId) {
           return {
             ...post,
-            IsLiked: !post.IsLiked,
-            LikesCount: post.IsLiked ? post.LikesCount - 1 : post.LikesCount + 1
+            IsLiked: !post.isLiked,
+            LikesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1
           };
         }
         return post;
@@ -82,10 +82,10 @@ const Posts = () => {
   const handleComment = async (postId, change = 1) => {
     // Update comment count in UI
     setPosts(posts.map(post => {
-      if (post.PostID === postId) {
+      if (post.postID === postId) {
         return {
           ...post,
-          CommentsCount: Math.max(0, post.CommentsCount + change)
+          CommentsCount: Math.max(0, post.commentsCount + change)
         };
       }
       return post;
@@ -111,8 +111,8 @@ const Posts = () => {
         if (post.PostID === postId) {
           return {
             ...post,
-            IsBookmarked: !post.IsBookmarked,
-            BookmarksCount: post.IsBookmarked ? 
+            IsBookmarked: !post.isBookmarked,
+            BookmarksCount: post.isBookmarked ? 
               Math.max(0, post.BookmarksCount - 1) : 
               (post.BookmarksCount || 0) + 1
           };

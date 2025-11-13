@@ -1,13 +1,13 @@
-# Stage 1: chỉ cần dùng Nginx, vì FE đã build sẵn dist
+# Sử dụng Nginx nhẹ
 FROM nginx:alpine
 
-# Copy dist vào thư mục serve của Nginx
-COPY dist/ /usr/share/nginx/html
+# Copy FE vào đúng subpath /user/
+COPY dist/ /usr/share/nginx/html/user/
 
-# Copy file config Nginx nếu cần (ngược lại sẽ dùng default)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Tạo file config Nginx riêng (tùy chỉnh cho SPA + subpath)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
+# Expose port
 EXPOSE 80
 
 # Chạy Nginx

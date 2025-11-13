@@ -6,7 +6,7 @@ services:
     container_name: user-frontend
     restart: always
     ports:
-      - "5004:80" # 5004 trên VPS sẽ map tới Nginx port 80
+      - "5004:80"  # OK: 5004 (VPS) → 80 (trong container)
     networks:
       - campus-network
 

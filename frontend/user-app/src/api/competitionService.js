@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { API_URL } from '@/config';
 
-const API_ENDPOINT = `${API_URL}/api`;
+const API_ENDPOINT = `${API_URL}`;
 
 // Create axios instance with auth header
 const apiClient = axios.create({

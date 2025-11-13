@@ -440,7 +440,7 @@ const Courses = () => {
               dispatch({ type: 'course/preloadAllCourses/fulfilled', payload: response.data.data });
               setLoading(false);
             } else if (isMounted) {
-              setError('Không thể tải danh sách khóa học');
+              setError(response.data.message || 'Lỗi khi tải danh sách khóa học');
             }
           } catch (directErr) {
             console.error('Error in direct API call:', directErr);

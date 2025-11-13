@@ -13,7 +13,7 @@ import { safeFetch } from '../utils/errorHandling';
  * Creates an axios instance with custom error handling
  */
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: `${API_URL}`,
   timeout: 10000
 });
 

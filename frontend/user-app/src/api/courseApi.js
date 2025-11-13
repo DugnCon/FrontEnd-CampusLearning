@@ -22,10 +22,10 @@ const courseApi = {
     const cleanIdentifier = String(identifier).trim();
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('GET', `${apiUrl}/api/courses/${cleanIdentifier}`, true);
+      xhr.open('GET', `${apiUrl}/courses/${cleanIdentifier}`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Thêm token vào header nếu có
@@ -73,10 +73,10 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('GET', `${apiUrl}/api/courses/${courseId}/check-enrollment`, true);
+      xhr.open('GET', `${apiUrl}/courses/${courseId}/check-enrollment`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Thêm token vào header nếu có
@@ -116,10 +116,10 @@ const courseApi = {
     console.log('Enrolling in free course:', courseId);
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('POST', `${apiUrl}/api/courses/${courseId}/enroll/free`, true);
+      xhr.open('POST', `${apiUrl}/courses/${courseId}/enroll/free`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Thêm token vào header
@@ -266,10 +266,10 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('GET', `${apiUrl}/api/courses/${courseId}/content`, true);
+      xhr.open('GET', `${apiUrl}/courses/${courseId}/content`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Add token to header if available
@@ -356,10 +356,10 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('GET', `${apiUrl}/api/courses/${courseId}/progress`, true);
+      xhr.open('GET', `${apiUrl}/courses/${courseId}/progress`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Add token to header if available
@@ -432,10 +432,10 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('GET', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/code-exercise`, true);
+      xhr.open('GET', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/code-exercise`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Add token to header if available
@@ -473,10 +473,10 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const xhr = new XMLHttpRequest();
       
-      xhr.open('POST', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/run-code`, true);
+      xhr.open('POST', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/run-code`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       
       // Add token to header if available
@@ -610,10 +610,10 @@ const courseApi = {
     
     return new Promise((resolve, reject) => {
       try {
-        const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
         const xhr = new XMLHttpRequest();
         
-        xhr.open('POST', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/submit-code`, true);
+        xhr.open('POST', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/submit-code`, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         
         // Add token to header if available

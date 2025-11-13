@@ -4,7 +4,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 
 const chatApiClient = axios.create({
-  baseURL: `${API_URL}/api/chat`,
+  baseURL: `${API_URL}/chat`,
   headers: {
     'Content-Type': 'application/json',
   },

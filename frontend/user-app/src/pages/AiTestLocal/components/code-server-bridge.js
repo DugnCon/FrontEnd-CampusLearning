@@ -8,7 +8,7 @@
 /**
  * Helper functions to connect with code-server
  */
-
+const BASE_URL = import.meta.env.VITE_CODE_SERVER_URL || 'http://localhost:8100';
 // Polyfill for browser if it doesn't exist
 if (typeof window !== 'undefined') {
   // Global browser polyfill
@@ -45,7 +45,7 @@ if (typeof window !== 'undefined') {
     // Instead of automatically creating workspaces, just check if code-server is running
     try {
       // Check if code-server is accessible
-      const response = await fetch(`http://localhost:8100/`, { method: 'GET', cache: 'no-cache' });
+      const response = await fetch(`${BASE_URL}/`, { method: 'GET', cache: 'no-cache' });
 
       
       console.log('Code-server is accessible, but not creating any workspaces automatically');
@@ -65,7 +65,7 @@ export const startCodeServer = async (options = {}) => {
   
   try {
     // Check if code-server is already running
-    const response = await fetch(`http://localhost:${port}`, { 
+    const response = await fetch(`${BASE_URL}`, { 
       method: 'GET',
       mode: 'no-cors',
       cache: 'no-cache'
@@ -79,7 +79,7 @@ export const startCodeServer = async (options = {}) => {
     
     return {
       success: true,
-      url: `http://localhost:${port}`,
+      url: `${BASE_URL}`,
       message: 'Code-server is already running',
       hasWorkspace: workspaceStatus.hasWorkspace,
       workspaceError: workspaceStatus.error
@@ -102,7 +102,7 @@ export const startCodeServer = async (options = {}) => {
 async function checkWorkspaceStatus(port) {
   try {
     // Try to fetch the root page to check for errors
-    const htmlResponse = await fetch(`http://localhost:${port}`, {
+    const htmlResponse = await fetch(`${BASE_URL}`, {
       method: 'GET',
       cache: 'no-cache'
     });
@@ -135,7 +135,7 @@ async function checkWorkspaceStatus(port) {
 async function createDefaultWorkspace(port, workspacePath) {
   try {
     // Try to fetch the root page to check for errors
-    const htmlResponse = await fetch(`http://localhost:${port}`, {
+    const htmlResponse = await fetch(`${BASE_URL}`, {
       method: 'GET',
       cache: 'no-cache'
     });
@@ -149,7 +149,7 @@ async function createDefaultWorkspace(port, workspacePath) {
       // Create an invisible iframe to create workspace
       const tempFrame = document.createElement('iframe');
       tempFrame.style.display = 'none';
-      tempFrame.src = `http://localhost:${port}`;
+      tempFrame.src = `${BASE_URL}`;
       
       // When the iframe loads, create the workspace
       tempFrame.onload = function() {

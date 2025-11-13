@@ -6,7 +6,7 @@ const API_BASE_URL = API_URL;
 
 // Create axios instance with default config
 const callApiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api/calls`,
+  baseURL: `${API_BASE_URL}/calls`,
   headers: {
     'Content-Type': 'application/json',
   },

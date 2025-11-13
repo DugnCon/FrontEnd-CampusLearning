@@ -11,7 +11,7 @@ import SharePostModal from '../components/Post/SharePostModal';
 import { useSocket } from '../contexts/SocketContext';
 
 // Base URL for media files
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 // Custom styles for Markdown elements
 const markdownStyles = {
@@ -348,7 +348,7 @@ const Posts = () => {
 
     try {
       // Gửi comment qua REST API
-      const response = await fetch(`${BASE_URL}/api/posts/${selectedVideo.postId}/comments`, {
+      const response = await fetch(`${BASE_URL}/posts/${selectedVideo.postId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -401,7 +401,7 @@ const Posts = () => {
       });
 
       // Gửi yêu cầu xóa
-      const response = await fetch(`${BASE_URL}/api/posts/comments/${commentId}`, {
+      const response = await fetch(`${BASE_URL}/posts/comments/${commentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -446,7 +446,7 @@ const Posts = () => {
     });
 
     try {
-      const response = await fetch(`${BASE_URL}/api/posts/comments/${commentId}/like`, {
+      const response = await fetch(`${BASE_URL}/posts/comments/${commentId}/like`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -585,7 +585,7 @@ const Posts = () => {
 
   const fetchPosts = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/posts?limit=1000', {
+      const response = await fetch(`${BASE_URL}/posts?limit=1000`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -630,7 +630,7 @@ const Posts = () => {
 
   const fetchSinglePost = async (postId) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/posts/${postId}`, {
+      const response = await fetch(`${BASE_URL}/posts/${postId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -688,7 +688,7 @@ const Posts = () => {
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/api/posts/${postId}/like`, {
+      const response = await fetch(`${BASE_URL}/posts/${postId}/like`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -811,7 +811,7 @@ const Posts = () => {
 
   const handleBookmark = async (postId) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/posts/${postId}/bookmark`, {
+      const response = await fetch(`${BASE_URL}/posts/${postId}/bookmark`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -839,7 +839,7 @@ const Posts = () => {
     setIsLoadingComments(true);
     setCommentError(null);
     try {
-      const response = await fetch(`${BASE_URL}/api/posts/${postId}/comments`, {
+      const response = await fetch(`${BASE_URL}/posts/${postId}/comments`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       if (!response.ok) throw new Error('Load comments failed');
@@ -872,7 +872,7 @@ const Posts = () => {
 
   const handleReportPost = async (postId, reportData) => {
     try {
-      const response = await fetch('/api/reports', {
+      const response = await fetch('/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

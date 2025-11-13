@@ -15,24 +15,38 @@ export default defineConfig({
     port: 5004,
     allowedHosts: ['.ngrok-free.app'],
     proxy: {
-      '/uploads': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/code-server': {
-      target: 'http://localhost:8100',
-      changeOrigin: true,
-      secure: false,
-      ws: true, // enable WebSocket proxy
-      rewrite: (path) => path.replace(/^\/code-server/, ''), // optional nếu muốn giữ đường dẫn gốc
+  '/user/api': {
+    target: 'http://campuslearning.site',
+    changeOrigin: true,
+    secure: false,
+    rewrite: (path) => path.replace(/^\/user\/api/, '/user/api'),
   },
-    }
+  '/admin/api': {
+    target: 'http://campuslearning.site',
+    changeOrigin: true,
+    secure: false,
+    rewrite: (path) => path.replace(/^\/admin\/api/, '/admin/api'),
+  },
+  '/uploads': {
+    target: 'http://campuslearning.site',
+    changeOrigin: true,
+    secure: false,
+  },
+  '/code-server': {
+    target: 'http://code.campuslearning.site',
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+    rewrite: (path) => path.replace(/^\/code-server/, ''),
+  },
+
+  '/code-api': {
+    target: 'http://code.campuslearning.site',
+    changeOrigin: true,
+    secure: false,
+    rewrite: (path) => path.replace(/^\/code-api/, ''),
+  },
+},
   },
   resolve: {
     alias: {

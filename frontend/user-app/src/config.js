@@ -1,9 +1,5 @@
 
-const isNgrok = window.location.hostname.includes('ngrok');
-
-export const API_URL = isNgrok 
-  ? window.location.origin 
-  : 'http://localhost:8080';
+export const API_URL = 'http://campuslearning.site/user/api';
 // Socket.IO configuration
 export const SOCKET_URL = API_URL;
 

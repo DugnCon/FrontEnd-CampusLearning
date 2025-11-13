@@ -87,53 +87,53 @@ const authServices = {
   changePassword: (oldPassword, newPassword) => api.post('/auth/change-password', { oldPassword, newPassword }),
   
   // Account unlock services
-  verifyUnlockToken: (token) => api.get(`/api/unlock/verify-token/${token}`),
+  verifyUnlockToken: (token) => api.get(`/unlock/verify-token/${token}`),
   verifyEmailToken: (emailToken) => api.post('/api/unlock/verify-email', { emailToken }),
   verifyTwoFAUnlock: (otp, tempToken) => api.post('/api/unlock/verify-2fa', { otp, tempToken }),
   requestNewUnlockEmail: (email) => api.post('/api/unlock/request-email', { email }),
   getAccountLockStatus: (email) => api.get(`/api/unlock/status/${encodeURIComponent(email)}`),
   
   // Two-factor authentication services
-  initTwoFASetup: (token) => api.post('/api/2fa/setup', { setupToken: token }),
-  verifyAndEnableTwoFA: (data) => api.post('/api/2fa/verify', data),
-  disable2FA: (password) => api.post('/api/2fa/disable', { password }),
-  get2FAStatus: () => api.get('/api/2fa/status'),
-  verify2FA: (code, token) => api.post('/api/2fa/verify-login', { code, token }),
+  initTwoFASetup: (token) => api.post('/2fa/setup', { setupToken: token }),
+  verifyAndEnableTwoFA: (data) => api.post('/2fa/verify', data),
+  disable2FA: (password) => api.post('/2fa/disable', { password }),
+  get2FAStatus: () => api.get('/2fa/status'),
+  verify2FA: (code, token) => api.post('/2fa/verify-login', { code, token }),
 };
 
 // =================== USER SERVICES ===================
 const userServices = {
-  getProfile: (userId) => api.get(userId ? `/api/users/${userId}/profile` : '/api/users/profile'),
-  getUserProfile: () => api.get('/api/users/profile'), // Get full profile with extended data
-  updateProfile: (profileData) => api.put('/api/users/profile', profileData),
-  getProfileSettings: () => api.get('/api/settings'),
-  updateProfileSettings: (settings) => api.put('/api/settings', settings),
-  getUserRanking: (userId) => api.get(`/api/users/${userId}/ranking`),
-  getAllUsers: (params) => api.get('/api/users', { params }),
-  getUserAchievements: (userId) => api.get(`/api/users/${userId}/achievements`),
-  uploadProfileImage: (formData) => api.post('/api/users/profile/image', formData, {
+  getProfile: (userId) => api.get(userId ? `/users/${userId}/profile` : '/users/profile'),
+  getUserProfile: () => api.get('/users/profile'), // Get full profile with extended data
+  updateProfile: (profileData) => api.put('/users/profile', profileData),
+  getProfileSettings: () => api.get('/settings'),
+  updateProfileSettings: (settings) => api.put('/settings', settings),
+  getUserRanking: (userId) => api.get(`/users/${userId}/ranking`),
+  getAllUsers: (params) => api.get('/users', { params }),
+  getUserAchievements: (userId) => api.get(`/users/${userId}/achievements`),
+  uploadProfileImage: (formData) => api.post('/users/profile/image', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   }),
   // New methods for extended profile operations
-  updateEducation: (education) => api.put('/api/users/profile', { education }),
-  updateWorkExperience: (workExperience) => api.put('/api/users/profile', { workExperience }),
-  updateSkills: (skills) => api.put('/api/users/profile', { skills }),
-  updateInterests: (interests) => api.put('/api/users/profile', { interests }),
-  updateSocialLinks: (socialLinks) => api.put('/api/users/profile', { socialLinks }),
-  updateAchievements: (achievements) => api.put('/api/users/profile', { achievements }),
+  updateEducation: (education) => api.put('/users/profile', { education }),
+  updateWorkExperience: (workExperience) => api.put('/users/profile', { workExperience }),
+  updateSkills: (skills) => api.put('/users/profile', { skills }),
+  updateInterests: (interests) => api.put('/users/profile', { interests }),
+  updateSocialLinks: (socialLinks) => api.put('/users/profile', { socialLinks }),
+  updateAchievements: (achievements) => api.put('/users/profile', { achievements }),
   // Email settings
-  getEmails: () => api.get('/api/users/emails'),
-  addEmail: (email) => api.post('/api/verification/email/add', { email }),
-  setPrimaryEmail: (emailId) => api.put(`/api/users/emails/${emailId}/primary`),
-  deleteEmail: (emailId) => api.delete(`/api/users/emails/${emailId}`),
-  resendVerificationEmail: (emailId) => api.post(`/api/verification/email/resend-additional-verification`, { emailId }),
-  verifyAdditionalEmail: (email, otp) => api.post('/api/verification/email/verify-additional', { email, otp }),
+  getEmails: () => api.get('/users/emails'),
+  addEmail: (email) => api.post('/verification/email/add', { email }),
+  setPrimaryEmail: (emailId) => api.put(`/users/emails/${emailId}/primary`),
+  deleteEmail: (emailId) => api.delete(`/users/emails/${emailId}`),
+  resendVerificationEmail: (emailId) => api.post(`/verification/email/resend-additional-verification`, { emailId }),
+  verifyAdditionalEmail: (email, otp) => api.post('/verification/email/verify-additional', { email, otp }),
   // Session management
-  getSessions: () => api.get('/api/users/sessions'),
-  deleteSession: (sessionId) => api.delete(`/api/users/sessions/${sessionId}`),
-  terminateOtherSessions: () => api.post('/api/users/sessions/terminate-others'),
+  getSessions: () => api.get('/users/sessions'),
+  deleteSession: (sessionId) => api.delete(`/users/sessions/${sessionId}`),
+  terminateOtherSessions: () => api.post('/users/sessions/terminate-others'),
 };
 
 // =================== COURSE SERVICES ===================
@@ -160,7 +160,7 @@ const courseServices = {
   updateLastAccessedLesson: (courseId, lessonId) => api.put(`/courses/${courseId}/last-accessed`, { lessonId }),
   
   // New endpoints for code execution and submission
-  executeCode: (code, language, lessonId, stdin = '') => api.post('/api/execute-code', { 
+  executeCode: (code, language, lessonId, stdin = '') => api.post('/execute-code', { 
     code, 
     language,
     lessonId,
@@ -181,23 +181,23 @@ const courseServices = {
 
 // =================== EVENT SERVICES ===================
 const eventServices = {
-  getAllEvents: (params) => api.get('/api/events', { params }),
-  getEventById: (eventId) => api.get(`/api/events/${eventId}`),
-  registerForEvent: (eventId, userData = {}) => api.post(`/api/events/${eventId}/register`, userData),
-  cancelEventRegistration: (eventId) => api.delete(`/api/events/${eventId}/register`),
-  getRegisteredEvents: () => api.get('/api/events/registered'),
-  getUpcomingEvents: () => api.get('/api/events/upcoming'),
-  getOngoingEvents: () => api.get('/api/events/ongoing'),
-  getPastEvents: () => api.get('/api/events/past'),
-  getEventSchedule: (eventId) => api.get(`/api/events/${eventId}/schedule`),
-  getEventParticipants: (eventId) => api.get(`/api/events/${eventId}/participants`),
-  getEventRounds: (eventId) => api.get(`/api/events/${eventId}/rounds`),
-  getEventPrizes: (eventId) => api.get(`/api/events/${eventId}/prizes`),
-  getEventTechnologies: (eventId) => api.get(`/api/events/${eventId}/technologies`),
-  getEventProgrammingLanguages: (eventId) => api.get(`/api/events/${eventId}/languages`),
-  getEventAchievements: (eventId) => api.get(`/api/events/${eventId}/achievements`),
-  getUserEventAchievements: () => api.get(`/api/events/achievements`),
-  checkEventRegistration: (eventId) => api.get(`/api/events/${eventId}/registration-status`)
+  getAllEvents: (params) => api.get('/events', { params }),
+  getEventById: (eventId) => api.get(`/events/${eventId}`),
+  registerForEvent: (eventId, userData = {}) => api.post(`/events/${eventId}/register`, userData),
+  cancelEventRegistration: (eventId) => api.delete(`/events/${eventId}/register`),
+  getRegisteredEvents: () => api.get('/events/registered'),
+  getUpcomingEvents: () => api.get('/events/upcoming'),
+  getOngoingEvents: () => api.get('/events/ongoing'),
+  getPastEvents: () => api.get('/events/past'),
+  getEventSchedule: (eventId) => api.get(`/events/${eventId}/schedule`),
+  getEventParticipants: (eventId) => api.get(`/events/${eventId}/participants`),
+  getEventRounds: (eventId) => api.get(`/events/${eventId}/rounds`),
+  getEventPrizes: (eventId) => api.get(`/events/${eventId}/prizes`),
+  getEventTechnologies: (eventId) => api.get(`/events/${eventId}/technologies`),
+  getEventProgrammingLanguages: (eventId) => api.get(`/events/${eventId}/languages`),
+  getEventAchievements: (eventId) => api.get(`/events/${eventId}/achievements`),
+  getUserEventAchievements: () => api.get(`/events/achievements`),
+  checkEventRegistration: (eventId) => api.get(`/events/${eventId}/registration-status`)
 };
 
 // =================== POST SERVICES ===================
@@ -256,17 +256,17 @@ const rankingServices = {
 
 // =================== EXAM SERVICES ===================
 const examServices = {
-  getAllExams: (params) => api.get('/api/exams', { params }),
-  getExamById: (examId) => api.get(`/api/exams/${examId}`),
-  registerForExam: (examId) => api.post(`/api/exams/${examId}/register`),
-  startExam: (examId) => api.post(`/api/exams/${examId}/start`),
-  getExamQuestions: (examId) => api.get(`/api/exams/${examId}/questions`),
-  submitExamAnswer: (examId, questionId, answer) => api.post(`/api/exams/${examId}/questions/${questionId}/answer`, { answer }),
-  finishExam: (examId) => api.post(`/api/exams/${examId}/finish`),
-  getExamResults: (examId) => api.get(`/api/exams/${examId}/results`),
-  getUserExams: (status) => api.get('/api/exams/user', { params: { status } }),
-  getUpcomingExams: () => api.get('/api/exams/upcoming'),
-  autoRegisterForAllExams: () => api.post('/api/exams/auto-register'),
+  getAllExams: (params) => api.get('/exams', { params }),
+  getExamById: (examId) => api.get(`/exams/${examId}`),
+  registerForExam: (examId) => api.post(`/exams/${examId}/register`),
+  startExam: (examId) => api.post(`/exams/${examId}/start`),
+  getExamQuestions: (examId) => api.get(`/exams/${examId}/questions`),
+  submitExamAnswer: (examId, questionId, answer) => api.post(`/exams/${examId}/questions/${questionId}/answer`, { answer }),
+  finishExam: (examId) => api.post(`/exams/${examId}/finish`),
+  getExamResults: (examId) => api.get(`/exams/${examId}/results`),
+  getUserExams: (status) => api.get('/exams/user', { params: { status } }),
+  getUpcomingExams: () => api.get('/exams/upcoming'),
+  autoRegisterForAllExams: () => api.post('/exams/auto-register'),
 };
 
 // =================== CHAT SERVICES ===================
@@ -297,7 +297,7 @@ const aiChatServices = {
 
 // =================== BILLING SERVICES ===================
 const billingServices = {
-  getOverview: () => api.get('/api/payments/overview')
+  getOverview: () => api.get('/payments/overview')
 };
 
 // Export all services and api instance

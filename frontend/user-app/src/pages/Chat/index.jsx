@@ -742,7 +742,7 @@ const sendFileMessage = async (files) => {
     try {
       setIsWaitingForResponse(true);
       const response = await callApi.initiateCall({
-        conversationId: currentConversation.conversationID,
+        conversationID: currentConversation.conversationID,
         type: 'audio'
       });
       if (response.success) {
@@ -750,7 +750,7 @@ const sendFileMessage = async (files) => {
         setInCall(true);
         
         sendMessage('/call.initiate', {
-          conversationId: currentConversation.conversationID,
+          conversationID: currentConversation.conversationID,
           type: 'audio',
           callId: response.data.callId
         });
@@ -769,7 +769,7 @@ const sendFileMessage = async (files) => {
     try {
       setIsWaitingForResponse(true);
       const response = await callApi.initiateCall({
-        conversationId: currentConversation.conversationID,
+        conversationID: currentConversation.conversationID,
         type: 'video'
       });
       if (response.success) {
@@ -777,7 +777,7 @@ const sendFileMessage = async (files) => {
         setInCall(true);
         
         sendMessage('/call.initiate', {
-          conversationId: currentConversation.conversationID,
+          conversationID: currentConversation.conversationID,
           type: 'video',
           callId: response.data.callId
         });
@@ -794,14 +794,14 @@ const sendFileMessage = async (files) => {
   const answerCall = async () => {
     if (!incomingCall) return;
     try {
-      const response = await callApi.answerCall({ callId: incomingCall.callId });
+      const response = await callApi.answerCall({ callId: incomingCall.callID });
       if (response.success) {
         setCurrentCall(response.data); 
         setInCall(true); 
         setIncomingCall(null);
         
         sendMessage('/call.answer', {
-          callId: incomingCall.callId
+          callId: incomingCall.callID
         });
       }
     } catch (error) {
@@ -812,7 +812,7 @@ const sendFileMessage = async (files) => {
   const rejectCall = async () => {
     if (!incomingCall) return;
     try {
-      await callApi.rejectCall({ callId: incomingCall.callId });
+      await callApi.rejectCall({ callId: incomingCall.callID });
       setIncomingCall(null);
     } catch (error) {
       console.error(error);
@@ -822,7 +822,7 @@ const sendFileMessage = async (files) => {
   const endCall = async () => {
     if (!currentCall) return;
     try {
-      await callApi.endCall({ callId: currentCall.callId });
+      await callApi.endCall({ callId: currentCall.callID });
       
       sendMessage('/call.end', {
         callId: currentCall.callId

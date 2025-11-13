@@ -795,7 +795,7 @@ const Login = () => {
               console.log('Retrieved Google user info:', data);
               const credential = {
                 credential: accessToken,
-                clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '890586528678-d33nj5dfqbptc5j5773g9mgkfsd45413.apps.googleusercontent.com',
+                clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
                 select_by: 'user',
                 ...data,
               };

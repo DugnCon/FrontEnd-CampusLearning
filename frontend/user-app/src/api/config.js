@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: config.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import axios from 'axios';
 
 // Flag to track if a token refresh is in progress
@@ -24,8 +18,10 @@ const processRequestsQueue = (token) => {
   requestsQueue = [];
 };
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const axiosClient = axios.create({
-  baseURL: process.env.VITE_API_URL || 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -74,7 +70,7 @@ const refreshToken = async () => {
     }
     
     // Make request to refresh token endpoint
-    const response = await axios.post('http://localhost:8080/api/auth/refresh-token', {
+    const response = await axios.post(`${BASE_URL}/auth/refresh-token`, {
       refreshToken: refreshTokenValue
     });
     
@@ -212,6 +208,6 @@ axiosClient.interceptors.response.use(
 );
 
 // Export the API URL for direct use in other files
-export const API_URL = process.env.VITE_API_URL || 'http://localhost:8080';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export default axiosClient; 

@@ -81,6 +81,7 @@
     "i18next": "^25.2.1",
     "i18next-browser-languagedetector": "^8.1.0",
     "i18next-http-backend": "^3.0.2",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.487.0",
     "monaco-editor": "^0.52.2",
     "nodemailer": "^7.0.3",

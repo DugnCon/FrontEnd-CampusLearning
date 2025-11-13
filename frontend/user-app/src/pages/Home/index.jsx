@@ -58,6 +58,8 @@ import {
 import { setUser } from '@/store/slices/authSlice';
 import { injectJsonLdScript, removeJsonLdScript } from '../../utils/safeScriptInjection';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const Home = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -265,7 +267,7 @@ const Home = () => {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch('http://localhost:8080/api/posts?limit=3', {
+        const response = await fetch(`${API_URL}/posts?limit=3`, {
           headers
         });
         

@@ -27,7 +27,8 @@ export const SocketProvider = ({ children }) => {
       console.log('Using Ngrok HTTPS SockJS URL:', url);
       return url;
     } else {
-      const localUrl = `http://localhost:8080/ws`;
+      const LOCAL_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const localUrl = `${LOCAL_URL}/ws`;
       console.log('Using Local HTTP SockJS URL:', localUrl);
       return localUrl;
     }

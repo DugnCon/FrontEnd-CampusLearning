@@ -63,6 +63,8 @@ const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
   const { refreshUserData } = useAuth();
+
+  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
   
   const { settings, profileInfo, loading, error, success, message } = useSelector(state => state.user);
   const [activeTab, setActiveTab] = useState(() => {
@@ -348,9 +350,14 @@ const Settings = () => {
                 >
                   {profileInfo.profileImage ? (
                     <img 
-                      src={profileInfo.profileImage} 
+                      src={`${BASE_URL}${profileInfo.profileImage}`} 
                       alt="Profile" 
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback khi ảnh lỗi
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
                     />
                   ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-200">

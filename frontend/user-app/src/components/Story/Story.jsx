@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../index';
-import { TrashIcon, EyeIcon, UserGroupIcon, HeartIcon, ChatBubbleLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, EyeIcon, UserGroupIcon, HeartIcon, ChatBubbleLeftIcon, XMarkIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline';
 import { viewStory, getStoryViewers, likeStory, replyToStory } from '../../api/storyApi';
 import './Story.css';
 
@@ -13,7 +13,9 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [replyMessage, setReplyMessage] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
+    const [isMuted, setIsMuted] = useState(true); // 🔥 THÊM STATE CHO ÂM THANH
     const progressRef = useRef(null);
+    const videoRef = useRef(null); // 🔥 THÊM REF CHO VIDEO
     const navigate = useNavigate();
     const [liked, setLiked] = useState(false);
 
@@ -43,6 +45,55 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         return () => clearInterval(timer);
     }, [story.storyID, story.duration, onNext]);
 
+    // 🔥 THÊM useEffect ĐỂ XỬ LÝ VIDEO
+    useEffect(() => {
+        if (story.mediaType === 'video' && videoRef.current) {
+            console.log('🎬 Video element ready');
+            console.log('🔊 Muted state:', videoRef.current.muted);
+            console.log('📢 Volume:', videoRef.current.volume);
+            
+            // Thử bật âm thanh sau 1 giây
+            const timeout = setTimeout(() => {
+                if (videoRef.current && isMuted) {
+                    videoRef.current.muted = false;
+                    setIsMuted(false);
+                    console.log('🔊 Attempting to unmute video');
+                }
+            }, 1000);
+
+            return () => clearTimeout(timeout);
+        }
+    }, [story.mediaType, isMuted]);
+
+    // 🔥 THÊM HÀM TOGGLE ÂM THANH
+    const toggleMute = () => {
+        if (videoRef.current) {
+            videoRef.current.muted = !videoRef.current.muted;
+            setIsMuted(videoRef.current.muted);
+            console.log('🔊 Toggle mute:', videoRef.current.muted);
+        }
+    };
+
+    // 🔥 THÊM HÀM XỬ LÝ VIDEO LOAD
+    const handleVideoLoad = () => {
+        console.log('🎬 Video loaded successfully');
+        if (videoRef.current) {
+            console.log('📺 Video duration:', videoRef.current.duration);
+            console.log('🔊 Initial muted state:', videoRef.current.muted);
+            
+            // Auto-play với âm thanh sau khi user tương tác
+            videoRef.current.play().catch(error => {
+                console.log('Auto-play prevented, waiting for user interaction');
+            });
+        }
+    };
+
+    // 🔥 THÊM HÀM XỬ LÝ VIDEO ERROR
+    const handleVideoError = (e) => {
+        console.error('❌ Video error:', e);
+        console.log('📹 Video src:', e.target.src);
+    };
+
     const handleClick = (e) => {
         const rect = progressRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -62,6 +113,8 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
             } else {
                 onClose();
             }
+        } else if (e.key === 'm' || e.key === 'M') { // 🔥 THÊM PHÍM TẮT MUTE
+            toggleMute();
         }
     };
 
@@ -163,9 +216,10 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                 <video 
                     src={story.mediaUrl} 
                     className="story-reply-preview-video"
-                    muted
+                    muted={isMuted}
                     autoPlay
                     loop
+                    ref={videoRef}
                 />
             );
         } else {
@@ -202,6 +256,20 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                     <span className="story-username">{story.user?.fullName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
+                    {/* 🔥 THÊM NÚT ÂM THANH CHO VIDEO */}
+                    {story.mediaType === 'video' && (
+                        <button 
+                            className="story-mute-btn"
+                            onClick={toggleMute}
+                            aria-label={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+                        >
+                            {isMuted ? (
+                                <SpeakerXMarkIcon className="w-5 h-5 text-white" />
+                            ) : (
+                                <SpeakerWaveIcon className="w-5 h-5 text-white" />
+                            )}
+                        </button>
+                    )}
                     {onDelete && (
                         <button 
                             className="story-delete-btn" 
@@ -234,13 +302,28 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                     />
                 )}
                 {story.mediaType === 'video' && (
-                    <video 
-                        src={story.mediaUrl} 
-                        className="story-media"
-                        autoPlay
-                        loop
-                        muted
-                    />
+                    <div className="story-video-container">
+                        <video 
+                            ref={videoRef}
+                            src={story.mediaUrl} 
+                            className="story-media"
+                            autoPlay
+                            loop
+                            muted={isMuted} // 🔥 SỬA: DÙNG STATE THAY VÌ MUTED CỨNG
+                            playsInline
+                            onLoadedData={handleVideoLoad}
+                            onError={handleVideoError}
+                            onPlay={() => console.log('🎬 Video started playing')}
+                            onVolumeChange={() => console.log('🔊 Volume changed:', videoRef.current?.volume)}
+                        />
+                        {/* 🔥 THÊM THÔNG BÁO ÂM THANH */}
+                        {isMuted && (
+                            <div className="story-mute-indicator">
+                                <SpeakerXMarkIcon className="w-6 h-6" />
+                                <span>Nhấn M để bật âm thanh</span>
+                            </div>
+                        )}
+                    </div>
                 )}
                 {story.textContent && (
                     <div className="story-text">

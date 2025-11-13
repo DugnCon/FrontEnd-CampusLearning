@@ -14,6 +14,8 @@ import About from '../../components/common/About';
 import axios from 'axios'; // Added axios import
 import { toast } from 'react-toastify'; // Added toast import
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
 //Nơi chứa thông tin đăng ký của người dùng
 const Register = () => {
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ const Register = () => {
     setError(null); // Clear previous errors
 
     try {
-      const response = await axios.post('/api/auth/register', formData); //Gọi api để lưu dữ liệu
+      const response = await axios.post(`${API_URL}/auth/register`, formData); //Gọi api để lưu dữ liệu
       if (response.data.success) { //Thành công thì chuyển trang
         toast.success('Đăng ký thành công! Vui lòng đăng nhập.');
         navigate('/login');

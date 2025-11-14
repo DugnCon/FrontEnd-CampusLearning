@@ -421,7 +421,7 @@ const CourseDetail = () => {
             <div className="bg-white rounded-2xl shadow-md overflow-hidden">
               {course.imageUrl ? (
                 <img 
-                  src={`http://localhost:8080${course.imageUrl}`} 
+                  src={course.imageUrl}
                   alt={course.title} 
                   className="w-full h-48 md:h-64 object-cover"
                   onError={(e) => {

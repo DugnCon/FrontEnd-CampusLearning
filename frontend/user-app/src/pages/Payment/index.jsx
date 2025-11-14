@@ -279,7 +279,7 @@ const Payment = () => {
             <div className="flex items-start border-b pb-4 mb-4">
               {course.imageUrl ? (
                 <img 
-                  src={`http://localhost:8080${course.imageUrl}`} 
+                  src={course.imageUrl}
                   alt={course.title} 
                   className="w-24 h-24 object-cover rounded-md mr-4"
                   onError={(e) => {

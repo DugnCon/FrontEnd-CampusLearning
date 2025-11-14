@@ -28,7 +28,7 @@ import {
 
 import { Avatar } from '../index';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 // Custom styles for Markdown elements
 const markdownStyles = {

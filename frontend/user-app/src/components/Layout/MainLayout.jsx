@@ -421,7 +421,7 @@ const MainLayout = ({ children }) => {
   };
 
   const executeSearch = async (query, type, searchKey) => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
     
     // Create abort controller for this search
     const abortController = new AbortController();
@@ -432,23 +432,23 @@ const MainLayout = ({ children }) => {
     
     switch (type) {
       case 'users':
-        endpoint = `/api/users/search?q=${encodeURIComponent(query)}`;
+        endpoint = `/users/search?q=${encodeURIComponent(query)}`;
         dataKey = 'users';
         break;
       case 'posts':
-        endpoint = `/api/posts?search=${encodeURIComponent(query)}`;
+        endpoint = `/posts?search=${encodeURIComponent(query)}`;
         dataKey = 'posts';
         break;
       case 'courses':
-        endpoint = `/api/courses?search=${encodeURIComponent(query)}`;
+        endpoint = `/courses?search=${encodeURIComponent(query)}`;
         dataKey = 'courses';
         break;
       case 'events':
-        endpoint = `/api/events?search=${encodeURIComponent(query)}`;
+        endpoint = `/events?search=${encodeURIComponent(query)}`;
         dataKey = 'events';
         break;
       default:
-        endpoint = `/api/users/search?q=${encodeURIComponent(query)}`;
+        endpoint = `/users/search?q=${encodeURIComponent(query)}`;
         dataKey = 'users';
     }
     
@@ -492,22 +492,22 @@ const MainLayout = ({ children }) => {
   };
 
   const executeAlternativeSearch = async (query, type, signal) => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
     
     let endpoint = '';
     let dataKey = '';
     
     switch (type) {
       case 'posts':
-        endpoint = '/api/posts';
+        endpoint = '/posts';
         dataKey = 'posts';
         break;
       case 'courses':
-        endpoint = '/api/courses';
+        endpoint = '/courses';
         dataKey = 'courses';
         break;
       case 'events':
-        endpoint = '/api/events';
+        endpoint = '/events';
         dataKey = 'events';
         break;
       default:
@@ -621,7 +621,7 @@ const MainLayout = ({ children }) => {
     }
     
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       console.log(`[Notifications] Fetching notifications, isAdmin: ${isAdminUser}`);
       
       // Gọi API lấy thông báo
@@ -747,9 +747,9 @@ const MainLayout = ({ children }) => {
   // Xử lý đánh dấu đã đọc thông báo
   const markNotificationAsRead = async (notificationId) => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       
-      await fetch(`${apiUrl}/api/notifications/${notificationId}/read`, {
+      await fetch(`${apiUrl}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -773,9 +773,9 @@ const MainLayout = ({ children }) => {
   // Xử lý đánh dấu đã đọc tất cả thông báo
   const markAllAsRead = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       
-      await fetch(`${apiUrl}/api/notifications/read-all`, {
+      await fetch(`${apiUrl}/notifications/read-all`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`

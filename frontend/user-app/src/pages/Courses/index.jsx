@@ -171,7 +171,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
       {/* Course Image */}
       <div className="relative overflow-hidden">
         <img
-          src={`http://localhost:8080${course.imageUrl}` || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
+          src={course.imageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
           alt={course.Title || course.title}
           className="w-full h-40 sm:h-48 md:h-52 object-cover"
         />

@@ -33,7 +33,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
   const getImageSource = () => {
     if (src && typeof src === 'string' && src.trim() !== '' && src !== 'null' && src !== 'undefined') {
       if (src.startsWith('/uploads/')) {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
         return `${API_BASE_URL}${src}`;
       }
       return src;

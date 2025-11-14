@@ -5,7 +5,7 @@ import axios from 'axios';
 import { jwtDecode } from 'jwt-decode'; // 🟢 ĐÃ THÊM
 
 // --- Cấu hình API và Tin nhắn khởi tạo ---
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 const API_ENDPOINT = `${API_URL}/ai/chat`;
 const initialAssistantMessage = {
     role: 'assistant',

@@ -18,10 +18,10 @@ const processRequestsQueue = (token) => {
   requestsQueue = [];
 };
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL || '/user/api',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -208,6 +208,6 @@ axiosClient.interceptors.response.use(
 );
 
 // Export the API URL for direct use in other files
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+export const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 export default axiosClient; 

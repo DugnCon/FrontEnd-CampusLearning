@@ -22,7 +22,7 @@ const courseApi = {
     const cleanIdentifier = String(identifier).trim();
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('GET', `${apiUrl}/courses/${cleanIdentifier}`, true);
@@ -73,7 +73,7 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('GET', `${apiUrl}/courses/${courseId}/check-enrollment`, true);
@@ -116,7 +116,7 @@ const courseApi = {
     console.log('Enrolling in free course:', courseId);
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('POST', `${apiUrl}/courses/${courseId}/enroll/free`, true);
@@ -266,7 +266,7 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('GET', `${apiUrl}/courses/${courseId}/content`, true);
@@ -356,7 +356,7 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('GET', `${apiUrl}/courses/${courseId}/progress`, true);
@@ -432,7 +432,7 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('GET', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/code-exercise`, true);
@@ -473,7 +473,7 @@ const courseApi = {
     }
     
     return new Promise((resolve, reject) => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const xhr = new XMLHttpRequest();
       
       xhr.open('POST', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/run-code`, true);
@@ -610,7 +610,7 @@ const courseApi = {
     
     return new Promise((resolve, reject) => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
         const xhr = new XMLHttpRequest();
         
         xhr.open('POST', `${apiUrl}/courses/${courseId}/lessons/${lessonId}/submit-code`, true);

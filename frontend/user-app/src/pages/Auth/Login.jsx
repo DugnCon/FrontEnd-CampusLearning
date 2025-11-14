@@ -445,10 +445,10 @@ const Login = () => {
       console.log(`Requesting authentication options for email: ${formData.email}`);
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
         console.log(`Using API base URL: ${API_BASE_URL}`);
         
-        const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
+        const optionsResponse = await axios.post(`${API_BASE_URL}/passkeys/auth/options`, {
           email: formData.email
         });
         console.log('Server response for auth options:', optionsResponse.data);
@@ -558,9 +558,9 @@ const Login = () => {
       let verifyResponse;
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
         
-        verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
+        verifyResponse = await axios.post(`${API_BASE_URL}/passkeys/auth/verify`, {
           email: formData.email,
           response: authResponse
         });
@@ -1005,10 +1005,10 @@ const Login = () => {
       console.log(`Requesting authentication options for email: ${account.email}`);
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
         console.log(`Using API base URL: ${API_BASE_URL}`);
         
-        const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
+        const optionsResponse = await axios.post(`${API_BASE_URL}/passkeys/auth/options`, {
           email: account.email
         });
         console.log('Server response for auth options:', optionsResponse.data);
@@ -1101,9 +1101,9 @@ const Login = () => {
       let verifyResponse;
       try {
         // Get the API base URL from environment or use a fallback
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
         
-        verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
+        verifyResponse = await axios.post(`${API_BASE_URL}/passkeys/auth/verify`, {
           email: account.email,
           response: authResponse
         });
@@ -1206,8 +1206,8 @@ const Login = () => {
       
       // Then try to check with server (if available)
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const response = await axios.post(`${API_BASE_URL}/api/passkeys/check-registration`, {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+        const response = await axios.post(`${API_BASE_URL}/passkeys/check-registration`, {
           email
         });
         

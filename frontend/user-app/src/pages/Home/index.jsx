@@ -58,7 +58,7 @@ import {
 import { setUser } from '@/store/slices/authSlice';
 import { injectJsonLdScript, removeJsonLdScript } from '../../utils/safeScriptInjection';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 const Home = () => {
   const navigate = useNavigate()

@@ -39,9 +39,9 @@ const OtpLogin = () => {
     setLoading(true);
     setError('');
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
       const response = await axios.post(
-        `${API_BASE_URL}/api/auth/login-otp/verify`,
+        `${API_BASE_URL}/auth/login-otp/verify`,
         { email, otp: code }
       );
       const { token, refreshToken, user } = response.data;
@@ -110,8 +110,8 @@ const OtpLogin = () => {
     }
     try {
       setLoading(true);
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-      await axios.post(`${API_BASE_URL}/api/auth/login-otp`, { email });
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+      await axios.post(`${API_BASE_URL}/auth/login-otp`, { email });
       toast.success('OTP đã được gửi đến email của bạn');
       setStage(2);
     } catch (err) {

@@ -57,7 +57,7 @@ const Notifications = () => {
   const markAllAsRead = async () => {
     try {
       setMarkingRead(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const token = localStorage.getItem('token');
       
       await fetch(`${apiUrl}/api/notifications/read-all`, {

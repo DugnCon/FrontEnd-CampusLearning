@@ -1,5 +1,5 @@
 
-export const API_URL = '/user/api';
+export const API_URL = 'http://campuslearning.site/user/api';
 // Socket.IO configuration
 export const SOCKET_URL = API_URL;
 

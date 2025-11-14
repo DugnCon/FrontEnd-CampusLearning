@@ -1,14 +1,23 @@
-# Sử dụng Nginx nhẹ
+# Build FE
+FROM node:18 as build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Serve bằng Nginx
 FROM nginx:alpine
 
-# Copy FE vào đúng subpath /user/
-COPY dist/ /usr/share/nginx/html/user/
+# Xoá default html
+RUN rm -rf /usr/share/nginx/html/*
 
-# Tạo file config Nginx riêng (tùy chỉnh cho SPA + subpath)
+# Copy dist vào Nginx root
+COPY --from=build /app/dist/ /usr/share/nginx/html/
+
+# Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
 EXPOSE 80
 
-# Chạy Nginx
 CMD ["nginx", "-g", "daemon off;"]

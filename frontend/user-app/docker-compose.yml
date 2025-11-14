@@ -6,7 +6,7 @@ services:
     container_name: user-frontend
     restart: always
     ports:
-      - "80:80"   # ← Cloudflare vào đây luôn!
+      - "5004:80"   # ← Cloudflare vào đây luôn!
     networks:
       - campus-network
 

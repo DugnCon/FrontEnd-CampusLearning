@@ -1,22 +1,29 @@
-# Build FE
-FROM node:18 as build
+# Stage 1: Build FE
+FROM node:18-alpine AS build
+
 WORKDIR /app
+
+# Copy package.json & package-lock.json và install
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
+
+# Copy toàn bộ source code vào container
 COPY . .
+
+# Build FE
 RUN npm run build
 
-# Serve bằng Nginx
+# Stage 2: Serve bằng Nginx
 FROM nginx:alpine
 
 # Xoá default html
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy dist vào Nginx root
+# Copy thư mục build sang Nginx root
 COPY --from=build /app/dist/ /usr/share/nginx/html/
 
-# Copy nginx config
-COPY nginx.conf  /etc/nginx/conf.d/campuslearning.conf
+# Copy nginx config SPA
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

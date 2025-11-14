@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  user-frontend:
+  frontend:
     build: .
     container_name: user-frontend
     restart: always
     ports:
-      - "5004:80"  # OK: 5004 (VPS) → 80 (trong container)
+      - "80:80"   # ← Cloudflare vào đây luôn!
     networks:
       - campus-network
 

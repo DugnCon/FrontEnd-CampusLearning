@@ -6,7 +6,7 @@ services:
     container_name: user-frontend
     restart: always
     ports:
-      - "80:80"    # Dùng port 80 (chuẩn web)
+      - "5004:80"  # Dùng port 5004 cho HTTP
       - "443:443"  # Dùng port 443 cho HTTPS
     volumes:
       - ./dist:/usr/share/nginx/html:ro

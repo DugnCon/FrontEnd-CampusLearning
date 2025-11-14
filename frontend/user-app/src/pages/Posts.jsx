@@ -11,7 +11,7 @@ import SharePostModal from '../components/Post/SharePostModal';
 import { useSocket } from '../contexts/SocketContext';
 
 // Base URL for media files
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 // Custom styles for Markdown elements
 const markdownStyles = {

@@ -14,7 +14,7 @@ import About from '../../components/common/About';
 import axios from 'axios'; // Added axios import
 import { toast } from 'react-toastify'; // Added toast import
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 //Nơi chứa thông tin đăng ký của người dùng
 const Register = () => {

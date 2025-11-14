@@ -6,7 +6,9 @@ import axios from 'axios';
  * Địa chỉ endpoint của Backend Spring Boot
  * Đã chuyển API Chat sang Backend chính (thường là cổng 8080)
  */
-const API_URL = 'http://localhost:8080/api/ai/chat';
+const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+
+const API_URL = `${BASE_URL}/ai/chat`;
 
 // --- Khởi tạo (Không gửi request) ---
 

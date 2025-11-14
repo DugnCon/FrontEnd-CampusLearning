@@ -6,7 +6,7 @@ import { resetCourses } from '@/store/slices/courseSlice';
 const AuthContext = createContext();
 
 // Cấu hình base URL
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 export function AuthProvider({ children }) {
   const initialUser = (() => {

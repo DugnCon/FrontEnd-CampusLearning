@@ -79,7 +79,9 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
         formData.append('mediaType', storyType);
       }
 
-      const response = await fetch('http://localhost:8080/api/stories', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+
+      const response = await fetch(`${API_BASE_URL}/stories`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

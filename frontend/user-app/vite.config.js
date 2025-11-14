@@ -57,7 +57,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    base: '/user/', // <<< BẮT BUỘC CHO SUBPATH /user/
+    base: '/', // <<< BẮT BUỘC CHO SUBPATH /user/
     rollupOptions: {
       output: {
         manualChunks: {

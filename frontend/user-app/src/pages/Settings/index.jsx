@@ -64,7 +64,7 @@ const Settings = () => {
   const fileInputRef = useRef(null);
   const { refreshUserData } = useAuth();
 
-  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
   
   const { settings, profileInfo, loading, error, success, message } = useSelector(state => state.user);
   const [activeTab, setActiveTab] = useState(() => {

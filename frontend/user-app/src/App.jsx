@@ -75,102 +75,98 @@ function App() {
             pauseOnHover
             className="toast-container-custom"
             toastClassName="toast-custom"
-            style={{ top: '70px' }} // Add top margin to push below navbar
+            style={{ top: '70px' }}
           />
           <Toaster 
             position="top-right" 
             toastOptions={{
               style: {
-                marginTop: '70px', // Push Toaster notifications below navbar
+                marginTop: '70px',
               },
             }}
           />
           <CallInterface />
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/login-otp" element={<OtpLogin />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/unlock-account" element={<UnlockAccount />} />
-            <Route path="/setup-2fa" element={<ForcedTwoFASetup />} />
+            <Route path="/user/login" element={<Login />} />
+            <Route path="/user/login-otp" element={<OtpLogin />} />
+            <Route path="/user/register" element={<Register />} />
+            <Route path="/user/forgot-password" element={<ForgotPassword />} />
+            <Route path="/user/reset-password" element={<ResetPassword />} />
+            <Route path="/user/unlock-account" element={<UnlockAccount />} />
+            <Route path="/user/setup-2fa" element={<ForcedTwoFASetup />} />
             
             {/* Public course and event routes */}
-            <Route path="/courses/*" element={<Courses />} />
-            <Route path="/courses/:courseId" element={<CourseDetail />} />
-            <Route path="/events/:eventId" element={<EventDetail />} />
-            <Route path="/roadmaps" element={<Roadmaps />} />
+            <Route path="/user/courses/*" element={<Courses />} />
+            <Route path="/user/courses/:courseId" element={<CourseDetail />} />
+            <Route path="/user/events/:eventId" element={<EventDetail />} />
+            <Route path="/user/roadmaps" element={<Roadmaps />} />
             
-            {/* Payment callback routes - need to be public for third-party returns */}
-            <Route path="/payment/callback" element={<PaymentResult />} />
-            <Route path="/payment/paypal/success" element={<PaymentResult />} />
-            <Route path="/payment/paypal/cancel" element={<PaymentResult />} />
+            {/* Payment callback routes */}
+            <Route path="/user/payment/callback" element={<PaymentResult />} />
+            <Route path="/user/payment/paypal/success" element={<PaymentResult />} />
+            <Route path="/user/payment/paypal/cancel" element={<PaymentResult />} />
 
             {/* Protected routes */}
             {[
-              { path: '/home', element: <Home /> },
-              { path: '/profile', element: <Profile /> },
-              { path: '/profile/:userId', element: <Profile /> },
-              { path: '/friends', element: <Friends /> },
-              { path: '/events', element: <Events /> },
-              { path: '/posts', element: <Posts /> },
-              { path: '/notifications', element: <Notifications /> },
-              { path: '/ranking', element: <Ranking /> },
-              { path: '/ai-chat', element: <AIChat /> },
-              { path: '/ai-test-local', element: <AiTestLocal /> },
-              { path: '/other-courses', element: <OtherCourses /> },
-              { path: '/chat', element: <Chat /> },
-              { path: '/stories', element: <Stories /> },
-              { path: '/reports', element: <Reports /> },
-              { path: '/settings', element: <Settings /> },
-              { path: '/exams/*', element: <Exams /> },
-              { path: '/competitions', element: <CompetitionsPage /> },
-              { path: '/competitions/:id', element: <CompetitionDetail /> },
-              { path: '/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
-              { path: '/courses/:courseId/learn', element: <CourseLearning /> },
-              { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
-              { path: '/payment/:courseId', element: <Payment /> },
-              { path: '/payment/vietqr/:transactionCode', element: <PaymentVietQR /> },
-              { path: '/payment-history', element: <PaymentHistory /> },
-              { path: '/payment-history/print-course', element: <CoursePrint /> }
+              { path: '/user/home', element: <Home /> },
+              { path: '/user/profile', element: <Profile /> },
+              { path: '/user/profile/:userId', element: <Profile /> },
+              { path: '/user/friends', element: <Friends /> },
+              { path: '/user/events', element: <Events /> },
+              { path: '/user/posts', element: <Posts /> },
+              { path: '/user/notifications', element: <Notifications /> },
+              { path: '/user/ranking', element: <Ranking /> },
+              { path: '/user/ai-chat', element: <AIChat /> },
+              { path: '/user/ai-test-local', element: <AiTestLocal /> },
+              { path: '/user/other-courses', element: <OtherCourses /> },
+              { path: '/user/chat', element: <Chat /> },
+              { path: '/user/stories', element: <Stories /> },
+              { path: '/user/reports', element: <Reports /> },
+              { path: '/user/settings', element: <Settings /> },
+              { path: '/user/exams/*', element: <Exams /> },
+              { path: '/user/competitions', element: <CompetitionsPage /> },
+              { path: '/user/competitions/:id', element: <CompetitionDetail /> },
+              { path: '/user/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
+              { path: '/user/courses/:courseId/learn', element: <CourseLearning /> },
+              { path: '/user/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
+              { path: '/user/payment/:courseId', element: <Payment /> },
+              { path: '/user/payment/vietqr/:transactionCode', element: <PaymentVietQR /> },
+              { path: '/user/payment-history', element: <PaymentHistory /> },
+              { path: '/user/payment-history/print-course', element: <CoursePrint /> }
             ].map(({ path, element }) => (
               <Route
                 key={path}
                 path={path}
-                element={
-                  <AuthMiddleware>
-                    {element}
-                  </AuthMiddleware>
-                }
+                element={<AuthMiddleware>{element}</AuthMiddleware>}
               />
             ))}
 
             {/* Root route */}
             <Route 
-              path="/" 
+              path="/user/"
               element={
                 localStorage.getItem('token') ? 
-                <Navigate to="/home" replace /> : 
-                <Navigate to="/login" replace />
+                <Navigate to="/user/home" replace /> : 
+                <Navigate to="/user/login" replace />
               } 
             />
 
-            {/* Catch all route - redirect to home if authenticated, otherwise to login */}
+            {/* Catch all route */}
             <Route 
-              path="*" 
+              path="/user/*"
               element={
                 localStorage.getItem('token') ? 
-                <Navigate to="/home" replace /> : 
-                <Navigate to="/login" replace />
+                <Navigate to="/user/home" replace /> : 
+                <Navigate to="/user/login" replace />
               }
             />
 
             {/* Support routes */}
-            <Route path="/support/faq" element={<FAQ />} />
-            <Route path="/support/help-center" element={<HelpCenter />} />
-            <Route path="/support/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/support/terms-of-use" element={<TermsOfUse />} />
+            <Route path="/user/support/faq" element={<FAQ />} />
+            <Route path="/user/support/help-center" element={<HelpCenter />} />
+            <Route path="/user/support/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/user/support/terms-of-use" element={<TermsOfUse />} />
           </Routes>
         </MainLayout>
       </CallProvider>
@@ -179,4 +175,3 @@ function App() {
 }
 
 export default App;
-

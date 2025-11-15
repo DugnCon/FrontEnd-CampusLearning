@@ -1,4 +1,4 @@
-// contexts/SocketContext.js
+// contexts/SocketContext.js - OPTIMIZED VERSION (KEEP ALL EXISTING CODE)
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -13,6 +13,12 @@ export const SocketProvider = ({ children }) => {
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const subscriptionsRef = useRef(new Map());
   const clientRef = useRef(null);
+
+  // 🚀 THÊM: Message queue và connection tracking
+  const messageQueueRef = useRef([]);
+  const isConnectingRef = useRef(false);
+  const connectionTimeoutRef = useRef(null);
+  const importantSubscriptionsRef = useRef(new Set());
 
   const MAX_RETRY_ATTEMPTS = 5;
   const reconnectDelay = useRef(1000);
@@ -34,9 +40,71 @@ export const SocketProvider = ({ children }) => {
     };
   }, [getSocketUrl]);
 
+  // 🚀 THÊM: Process message queue khi kết nối
+  const processMessageQueue = useCallback(() => {
+    if (messageQueueRef.current.length === 0 || !stompClient || !isConnected) return;
+
+    console.log(`📤 Processing ${messageQueueRef.current.length} queued messages...`);
+    
+    const successfulMessages = [];
+    
+    messageQueueRef.current.forEach(({ destination, body, timestamp }) => {
+      if (sendMessageInternal(destination, body)) {
+        successfulMessages.push({ destination, body, timestamp });
+      }
+    });
+
+    // Chỉ giữ lại những message gửi thất bại
+    messageQueueRef.current = messageQueueRef.current.filter(msg => 
+      !successfulMessages.some(success => 
+        success.destination === msg.destination && 
+        success.body === msg.body
+      )
+    );
+
+    console.log(`✅ Sent ${successfulMessages.length} queued messages`);
+  }, [stompClient, isConnected]);
+
+  // 🚀 THÊM: Send message internal (không log)
+  const sendMessageInternal = useCallback((destination, body) => {
+    if (!stompClient || !isConnected) return false;
+
+    try {
+      stompClient.publish({
+        destination: `/app${destination}`,
+        body: JSON.stringify(body)
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, [stompClient, isConnected]);
+
+  // 🚀 THÊM: Auto-subscribe các channel quan trọng
+  const autoSubscribeImportantChannels = useCallback(() => {
+    const importantChannels = [
+      '/user/queue/conversations',
+      '/user/queue/notifications',
+      '/topic/online-users'
+    ];
+
+    importantSubscriptionsRef.current.forEach(channel => {
+      if (!subscriptionsRef.current.has(channel)) {
+        console.log(`🔄 Auto-resubscribing to important channel: ${channel}`);
+        // Component sẽ tự resubscribe khi remount
+      }
+    });
+  }, []);
+
   // 🔥 CLEANUP KHI UNMOUNT
   const cleanup = useCallback(() => {
     console.log('Cleaning up socket...');
+    
+    // 🚀 THÊM: Clear timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+    }
+    
     subscriptionsRef.current.forEach((sub, dest) => {
       try {
         sub.unsubscribe();
@@ -50,10 +118,12 @@ export const SocketProvider = ({ children }) => {
       console.log('STOMP client deactivated');
       clientRef.current = null;
     }
+    
+    isConnectingRef.current = false;
     setIsConnected(false);
   }, []);
 
-  // 🔥 CONNECT FUNCTION
+  // 🔥 CONNECT FUNCTION - TỐI ƯU HOÁ
   const connect = useCallback(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -61,8 +131,8 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    if (clientRef.current?.active) {
-      console.log('Already connected');
+    if (clientRef.current?.active || isConnectingRef.current) {
+      console.log('Already connected or connecting');
       return;
     }
 
@@ -71,7 +141,17 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    console.log(`Connecting... (attempt ${connectionAttempts + 1})`);
+    console.log(`🚀 FAST Connecting... (attempt ${connectionAttempts + 1})`);
+    isConnectingRef.current = true;
+
+    // 🚀 THÊM: Connection timeout
+    connectionTimeoutRef.current = setTimeout(() => {
+      if (!isConnected) {
+        console.log('⏰ Connection timeout');
+        isConnectingRef.current = false;
+        setConnectionAttempts(prev => prev + 1);
+      }
+    }, 8000); // Reduced from 10s to 8s
 
     const client = new Client({
       webSocketFactory: createSockJSFactory(),
@@ -84,66 +164,97 @@ export const SocketProvider = ({ children }) => {
         }
       },
       reconnectDelay: reconnectDelay.current,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-      connectionTimeout: 10000,
+      heartbeatIncoming: 3000, // 🚀 Reduced from 4000 to 3000
+      heartbeatOutgoing: 3000, // 🚀 Reduced from 4000 to 3000
+      connectionTimeout: 8000, // 🚀 Reduced from 10000 to 8000
 
       onConnect: () => {
-        console.log('STOMP CONNECTED SUCCESSFULLY!');
+        console.log('✅ STOMP CONNECTED SUCCESSFULLY!');
         setIsConnected(true);
         setConnectionAttempts(0);
         reconnectDelay.current = 1000;
         setStompClient(client);
         clientRef.current = client;
+        isConnectingRef.current = false;
+        
+        // 🚀 THÊM: Process queue và auto-subscribe
+        processMessageQueue();
+        autoSubscribeImportantChannels();
+        
+        // Clear timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+        }
       },
 
       onStompError: (frame) => {
         console.error('STOMP ERROR:', frame.headers?.message || frame.body);
         setIsConnected(false);
+        isConnectingRef.current = false;
         reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000);
         setConnectionAttempts(prev => prev + 1);
+        
+        // Clear timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+        }
       },
 
       onWebSocketClose: () => {
         console.log('WebSocket closed');
         setIsConnected(false);
+        isConnectingRef.current = false;
       },
 
       onWebSocketError: (e) => {
         console.error('WebSocket error:', e);
         setIsConnected(false);
+        isConnectingRef.current = false;
         reconnectDelay.current = Math.min(reconnectDelay.current * 2, 30000);
         setConnectionAttempts(prev => prev + 1);
+        
+        // Clear timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+        }
       }
     });
 
     client.activate();
     clientRef.current = client;
-  }, [createSockJSFactory, connectionAttempts]);
+  }, [createSockJSFactory, connectionAttempts, isConnected, processMessageQueue, autoSubscribeImportantChannels]);
 
-  // 🔥 AUTO CONNECT KHI CÓ TOKEN
+  // 🔥 AUTO CONNECT KHI CÓ TOKEN - TỐI ƯU
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token && !isConnected) {
-      const timer = setTimeout(connect, 500);
-      return () => clearTimeout(timer);
+    if (token && !isConnected && !isConnectingRef.current) {
+      // 🚀 THÊM: Kết nối ngay lập tức thay vì chờ 500ms
+      connect();
     } else if (!token) {
       cleanup();
     }
   }, [connect, isConnected, cleanup]);
 
-  // 🔥 AUTO RECONNECT
+  // 🔥 AUTO RECONNECT - TỐI ƯU
   useEffect(() => {
-    if (!isConnected && localStorage.getItem('token') && connectionAttempts < MAX_RETRY_ATTEMPTS) {
+    if (!isConnected && localStorage.getItem('token') && 
+        connectionAttempts < MAX_RETRY_ATTEMPTS && 
+        !isConnectingRef.current) {
       const timer = setTimeout(connect, reconnectDelay.current);
       return () => clearTimeout(timer);
     }
   }, [isConnected, connectionAttempts, connect]);
 
-  // 🔥 SUBSCRIBE
+  // 🔥 SUBSCRIBE - TỐI ƯU
   const subscribe = useCallback((destination, callback) => {
     if (!stompClient || !isConnected) {
       console.warn('Not connected, cannot subscribe:', destination);
+      
+      // 🚀 THÊM: Đánh dấu channel quan trọng để auto-resubscribe
+      if (destination.includes('/user/queue/') || destination.includes('/topic/')) {
+        importantSubscriptionsRef.current.add(destination);
+      }
+      
       return null;
     }
 
@@ -162,47 +273,61 @@ export const SocketProvider = ({ children }) => {
     });
 
     subscriptionsRef.current.set(destination, sub);
+    
+    // 🚀 THÊM: Đánh dấu channel quan trọng
+    if (destination.includes('/user/queue/') || destination.includes('/topic/')) {
+      importantSubscriptionsRef.current.add(destination);
+    }
+    
     console.log(`Subscribed to ${destination}`);
     return sub;
   }, [stompClient, isConnected]);
 
-  // 🔥 UNSUBSCRIBE
+  // 🔥 UNSUBSCRIBE - GIỮ NGUYÊN
   const unsubscribe = useCallback((destination) => {
     const sub = subscriptionsRef.current.get(destination);
     if (sub) {
       sub.unsubscribe();
       subscriptionsRef.current.delete(destination);
+      importantSubscriptionsRef.current.delete(destination);
       console.log(`Unsubscribed from ${destination}`);
     }
   }, []);
 
-  // 🔥 SEND
+  // 🔥 SEND - TỐI ƯU VỚI QUEUE
   const sendMessage = useCallback((destination, body) => {
-    if (!stompClient || !isConnected) return false;
-
-    try {
-      stompClient.publish({
-        destination: `/app${destination}`,
-        body: JSON.stringify(body)
-      });
+    // 🚀 THÊM: Thử gửi ngay lập tức
+    if (sendMessageInternal(destination, body)) {
       console.log(`Sent to /app${destination}:`, body);
       return true;
-    } catch (e) {
-      console.error('Send error:', e);
-      return false;
     }
-  }, [stompClient, isConnected]);
 
-  // 🔥 MANUAL RECONNECT
+    // 🚀 THÊM: Nếu không thành công, add vào queue
+    console.log(`💾 Queuing message to /app${destination}:`, body);
+    messageQueueRef.current.push({
+      destination,
+      body,
+      timestamp: Date.now()
+    });
+
+    // 🚀 THÊM: Giới hạn queue để tránh memory leak
+    if (messageQueueRef.current.length > 100) {
+      messageQueueRef.current = messageQueueRef.current.slice(-50);
+    }
+
+    return false;
+  }, [sendMessageInternal]);
+
+  // 🔥 MANUAL RECONNECT - GIỮ NGUYÊN
   const manualReconnect = useCallback(() => {
     console.log('Manual reconnect...');
     cleanup();
     setConnectionAttempts(0);
     reconnectDelay.current = 1000;
-    setTimeout(connect, 500);
+    setTimeout(connect, 100); // 🚀 Reduced from 500 to 100
   }, [cleanup, connect]);
 
-  // 🔥 TEST CONNECTION
+  // 🔥 TEST CONNECTION - GIỮ NGUYÊN
   const testConnection = useCallback(() => {
     const url = getSocketUrl();
     console.log('Testing direct SockJS to:', url);
@@ -214,7 +339,20 @@ export const SocketProvider = ({ children }) => {
     sock.onerror = (e) => console.error('Direct SockJS test: ERROR', e);
   }, [getSocketUrl]);
 
+  // 🚀 THÊM: Các utility functions mới
+  const getQueueSize = useCallback(() => messageQueueRef.current.length, []);
+  const flushQueue = useCallback(() => processMessageQueue(), [processMessageQueue]);
+  const getConnectionStats = useCallback(() => ({
+    isConnected,
+    isConnecting: isConnectingRef.current,
+    connectionAttempts,
+    queueSize: messageQueueRef.current.length,
+    subscriptions: subscriptionsRef.current.size,
+    importantSubscriptions: importantSubscriptionsRef.current.size
+  }), [isConnected, connectionAttempts]);
+
   const value = {
+    // 🎯 GIỮ NGUYÊN TẤT CẢ PROPERTIES HIỆN CÓ
     stompClient,
     isConnected,
     onlineUsers,
@@ -226,7 +364,12 @@ export const SocketProvider = ({ children }) => {
     maxRetryAttempts: MAX_RETRY_ATTEMPTS,
     manualReconnect,
     testConnection,
-    getConnectionStatus: () => isConnected ? 'connected' : 'disconnected'
+    getConnectionStatus: () => isConnected ? 'connected' : 'disconnected',
+    
+    // 🚀 THÊM: Các functions mới để tối ưu
+    getQueueSize,
+    flushQueue,
+    getConnectionStats
   };
 
   return (

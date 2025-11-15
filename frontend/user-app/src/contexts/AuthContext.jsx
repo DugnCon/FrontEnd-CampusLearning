@@ -195,7 +195,7 @@ export function AuthProvider({ children }) {
       }
     }
     dispatch(resetCourses());
-    dispatch(resetChats());
+    dispatch(resetChat());
     dispatch(resetNotifications());
     dispatch(resetPosts());
     dispatch(resetReports());

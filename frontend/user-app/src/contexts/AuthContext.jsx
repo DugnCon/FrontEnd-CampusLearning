@@ -62,14 +62,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   const clearAuthData = useCallback(() => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    delete axios.defaults.headers.common['Authorization'];
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    clearFriendsCache();
-  }, [clearFriendsCache]);
+  localStorage.clear();
+  sessionStorage.clear();
+
+  // Xóa cookie trên domain (hạn chế: JS không xóa HttpOnly cookie)
+  document.cookie.split(";").forEach((c) => {
+    document.cookie = c
+      .replace(/^ +/, "")
+      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+  });
+
+  delete axios.defaults.headers.common['Authorization'];
+  setCurrentUser(null);
+  setIsAuthenticated(false);
+  clearFriendsCache();
+}, [clearFriendsCache]);
+
 
   // --- LOGIN ---
   const login = async (email, password) => {

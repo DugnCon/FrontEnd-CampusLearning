@@ -19,19 +19,10 @@ export const SocketProvider = ({ children }) => {
 
   // 🔥 XÁC ĐỊNH URL DỰA TRÊN MÔI TRƯỜNG
   const getSocketUrl = useCallback(() => {
-    const isNgrok = window.location.hostname.includes('ngrok');
-    const origin = window.location.origin;
-
-    if (isNgrok) {
-      const url = `${origin}/ws`;
-      console.log('Using Ngrok HTTPS SockJS URL:', url);
-      return url;
-    } else {
-      const LOCAL_URL = import.meta.env.VITE_API_URL || '/user/api';
-      const localUrl = `${LOCAL_URL}/ws`;
-      console.log('Using Local HTTP SockJS URL:', localUrl);
-      return localUrl;
-    }
+    const LOCAL_URL = import.meta.env.VITE_API_URL || '/user/api';
+    const localUrl = `${LOCAL_URL}/ws`;
+    console.log('Using Local HTTP SockJS URL:', localUrl);
+    return localUrl;
   }, []);
 
   // 🔥 TẠO SOCKJS FACTORY – HOẠT ĐỘNG VỚI CẢ HTTPS & HTTP

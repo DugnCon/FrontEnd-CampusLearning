@@ -1573,7 +1573,7 @@ const sendFileMessage = async (files) => {
         </div>
       )}
 
-      {/* Call Interface */}
+      {/* Call interface OK*/}
       {inCall && currentCall && (
         <CallInterface call={currentCall} onEndCall={endCall} isVideoCall={currentCall.type === 'video'} />
       )}

@@ -86,12 +86,10 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
       mediaUrl = currentMedia.mediaUrl;
     } else {
       // Nếu là đường dẫn tương đối, thêm base URL
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = import.meta.env.VITE_API_URL || '/user/api';
       const timestamp = new Date().getTime();
-      
       // Xử lý đường dẫn
-      let cleanPath = mediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
-      
+      let cleanPath = currentMedia.mediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
       
       const fullUrl = `${baseUrl}/uploads/${cleanPath}?t=${timestamp}`;
       mediaUrl = fullUrl;

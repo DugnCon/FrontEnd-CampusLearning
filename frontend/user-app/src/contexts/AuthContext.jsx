@@ -2,6 +2,15 @@ import axios from 'axios';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { resetCourses } from '@/store/slices/courseSlice';
+import {resetChats} from '@/store/slices/chatSlice';
+import { resetNotifications } from '@/store/slices/notificationSlice';
+import { resetPosts } from '@/store/slices/postSlice';
+import { resetEvents } from '@/store/slices/eventSlice';
+import { resetRankings } from '@/store/slices/rankingSlice';
+import { resetReports } from '@/store/slices/reportSlice';
+import { resetUsers } from '@/store/slices/userSlice';
+import { resetExams } from '@/store/slices/examSlice';
+
 
 const AuthContext = createContext();
 const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
@@ -62,22 +71,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   const clearAuthData = useCallback(() => {
-  localStorage.clear();
-  sessionStorage.clear();
-
-  // Xóa cookie trên domain (hạn chế: JS không xóa HttpOnly cookie)
-  document.cookie.split(";").forEach((c) => {
-    document.cookie = c
-      .replace(/^ +/, "")
-      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-  });
-
-  delete axios.defaults.headers.common['Authorization'];
-  setCurrentUser(null);
-  setIsAuthenticated(false);
-  clearFriendsCache();
-}, [clearFriendsCache]);
-
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.clear();
+    sessionStorage.clear();
+ 
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    delete axios.defaults.headers.common['Authorization'];
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    clearFriendsCache();
+  }, [clearFriendsCache]);
 
   // --- LOGIN ---
   const login = async (email, password) => {
@@ -186,6 +195,14 @@ export function AuthProvider({ children }) {
       }
     }
     dispatch(resetCourses());
+    dispatch(resetChats());
+    dispatch(resetNotifications());
+    dispatch(resetPosts());
+    dispatch(resetEvents());
+    dispatch(resetRankings());
+    dispatch(resetReports());
+    dispatch(resetUsers());
+    dispatch(resetExams());
     clearAuthData();
   };
 

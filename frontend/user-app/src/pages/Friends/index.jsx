@@ -21,7 +21,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
-
 const Friends = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,6 +57,13 @@ const Friends = () => {
   const searchTimeoutRef = useRef(null);
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
   
+  // States mới cho loading từng action
+  const [creatingConversation, setCreatingConversation] = useState(null);
+  const [acceptingRequest, setAcceptingRequest] = useState(null);
+  const [rejectingRequest, setRejectingRequest] = useState(null);
+  const [cancelingRequest, setCancelingRequest] = useState(null);
+  const [removingFriend, setRemovingFriend] = useState(null);
+  const [sendingRequest, setSendingRequest] = useState(null);
 
   const getCacheKey = (type) => {
     if (!currentUserId) return null;
@@ -318,7 +324,7 @@ const Friends = () => {
 
   const acceptFriendRequest = async (userId) => {
     try {
-      setActionLoading(true);
+      setAcceptingRequest(userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}/accept`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -336,13 +342,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể chấp nhận');
     } finally {
-      setActionLoading(false);
+      setAcceptingRequest(null);
     }
   };
 
   const rejectFriendRequest = async (userId) => {
     try {
-      setActionLoading(true);
+      setRejectingRequest(userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -355,13 +361,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể từ chối');
     } finally {
-      setActionLoading(false);
+      setRejectingRequest(null);
     }
   };
 
   const cancelFriendRequest = async (userId) => {
     try {
-      setActionLoading(true);
+      setCancelingRequest(userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}`, { 
         method: 'DELETE', 
@@ -386,13 +392,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể hủy');
     } finally {
-      setActionLoading(false);
+      setCancelingRequest(null);
     }
   };
 
   const removeFriend = async (userId) => {
     try {
-      setActionLoading(true);
+      setRemovingFriend(userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -405,13 +411,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể hủy');
     } finally {
-      setActionLoading(false);
+      setRemovingFriend(null);
     }
   };
 
   const sendFriendRequest = async (userId) => {
     try {
-      setActionLoading(true);
+      setSendingRequest(userId);
       const token = localStorage.getItem('token');
 
       console.log('GỬI LỜI MỜI:', { requesterId: currentUserId, addresseeId: userId });
@@ -467,14 +473,15 @@ const Friends = () => {
       console.error('Lỗi gửi lời mời:', err);
       showNotification('error', 'Không thể gửi lời mời');
     } finally {
-      setActionLoading(false);
+      setSendingRequest(null);
     }
   };
 
   const navigateToProfile = (id) => navigate(`/profile/${id}`);
+  
   const navigateToChat = async (user) => {
     try {
-      setActionLoading(true);
+      setCreatingConversation(user.userID);
       
       const token = localStorage.getItem('token');
       
@@ -523,7 +530,7 @@ const Friends = () => {
       console.error('Lỗi tạo conversation:', error);
       showNotification('error', error.message || 'Không thể bắt đầu trò chuyện');
     } finally {
-      setActionLoading(false);
+      setCreatingConversation(null);
     }
   };
 
@@ -724,8 +731,8 @@ const Friends = () => {
                 {activeTab === 'suggestions' && 'Gợi ý kết bạn'}
                 {activeTab === 'search' && 'Kết quả tìm kiếm'}
               </h2>
-              {activeTab === 'suggestions' && <button onClick={loadMoreSuggestions} className="flex items-center px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100"><ArrowPathIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" /> <span className="hidden sm:inline">Tải thêm</span><span className="sm:hidden">Tải</span></button>}
-              {activeTab === 'sent' && <button onClick={() => { setLoading(true); fetchFriendships().finally(() => setLoading(false)); }} className="flex items-center px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100"><ArrowPathIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" /> <span className="hidden sm:inline">Làm mới</span><span className="sm:hidden">Làm mới</span></button>}
+              {activeTab === 'suggestions' && <button onClick={loadMoreSuggestions} disabled={suggestionsLoading} className="flex items-center px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 disabled:opacity-50"><ArrowPathIcon className={`h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2 ${suggestionsLoading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Tải thêm</span><span className="sm:hidden">Tải</span></button>}
+              {activeTab === 'sent' && <button onClick={() => { setLoading(true); fetchFriendships().finally(() => setLoading(false)); }} disabled={loading} className="flex items-center px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-blue-600 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 disabled:opacity-50"><ArrowPathIcon className={`h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2 ${loading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Làm mới</span><span className="sm:hidden">Làm mới</span></button>}
             </div>
 
             {(showTabLoading || showSentLoading) && (
@@ -739,6 +746,7 @@ const Friends = () => {
 
             {!showTabLoading && !showSentLoading && filteredUsers.length > 0 && (
               <>
+                {/* Mobile View */}
                 <div className="grid grid-cols-1 gap-3 sm:hidden px-2">
                   {filteredUsers.map(user => (
                     <div key={user.userID} className="bg-white rounded-xl p-4 border flex items-center gap-4">
@@ -759,20 +767,84 @@ const Friends = () => {
                           <div className="flex gap-2">
                             {activeTab === 'all' && (
                               <>
-                                <button onClick={() => navigateToChat(user)} className="flex-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium"><ChatBubbleLeftRightIcon className="h-4 w-4 mr-1.5" /> Nhắn tin</button>
-                                <button onClick={() => removeFriend(user.userID)} className="px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium"><UserMinusIcon className="h-4 w-4" /></button>
+                                <button 
+                                  onClick={() => navigateToChat(user)} 
+                                  disabled={creatingConversation === user.userID}
+                                  className="flex-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {creatingConversation === user.userID ? (
+                                    <>
+                                      <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                      Đang tạo...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1.5" /> 
+                                      Nhắn tin
+                                    </>
+                                  )}
+                                </button>
+                                <button 
+                                  onClick={() => removeFriend(user.userID)} 
+                                  disabled={removingFriend === user.userID}
+                                  className="px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
+                                >
+                                  {removingFriend === user.userID ? (
+                                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <UserMinusIcon className="h-4 w-4" />
+                                  )}
+                                </button>
                               </>
                             )}
                             {activeTab === 'pending' && (
                               <>
-                                <button onClick={() => acceptFriendRequest(user.userID)} className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"><CheckIcon className="h-4 w-4 mr-1.5" /> Đồng ý</button>
-                                <button onClick={() => rejectFriendRequest(user.userID)} className="flex-1 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium"><XMarkIcon className="h-4 w-4 mr-1.5" /> Từ chối</button>
+                                <button 
+                                  onClick={() => acceptFriendRequest(user.userID)} 
+                                  disabled={acceptingRequest === user.userID}
+                                  className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
+                                >
+                                  {acceptingRequest === user.userID ? (
+                                    <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <CheckIcon className="h-4 w-4 mr-1.5" />
+                                  )}
+                                  Đồng ý
+                                </button>
+                                <button 
+                                  onClick={() => rejectFriendRequest(user.userID)} 
+                                  disabled={rejectingRequest === user.userID}
+                                  className="flex-1 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium disabled:opacity-50"
+                                >
+                                  {rejectingRequest === user.userID ? (
+                                    <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <XMarkIcon className="h-4 w-4 mr-1.5" />
+                                  )}
+                                  Từ chối
+                                </button>
                               </>
                             )}
                             {activeTab === 'sent' && (
                               <>
                                 <div className="flex items-center text-xs text-gray-400 mb-2"><ClockIcon className="h-4 w-4 mr-1" /> Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</div>
-                                <button onClick={() => cancelFriendRequest(user.userID)} className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium"><XMarkIcon className="h-4 w-4 mr-1.5" /> Hủy</button>
+                                <button 
+                                  onClick={() => cancelFriendRequest(user.userID)} 
+                                  disabled={cancelingRequest === user.userID}
+                                  className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
+                                >
+                                  {cancelingRequest === user.userID ? (
+                                    <>
+                                      <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                      Đang hủy...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XMarkIcon className="h-4 w-4 mr-1.5" /> 
+                                      Hủy
+                                    </>
+                                  )}
+                                </button>
                               </>
                             )}
                             {(activeTab === 'suggestions' || activeTab === 'search') && (
@@ -784,30 +856,50 @@ const Friends = () => {
                                   </div>
                                   <button 
                                     onClick={() => cancelFriendRequest(user.userID)} 
-                                    className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium"
+                                    disabled={cancelingRequest === user.userID}
+                                    className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
                                   >
-                                    <XMarkIcon className="h-4 w-4 mr-1.5" /> 
-                                    Hủy
+                                    {cancelingRequest === user.userID ? (
+                                      <>
+                                        <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                        Đang hủy...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XMarkIcon className="h-4 w-4 mr-1.5" /> 
+                                        Hủy
+                                      </>
+                                    )}
                                   </button>
                                 </>
                               ) : (
                                 <button 
                                   onClick={() => sendFriendRequest(user.userID)} 
-                                  className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"
+                                  disabled={sendingRequest === user.userID}
+                                  className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  <UserPlusIcon className="h-4 w-4 mr-1.5" /> 
-                                  Kết bạn
+                                  {sendingRequest === user.userID ? (
+                                    <>
+                                      <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
+                                      Đang gửi...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserPlusIcon className="h-4 w-4 mr-1.5" /> 
+                                      Kết bạn
+                                    </>
+                                  )}
                                 </button>
                               )
                             )}
                           </div>
                         )}
-                        
                       </div>
                     </div>
                   ))}
                 </div>
 
+                {/* Desktop View */}
                 <div className={`hidden sm:grid ${activeTab === 'sent' ? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'} gap-4 md:gap-6`}>
                   {filteredUsers.map(user => (
                     <div key={user.userID} className={`bg-white rounded-xl ${activeTab === 'sent' ? 'p-5 md:p-6' : 'p-4 md:p-5'} border hover:shadow-md transition-all group`}>
@@ -832,19 +924,99 @@ const Friends = () => {
                                 {activeTab === 'sent' && (
                                   <>
                                     <div className="flex items-center justify-center space-x-2 text-xs text-gray-500 mb-2"><ClockIcon className="h-4 w-4" /> <span>Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</span></div>
-                                    <button onClick={() => cancelFriendRequest(user.userID)} className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center"><XMarkIcon className="h-4 w-4 mr-2" /> Hủy lời mời</button>
+                                    <button 
+                                      onClick={() => cancelFriendRequest(user.userID)} 
+                                      disabled={cancelingRequest === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {cancelingRequest === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang hủy...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <XMarkIcon className="h-4 w-4 mr-2" /> 
+                                          Hủy lời mời
+                                        </>
+                                      )}
+                                    </button>
                                   </>
                                 )}
                                 {activeTab === 'all' && (
                                   <>
-                                    <button onClick={() => navigateToChat(user)} className="w-full px-4 py-2.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium"><ChatBubbleLeftRightIcon className="h-4 w-4 mr-2" /> Nhắn tin</button>
-                                    <button onClick={() => removeFriend(user.userID)} className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium"><UserMinusIcon className="h-4 w-4 mr-2" /> Hủy kết bạn</button>
+                                    <button 
+                                      onClick={() => navigateToChat(user)} 
+                                      disabled={creatingConversation === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {creatingConversation === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang tạo...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2" /> 
+                                          Nhắn tin
+                                        </>
+                                      )}
+                                    </button>
+                                    <button 
+                                      onClick={() => removeFriend(user.userID)} 
+                                      disabled={removingFriend === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
+                                    >
+                                      {removingFriend === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang xóa...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <UserMinusIcon className="h-4 w-4 mr-2" /> 
+                                          Hủy kết bạn
+                                        </>
+                                      )}
+                                    </button>
                                   </>
                                 )}
                                 {activeTab === 'pending' && (
                                   <>
-                                    <button onClick={() => acceptFriendRequest(user.userID)} className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"><CheckIcon className="h-4 w-4 mr-2" /> Đồng ý</button>
-                                    <button onClick={() => rejectFriendRequest(user.userID)} className="w-full px-4 py-2.5 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium"><XMarkIcon className="h-4 w-4 mr-2" /> Từ chối</button>
+                                    <button 
+                                      onClick={() => acceptFriendRequest(user.userID)} 
+                                      disabled={acceptingRequest === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
+                                    >
+                                      {acceptingRequest === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang xử lý...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckIcon className="h-4 w-4 mr-2" /> 
+                                          Đồng ý
+                                        </>
+                                      )}
+                                    </button>
+                                    <button 
+                                      onClick={() => rejectFriendRequest(user.userID)} 
+                                      disabled={rejectingRequest === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium disabled:opacity-50"
+                                    >
+                                      {rejectingRequest === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang xử lý...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <XMarkIcon className="h-4 w-4 mr-2" /> 
+                                          Từ chối
+                                        </>
+                                      )}
+                                    </button>
                                   </>
                                 )}
                                 {(activeTab === 'suggestions' || activeTab === 'search') && (
@@ -856,19 +1028,39 @@ const Friends = () => {
                                       </div>
                                       <button 
                                         onClick={() => cancelFriendRequest(user.userID)} 
-                                        className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center"
+                                        disabled={cancelingRequest === user.userID}
+                                        className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        <XMarkIcon className="h-4 w-4 mr-2" /> 
-                                        Hủy lời mời
+                                        {cancelingRequest === user.userID ? (
+                                          <>
+                                            <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                            Đang hủy...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <XMarkIcon className="h-4 w-4 mr-2" /> 
+                                            Hủy lời mời
+                                          </>
+                                        )}
                                       </button>
                                     </>
                                   ) : (
                                     <button 
                                       onClick={() => sendFriendRequest(user.userID)} 
-                                      className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium"
+                                      disabled={sendingRequest === user.userID}
+                                      className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                     >
-                                      <UserPlusIcon className="h-4 w-4 mr-2" /> 
-                                      Kết bạn
+                                      {sendingRequest === user.userID ? (
+                                        <>
+                                          <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                          Đang gửi...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <UserPlusIcon className="h-4 w-4 mr-2" /> 
+                                          Kết bạn
+                                        </>
+                                      )}
                                     </button>
                                   )
                                 )}

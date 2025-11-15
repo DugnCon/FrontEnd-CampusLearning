@@ -401,7 +401,7 @@ const Posts = () => {
       });
 
       // Gửi yêu cầu xóa
-      const response = await fetch(`/user/api/posts/comments/${commentId}`, {
+      const response = await fetch(`/posts/comments/${commentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });

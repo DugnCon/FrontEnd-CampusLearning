@@ -2,7 +2,6 @@ import axios from 'axios';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { resetCourses } from '@/store/slices/courseSlice';
-import {resetChats} from '@/store/slices/chatSlice';
 import { resetNotifications } from '@/store/slices/notificationSlice';
 import { resetPosts } from '@/store/slices/postSlice';
 import { resetEvents } from '@/store/slices/eventSlice';
@@ -10,6 +9,7 @@ import { resetRankings } from '@/store/slices/rankingSlice';
 import { resetReports } from '@/store/slices/reportSlice';
 import { resetUsers } from '@/store/slices/userSlice';
 import { resetExams } from '@/store/slices/examSlice';
+import { resetChats } from '@/store/slices/chatSlice';
 
 
 const AuthContext = createContext();

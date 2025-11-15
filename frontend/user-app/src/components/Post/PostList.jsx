@@ -92,9 +92,9 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
       // Xử lý đường dẫn
       let cleanPath = mediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
       
-      // Xóa /user/api nếu có trong baseUrl
-      const cleanBaseUrl = baseUrl.replace('/user/api', '');
-      const fullUrl = `${cleanBaseUrl}/uploads/${cleanPath}?t=${timestamp}`;
+      
+      const fullUrl = `${baseUrl}/uploads/${cleanPath}?t=${timestamp}`;
+      mediaUrl = fullUrl;
     }
   } catch (error) {
     console.error('Error processing media URL:', error);

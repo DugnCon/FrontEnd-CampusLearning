@@ -12,9 +12,46 @@ import { resetCourses } from '@/store/slices/courseSlice';
 const AuthContext = createContext();
 const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
-// Helper: Force reload để reset toàn bộ SPA state
+// Helper: Force reload + cache bust
 const forceReload = (path = '/') => {
-  window.location.href = path;
+  const url = `${path}${path.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+  window.location.href = url;
+};
+
+// Helper: Nuke ALL Chrome cache
+const nukeChromeCache = async () => {
+  // 1. Xóa storage
+  localStorage.clear();
+  sessionStorage.clear();
+
+  // 2. Gỡ Service Worker
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      await reg.unregister();
+    }
+  }
+
+  // 3. Xóa Cache Storage
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => caches.delete(name)));
+  }
+
+  // 4. Xóa IndexedDB
+  if ('indexedDB' in window) {
+    try {
+      const databases = await indexedDB.databases();
+      for (const db of databases) {
+        indexedDB.deleteDatabase(db.name);
+      }
+    } catch (err) {
+      console.warn('IndexedDB cleanup failed:', err);
+    }
+  }
+
+  // 5. Force reload với cache bust
+  forceReload(window.location.pathname);
 };
 
 export function AuthProvider({ children }) {
@@ -24,35 +61,35 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState(null);
   const dispatch = useDispatch();
 
-  // --- INITIAL LOAD FROM STORAGE ---
+  // --- LOAD INITIAL USER ---
   useEffect(() => {
-    const loadInitialUser = () => {
+    const loadUser = () => {
       try {
-        const savedUser = localStorage.getItem('user');
         const token = localStorage.getItem('token');
-        if (savedUser && token && token.length > 10) {
-          const parsed = JSON.parse(savedUser);
-          const normalized = normalizeUserData({ ...parsed, token });
+        const saved = localStorage.getItem('user');
+        if (token && saved) {
+          const user = JSON.parse(saved);
+          const normalized = normalizeUserData({ ...user, token });
           setCurrentUser(normalized);
           setIsAuthenticated(true);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
       } catch (err) {
-        console.error('Failed to load initial user:', err);
+        console.error('Load initial user failed:', err);
       }
     };
-    loadInitialUser();
+    loadUser();
   }, []);
 
-  // --- SYNC MULTI-TAB ---
+  // --- MULTI-TAB SYNC ---
   useEffect(() => {
-    const handler = (e) => {
+    const handleStorage = (e) => {
       if (e.key === 'user' || e.key === 'token') {
-        const savedUser = localStorage.getItem('user');
         const token = localStorage.getItem('token');
-        if (savedUser && token) {
-          const parsed = JSON.parse(savedUser);
-          const normalized = normalizeUserData({ ...parsed, token });
+        const saved = localStorage.getItem('user');
+        if (token && saved) {
+          const user = JSON.parse(saved);
+          const normalized = normalizeUserData({ ...user, token });
           setCurrentUser(normalized);
           setIsAuthenticated(true);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -63,38 +100,20 @@ export function AuthProvider({ children }) {
         }
       }
     };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
-
-  // --- CLEAR ALL APP DATA ---
-  const clearAllAppData = useCallback(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    delete axios.defaults.headers.common['Authorization'];
-
-    // Clear Service Worker cache (nếu có)
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => caches.delete(name));
-      });
-    }
-
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setAuthError(null);
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   // --- CLEAR FRIENDS CACHE ---
   const clearFriendsCache = useCallback(() => {
-    Object.keys(localStorage).forEach((key) => {
+    Object.keys(localStorage).forEach(key => {
       if (/^(friends|pendingRequests|sentRequests)_/.test(key)) {
         localStorage.removeItem(key);
       }
     });
   }, []);
 
-  // --- NORMALIZE USER DATA ---
+  // --- NORMALIZE USER ---
   const normalizeUserData = useCallback((userData) => {
     if (!userData) return null;
     const id = userData.id || userData.userID || userData.userId;
@@ -109,12 +128,23 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // --- CLEAR ALL APP DATA ---
+  const clearAllAppData = useCallback(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    delete axios.defaults.headers.common['Authorization'];
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setAuthError(null);
+    clearFriendsCache();
+  }, [clearFriendsCache]);
+
   // --- LOGIN ---
   const login = async (email, password) => {
     try {
-      clearAllAppData(); // XÓA HOÀN TOÀN TRƯỚC KHI LOGIN
-      setAuthError(null);
+      clearAllAppData();
       setLoading(true);
+      setAuthError(null);
 
       const response = await axios.post(`${BASE_URL}/auth/login`, { email, password });
 
@@ -129,20 +159,19 @@ export function AuthProvider({ children }) {
       if (response.data?.token) {
         const { token, refreshToken, user } = response.data;
 
-        // Lưu mới
+        // Lưu dữ liệu mới
         localStorage.setItem('token', token);
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         const userWithToken = normalizeUserData({ ...user, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
-
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-        // RELOAD TRANG ĐỂ RESET TOÀN BỘ STATE
-        forceReload('/dashboard');
+        // NUKE TOÀN BỘ CACHE + RELOAD
+        nukeChromeCache();
+
         return { success: true, user: userWithToken };
-      } else {
-        throw new Error('Login response did not contain token');
       }
+      throw new Error('No token');
     } catch (error) {
       const msg = error.response?.data?.message || error.message || 'Đăng nhập thất bại';
       setAuthError(msg);
@@ -156,8 +185,8 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async (googleToken) => {
     try {
       clearAllAppData();
-      setAuthError(null);
       setLoading(true);
+      setAuthError(null);
 
       const response = await axios.post(`${BASE_URL}/auth/google`, { token: googleToken });
 
@@ -169,11 +198,10 @@ export function AuthProvider({ children }) {
         localStorage.setItem('user', JSON.stringify(userWithToken));
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-        forceReload('/dashboard');
+        nukeChromeCache();
         return { success: true, user: userWithToken };
-      } else {
-        throw new Error('No token in response');
       }
+      throw new Error('No token');
     } catch (error) {
       const msg = error.response?.data?.message || error.message || 'Google login failed';
       setAuthError(msg);
@@ -187,8 +215,8 @@ export function AuthProvider({ children }) {
   const loginWithFacebook = async (accessToken) => {
     try {
       clearAllAppData();
-      setAuthError(null);
       setLoading(true);
+      setAuthError(null);
 
       const response = await axios.post(`${BASE_URL}/auth/facebook`, { accessToken });
 
@@ -200,11 +228,10 @@ export function AuthProvider({ children }) {
         localStorage.setItem('user', JSON.stringify(userWithToken));
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-        forceReload('/dashboard');
+        nukeChromeCache();
         return { success: true, user: userWithToken };
-      } else {
-        throw new Error('No token');
       }
+      throw new Error('No token');
     } catch (error) {
       const msg = error.response?.data?.message || error.message || 'Facebook login failed';
       setAuthError(msg);
@@ -217,28 +244,24 @@ export function AuthProvider({ children }) {
   // --- LOGOUT ---
   const logout = async () => {
     const token = localStorage.getItem('token');
-    
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       try {
         await axios.post(`${BASE_URL}/auth/logout`, {}, { timeout: 10000 });
       } catch (err) {
-        console.error('[AuthContext] Logout API error:', err);
+        console.error('Logout API error:', err);
       }
     }
 
-    // Reset Redux toàn bộ (nếu có root reset)
-    dispatch({ type: 'RESET_APP' }); // hoặc dispatch(resetAll())
+    // Reset Redux toàn bộ
+    dispatch({ type: 'RESET_APP' });
     dispatch(resetCourses());
 
-    // Clear all
     clearAllAppData();
-    clearFriendsCache();
-
     forceReload('/login');
   };
 
-  // --- REFRESH USER DATA ---
+  // --- REFRESH USER ---
   const refreshUserData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -256,9 +279,7 @@ export function AuthProvider({ children }) {
         return normalized;
       }
     } catch (err) {
-      if (err.response?.status === 401) {
-        logout();
-      }
+      if (err.response?.status === 401) logout();
       return false;
     }
   }, [normalizeUserData, logout]);

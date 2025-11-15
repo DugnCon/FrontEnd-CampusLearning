@@ -737,7 +737,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     setIsLoadingSummary(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/ai/gemini/summarize`, {
+      const response = await fetch(`${API_URL}/ai/gemini/summarize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -909,7 +909,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                     <div key={media.mediaID} className="relative group">
                       {media.mediaType === 'image' ? (
                         <img
-                          src={media.mediaUrl?.startsWith('http') ? media.mediaUrl : `/uploads/${media.mediaUrl?.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`}
+                          src={media.mediaUrl?.startsWith('http') ? media.mediaUrl : `${API_URL}/uploads/${media.mediaUrl?.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`}
                           alt="Media"
                           className="w-full h-24 object-cover rounded-lg border border-gray-200"
                         />

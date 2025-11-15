@@ -1204,6 +1204,24 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         onPrev={handlePrevMedia}
       />
 
+      {/* Engagement Stats */}
+      {(safePost.likesCount > 0 || safePost.commentsCount > 0) && (
+        <div className="px-4 py-2 flex justify-between text-sm text-gray-500 border-t border-gray-100">
+          <div className="flex items-center space-x-1">
+            <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+              <ThumbUpSolid className="w-3 h-3 text-white" />
+            </div>
+            <span>{safePost.likesCount}</span>
+          </div>
+          
+          {safePost.commentsCount > 0 && (
+            <button className="hover:underline">
+              {safePost.commentsCount} bình luận
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Post Actions */}
       <div className="px-4 py-2 flex items-center justify-between border-t border-gray-100">
         <button

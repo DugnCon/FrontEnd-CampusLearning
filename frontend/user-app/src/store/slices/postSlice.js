@@ -1,4 +1,3 @@
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { postServices } from '@/services/api';
 
@@ -18,17 +17,21 @@ export const createPost = createAsyncThunk(
   }
 );
 
+const initialState = {
+  posts: [],
+  loading: false,
+  error: null,
+  totalItems: 0,
+  totalPages: 0,
+  currentPage: 1
+};
+
 const postSlice = createSlice({
   name: 'posts',
-  initialState: {
-    posts: [],
-    loading: false,
-    error: null,
-    totalItems: 0,
-    totalPages: 0,
-    currentPage: 1
+  initialState,
+  reducers: {
+    resetPosts: () => initialState // ⭐ reset toàn bộ state về ban đầu
   },
-  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchPosts.pending, (state) => {
@@ -59,4 +62,5 @@ const postSlice = createSlice({
   }
 });
 
-export default postSlice.reducer; 
+export const { resetPosts } = postSlice.actions;
+export default postSlice.reducer;

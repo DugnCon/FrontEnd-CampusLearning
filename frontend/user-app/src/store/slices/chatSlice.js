@@ -1,4 +1,3 @@
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { chatServices } from '@/services/api';
 
@@ -41,15 +40,17 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
+const initialState = {
+  conversations: [],
+  currentConversation: null,
+  messages: [],
+  loading: false,
+  error: null
+};
+
 const chatSlice = createSlice({
   name: 'chat',
-  initialState: {
-    conversations: [],
-    currentConversation: null,
-    messages: [],
-    loading: false,
-    error: null
-  },
+  initialState,
   reducers: {
     setCurrentConversation: (state, action) => {
       state.currentConversation = action.payload;
@@ -59,6 +60,11 @@ const chatSlice = createSlice({
     },
     clearMessages: (state) => {
       state.messages = [];
+    },
+
+    // ✔ Thêm theo yêu cầu
+    resetChat: () => {
+      return initialState;
     }
   },
   extraReducers: (builder) => {
@@ -102,6 +108,11 @@ const chatSlice = createSlice({
   }
 });
 
-export const { setCurrentConversation, addMessage, clearMessages } = chatSlice.actions;
+export const { 
+  setCurrentConversation, 
+  addMessage, 
+  clearMessages,
+  resetChat 
+} = chatSlice.actions;
 
-export default chatSlice.reducer; 
+export default chatSlice.reducer;

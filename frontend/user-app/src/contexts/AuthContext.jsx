@@ -198,11 +198,9 @@ export function AuthProvider({ children }) {
     dispatch(resetChats());
     dispatch(resetNotifications());
     dispatch(resetPosts());
-    dispatch(resetEvents());
-    dispatch(resetRankings());
     dispatch(resetReports());
-    dispatch(resetUsers());
-    dispatch(resetExams());
+    dispatch(resetState());
+    dispatch(resetExamState());
     clearAuthData();
   };
 

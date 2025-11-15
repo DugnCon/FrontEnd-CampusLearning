@@ -17,11 +17,10 @@ export const login = createAsyncThunk(
       
       // Store token consistently in both locations for compatibility
       const token = response.data.token || response.data.accessToken;
-      const refreshToken = response.data.refreshToken; // <-- NEW
+      const refreshToken = response.data.refreshToken;
       localStorage.setItem('token', token);
-      localStorage.setItem('authToken', token); // For compatibility
+      localStorage.setItem('authToken', token);
       if (refreshToken) {
-        // Persist refresh token for silent re-authentication
         localStorage.setItem('refreshToken', refreshToken);
       }
       localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -130,7 +129,6 @@ const authSlice = createSlice({
     updateProfileImage: (state, action) => {
       if (state.user) {
         state.user.image = action.payload;
-        // Also update avatar field if it exists
         if (state.user.avatar) {
           state.user.avatar = action.payload;
         }
@@ -142,11 +140,19 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.loading = false;
       state.error = null;
+    },
+
+    // ✔ THÊM THEO YÊU CẦU CỦA BẠN
+    resetAuth: () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      return initialState;
     }
   },
   extraReducers: (builder) => {
     builder
-      // Login cases
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -162,7 +168,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload?.message || 'Đăng nhập thất bại';
       })
-      // Register cases
       .addCase(register.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -177,7 +182,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload?.message || 'Đăng ký thất bại';
       })
-      // Get current user cases
       .addCase(getCurrentUser.pending, (state) => {
         state.loading = true;
       })
@@ -195,5 +199,5 @@ const authSlice = createSlice({
   }
 });
 
-export const { logout, clearError, updateProfileImage, setUser } = authSlice.actions;
-export default authSlice.reducer; 
+export const { logout, clearError, updateProfileImage, setUser, resetAuth } = authSlice.actions;
+export default authSlice.reducer;

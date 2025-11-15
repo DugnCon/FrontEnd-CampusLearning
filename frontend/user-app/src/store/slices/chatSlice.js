@@ -112,7 +112,7 @@ export const {
   setCurrentConversation, 
   addMessage, 
   clearMessages,
-  resetChat 
+  resetChat
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -7,9 +7,9 @@ import { resetPosts } from '@/store/slices/postSlice';
 import { resetEvents } from '@/store/slices/eventSlice';
 import { resetRankings } from '@/store/slices/rankingSlice';
 import { resetReports } from '@/store/slices/reportSlice';
-import { resetUsers } from '@/store/slices/userSlice';
-import { resetExams } from '@/store/slices/examSlice';
-import { resetChats } from '@/store/slices/chatSlice';
+import { resetState } from '@/store/slices/userSlice';
+import { resetExamState } from '@/store/slices/examSlice';
+import { resetChat } from '@/store/slices/chatSlice';
 
 
 const AuthContext = createContext();

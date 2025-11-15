@@ -1,8 +1,8 @@
 /*-----------------------------------------------------------------
 * File: App.jsx
 * Author: Quyen Nguyen Duc
-* Date: 2025-07-24 → Updated: 2025-11-15 by Grok (fix cache + 401)
-* Description: Main App with Axios 401 Interceptor + full cache reset
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 import { Toaster } from 'react-hot-toast';
@@ -55,44 +55,14 @@ import HelpCenter from './pages/Support/HelpCenter';
 import PrivacyPolicy from './pages/Support/PrivacyPolicy';
 import TermsOfUse from './pages/Support/TermsOfUse';
 
-// === CUSTOM IMPORTS ===
+// Custom CSS for toast notifications
 import './toast-custom.css';
-import { useAuth } from './contexts/AuthContext'; // THÊM DÒNG NÀY
-import axios from 'axios';
-import { useEffect } from 'react';
-
-// === AXIOS 401 INTERCEPTOR COMPONENT ===
-function AxiosInterceptor() {
-  const { logout } = useAuth();
-
-  useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        // Nếu token hết hạn → tự động logout
-        if (error.response?.status === 401) {
-          console.warn('Token expired or invalid → auto logout');
-          logout();
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    // Cleanup khi unmount
-    return () => {
-      axios.interceptors.response.eject(interceptor);
-    };
-  }, [logout]);
-
-  return null; // Không render gì
-}
 
 function App() {
   return (
     <ThemeProvider>
       <CallProvider>
         <MainLayout>
-          {/* TOASTS */}
           <ToastContainer 
             position="top-right"
             autoClose={5000}
@@ -105,20 +75,17 @@ function App() {
             pauseOnHover
             className="toast-container-custom"
             toastClassName="toast-custom"
-            style={{ top: '70px' }}
+            style={{ top: '70px' }} // Add top margin to push below navbar
           />
           <Toaster 
             position="top-right" 
             toastOptions={{
-              style: { marginTop: '70px' },
+              style: {
+                marginTop: '70px', // Push Toaster notifications below navbar
+              },
             }}
           />
-
-          {/* CALL & INTERCEPTOR */}
           <CallInterface />
-          <AxiosInterceptor /> {/* THÊM DÒNG NÀY */}
-
-          {/* ROUTES */}
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -129,11 +96,13 @@ function App() {
             <Route path="/unlock-account" element={<UnlockAccount />} />
             <Route path="/setup-2fa" element={<ForcedTwoFASetup />} />
             
+            {/* Public course and event routes */}
             <Route path="/courses/*" element={<Courses />} />
             <Route path="/courses/:courseId" element={<CourseDetail />} />
             <Route path="/events/:eventId" element={<EventDetail />} />
             <Route path="/roadmaps" element={<Roadmaps />} />
             
+            {/* Payment callback routes - need to be public for third-party returns */}
             <Route path="/payment/callback" element={<PaymentResult />} />
             <Route path="/payment/paypal/success" element={<PaymentResult />} />
             <Route path="/payment/paypal/cancel" element={<PaymentResult />} />
@@ -169,7 +138,11 @@ function App() {
               <Route
                 key={path}
                 path={path}
-                element={<AuthMiddleware>{element}</AuthMiddleware>}
+                element={
+                  <AuthMiddleware>
+                    {element}
+                  </AuthMiddleware>
+                }
               />
             ))}
 
@@ -183,7 +156,7 @@ function App() {
               } 
             />
 
-            {/* Catch all */}
+            {/* Catch all route - redirect to home if authenticated, otherwise to login */}
             <Route 
               path="*" 
               element={
@@ -193,7 +166,7 @@ function App() {
               }
             />
 
-            {/* Support */}
+            {/* Support routes */}
             <Route path="/support/faq" element={<FAQ />} />
             <Route path="/support/help-center" element={<HelpCenter />} />
             <Route path="/support/privacy-policy" element={<PrivacyPolicy />} />

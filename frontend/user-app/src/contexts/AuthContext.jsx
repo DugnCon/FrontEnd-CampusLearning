@@ -33,49 +33,11 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem('user');
   }, [currentUser]);
 
-  // === CLEAR CACHE TOÀN DIỆN ===
-  const clearAllUserCache = useCallback(() => {
-    console.log('🧹 Clearing ALL user cache from localStorage...');
-    
-    // Lấy current user ID trước khi clear để log
-    const currentUserId = currentUser?.id || currentUser?.userID;
-    console.log(`👤 Clearing cache for user: ${currentUserId}`);
-    
-    // Danh sách tất cả các key cần xóa
-    const keysToRemove = [];
-    
-    // Duyệt qua tất cả keys trong localStorage
+  const clearFriendsCache = useCallback(() => {
     Object.keys(localStorage).forEach(key => {
-      // Xóa tất cả cache liên quan đến user data
-      if (
-        // Cache friends
-        key.match(/^(friends|pendingRequests|sentRequests|suggestions)_/) ||
-        // Cache profile
-        key.match(/^(profile|userProfile|userData|cachedUser)_/) ||
-        // Cache chat
-        key.match(/^(conversation|chat|message|conversations)_/) ||
-        // Cache search
-        key.match(/^(search|searchResults)_/) ||
-        // Cache global
-        key === 'friendsLastFetched' ||
-        key === 'lastFetchedUser' ||
-        key === 'cachedUserData' ||
-        key === 'userSettings' ||
-        key === 'recentSearches' ||
-        key === 'notificationsCache'
-      ) {
-        keysToRemove.push(key);
-        console.log(`🗑️ Removing cache: ${key}`);
-      }
+      if (key.match(/^(friends|pendingRequests|sentRequests)_/)) localStorage.removeItem(key);
     });
-
-    // Thực hiện xóa
-    keysToRemove.forEach(key => {
-      localStorage.removeItem(key);
-    });
-
-    console.log(`✅ Removed ${keysToRemove.length} cache items`);
-  }, [currentUser]);
+  }, []);
 
   const normalizeUserData = useCallback((userData) => {
     if (!userData) return null;
@@ -120,80 +82,21 @@ export function AuthProvider({ children }) {
     }
   }, [normalizeUserData]);
 
-  // === CLEAR AUTH DATA TOÀN DIỆN ===
   const clearAuthData = useCallback(() => {
-    console.log('🔐 Clearing ALL auth data and cache...');
-    
-    // Xóa tất cả data authentication
-    const authKeys = ['user', 'token', 'refreshToken', 'tempToken', 'setupToken', 'authToken'];
-    authKeys.forEach(key => {
-      localStorage.removeItem(key);
-      console.log(`🔑 Removed auth: ${key}`);
-    });
-    
-    // Xóa tất cả cache user
-    clearAllUserCache();
-    
-    // Xóa headers axios
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     delete axios.defaults.headers.common['Authorization'];
-    
-    // Reset Redux store (nếu có)
-    dispatch(resetCourses());
-    
-    // Reset state
     setCurrentUser(null);
     setIsAuthenticated(false);
-    setAuthError(null);
-    
-    console.log('✅ All auth data and cache cleared successfully');
-  }, [clearAllUserCache, dispatch]);
-
-  // === INITIAL AUTH CHECK ===
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const token = localStorage.getItem('token');
-      const user = localStorage.getItem('user');
-      
-      if (token && user) {
-        try {
-          // Verify token với server
-          const response = await axios.get(`${BASE_URL}/auth/verify-token`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
-          if (response.data.valid) {
-            const userData = JSON.parse(user);
-            const normalizedUser = normalizeUserData({ ...userData, token });
-            setCurrentUser(normalizedUser);
-            setIsAuthenticated(true);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          } else {
-            // Token không hợp lệ, clear everything
-            clearAuthData();
-          }
-        } catch (error) {
-          console.error('Token verification failed:', error);
-          clearAuthData();
-        }
-      } else {
-        // Không có token, đảm bảo mọi thứ được clear
-        clearAuthData();
-      }
-      
-      setInitialAuthCheckDone(true);
-    };
-
-    checkAuthStatus();
-  }, [clearAuthData, normalizeUserData]);
+    clearFriendsCache();
+  }, [clearFriendsCache]);
 
   // === LOGIN ===
   const login = async (email, password) => {
     try {
       setAuthError(null);
       setLoading(true);
-
-      // Clear cache cũ trước khi login mới
-      clearAllUserCache();
 
       const response = await axios.post(`${BASE_URL}/auth/login`, { email, password });
 
@@ -220,7 +123,6 @@ export function AuthProvider({ children }) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
 
-        console.log(`✅ Login successful for user: ${userWithToken.id}`);
         return { success: true, user: userWithToken };
       } else throw new Error('Login response did not contain token');
     } catch (error) {
@@ -239,9 +141,6 @@ export function AuthProvider({ children }) {
       setAuthError(null);
       setLoading(true);
 
-      // Clear cache cũ trước khi login mới
-      clearAllUserCache();
-
       const response = await axios.post(`${BASE_URL}/auth/google`, { token });
 
       if (response.data?.token) {
@@ -255,8 +154,6 @@ export function AuthProvider({ children }) {
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
         setIsAuthenticated(true);
-        
-        console.log(`✅ Google login successful for user: ${userWithToken.id}`);
         return { success: true, user: userWithToken };
       } else throw new Error('No token in response');
     } catch (error) {
@@ -268,15 +165,10 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // === FACEBOOK LOGIN ===
   const loginWithFacebook = async (accessToken) => {
     try {
       setAuthError(null);
       setLoading(true);
-      
-      // Clear cache cũ trước khi login mới
-      clearAllUserCache();
-
       const response = await axios.post(`${BASE_URL}/auth/facebook`, { accessToken });
 
       if (response.data?.token) {
@@ -289,8 +181,6 @@ export function AuthProvider({ children }) {
         setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
-        
-        console.log(`✅ Facebook login successful for user: ${userWithToken.id}`);
         return { success: true, user: userWithToken };
       } else throw new Error('No token');
     } catch (error) {
@@ -302,49 +192,20 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // === LOGOUT TOÀN DIỆN ===
+  // === LOGOUT ===
   const logout = async () => {
-    console.log('🚪 Logging out user...');
-    
     const token = localStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       try {
         await axios.post(`${BASE_URL}/auth/logout`, {}, { timeout: 10000 });
-        console.log('✅ Logout API call successful');
       } catch (err) {
         console.error('[AuthContext] Logout API error:', err);
       }
     }
-    
-    // Clear mọi thứ
+    dispatch(resetCourses());
     clearAuthData();
-    
-    console.log('✅ Logout completed successfully');
   };
-
-  // === AUTO LOGOUT KHI TOKEN HẾT HẠN ===
-  useEffect(() => {
-    const handleUnauthorized = () => {
-      console.warn('🔐 Unauthorized access detected - auto logging out');
-      logout();
-    };
-
-    // Interceptor cho response
-    const interceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          handleUnauthorized();
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      axios.interceptors.response.eject(interceptor);
-    };
-  }, [logout]);
 
   const value = {
     user: currentUser,
@@ -359,8 +220,7 @@ export function AuthProvider({ children }) {
     logout,
     updateUser,
     refreshUserData,
-    clearAllUserCache,
-    clearAuthData
+    clearFriendsCache
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

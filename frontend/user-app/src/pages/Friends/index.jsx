@@ -27,7 +27,7 @@ const Friends = () => {
   const queryParams = new URLSearchParams(location.search);
   const userId = queryParams.get('userId');
 
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth(); // Thêm logout từ AuthContext
   const currentUserId = currentUser?.id || currentUser?.userID;
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -65,6 +65,34 @@ const Friends = () => {
   const [removingFriend, setRemovingFriend] = useState(null);
   const [sendingRequest, setSendingRequest] = useState(null);
 
+  // Function reset tất cả state
+  const resetAllState = useCallback(() => {
+    setFriends([]);
+    setPendingRequests([]);
+    setSentRequests([]);
+    setSuggestions([]);
+    setSearchResults([]);
+    setViewingUser(null);
+    setSearchTerm('');
+    setActiveTab('all');
+    setError(null);
+    setCreatingConversation(null);
+    setAcceptingRequest(null);
+    setRejectingRequest(null);
+    setCancelingRequest(null);
+    setRemovingFriend(null);
+    setSendingRequest(null);
+    
+    // Clear cache trong localStorage
+    if (currentUserId) {
+      const cacheKeys = ['friends', 'pendingRequests', 'sentRequests'];
+      cacheKeys.forEach(key => {
+        localStorage.removeItem(`${key}_${currentUserId}`);
+      });
+    }
+    localStorage.removeItem('friendsLastFetched');
+  }, [currentUserId]);
+
   const getCacheKey = (type) => {
     if (!currentUserId) return null;
     return `${type}_${currentUserId}`;
@@ -84,15 +112,21 @@ const Friends = () => {
     }
   };
 
+  // Reset state khi currentUser thay đổi (khi logout/login)
+  useEffect(() => {
+    if (!currentUser) {
+      resetAllState();
+      navigate('/login');
+    }
+  }, [currentUser, resetAllState, navigate]);
+
   useEffect(() => {
     if (currentUserId) {
       setFriends(getCachedData('friends'));
       setPendingRequests(getCachedData('pendingRequests'));
       setSentRequests(getCachedData('sentRequests'));
     } else {
-      setFriends([]);
-      setPendingRequests([]);
-      setSentRequests([]);
+      resetAllState();
     }
   }, [currentUserId]);
 
@@ -114,6 +148,7 @@ const Friends = () => {
 
   const fetchFriendships = useCallback(async () => {
     if (!currentUserId) {
+      resetAllState();
       navigate('/login');
       return;
     }
@@ -144,8 +179,9 @@ const Friends = () => {
       clearTimeout(timeoutId);
 
       if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // Token hết hạn, logout và reset state
+        logout();
+        resetAllState();
         navigate('/login', { state: { message: 'Phiên đăng nhập đã hết hạn' } });
         return;
       }
@@ -181,7 +217,7 @@ const Friends = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId, navigate, isOnline, currentUserId]);
+  }, [userId, navigate, isOnline, currentUserId, resetAllState, logout]);
 
   const searchUsers = useCallback(async (query) => {
     if (!query.trim() || query.length < 2) {
@@ -195,15 +231,19 @@ const Friends = () => {
 
       searchTimeoutRef.current = setTimeout(async () => {
         const token = localStorage.getItem('token');
-        if (!token) return navigate('/login');
+        if (!token) {
+          resetAllState();
+          navigate('/login');
+          return;
+        }
 
         const response = await fetch(`${API_URL}/users/search?query=${encodeURIComponent(query)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          logout();
+          resetAllState();
           navigate('/login');
           return;
         }
@@ -234,7 +274,7 @@ const Friends = () => {
     } finally {
       setSearchLoading(false);
     }
-  }, [friends, pendingRequests, sentRequests, currentUserId, navigate]);
+  }, [friends, pendingRequests, sentRequests, currentUserId, navigate, resetAllState, logout]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -605,6 +645,16 @@ const Friends = () => {
   useEffect(() => {
     sessionStorage.setItem('friendsActiveTab', activeTab);
   }, [activeTab]);
+
+  // Thêm cleanup khi component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (loading && friends.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0) {
     return (

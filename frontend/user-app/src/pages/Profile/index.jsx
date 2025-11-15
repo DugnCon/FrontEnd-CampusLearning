@@ -1,4 +1,8 @@
-
+/*-----------------------------------------------------------------
+* File: index.jsx
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -1058,57 +1062,57 @@ const Profile = () => {
 
           {/* Right Content - Posts */}
           <div className="flex-1 min-w-0 bg-white">
-            {/* Navigation Tabs - FIXED: Mobile responsive */}
+            {/* Navigation Tabs */}
             <div className="border-b border-gray-200">
-              <div className="flex overflow-x-auto no-scrollbar">
+              <div className="flex">
                 <button
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'all' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                   onClick={() => setActiveTab('all')}
                 >
-                  <div className="flex items-center justify-center gap-2 min-w-max">
-                    <DocumentTextIcon className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden xs:inline">Bài viết</span>
-                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-xs min-w-[20px] text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <DocumentTextIcon className="h-4 w-4" />
+                    <span>Bài viết</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                       {userPosts.length}
                     </span>
                   </div>
                 </button>
                 
                 <button
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'image' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                   onClick={() => setActiveTab('image')}
                 >
-                  <div className="flex items-center justify-center gap-2 min-w-max">
-                    <PhotoIcon className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden xs:inline">Ảnh</span>
-                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-xs min-w-[20px] text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <PhotoIcon className="h-4 w-4" />
+                    <span>Ảnh</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                       {filteredPosts(userPosts, 'image').length}
                     </span>
                   </div>
                 </button>
                 
                 <button
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'video' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                   onClick={() => setActiveTab('video')}
                 >
-                  <div className="flex items-center justify-center gap-2 min-w-max">
-                    <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    <span className="hidden xs:inline">Video</span>
-                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-xs min-w-[20px] text-center">
+                    <span>Video</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                       {filteredPosts(userPosts, 'video').length}
                     </span>
                   </div>
@@ -1116,17 +1120,17 @@ const Profile = () => {
                 
                 {isOwnProfile && (
                   <button
-                    className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'saved' 
                         ? 'border-blue-500 text-blue-600 bg-blue-50' 
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                     onClick={() => setActiveTab('saved')}
                   >
-                    <div className="flex items-center justify-center gap-2 min-w-max">
-                      <BookmarkIcon className="h-4 w-4 flex-shrink-0" />
-                      <span className="hidden xs:inline">Đã lưu</span>
-                      <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-xs min-w-[20px] text-center overflow-hidden">
+                    <div className="flex items-center justify-center gap-2">
+                      <BookmarkIcon className="h-4 w-4" />
+                      <span>Đã lưu</span>
+                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                         {bookmarkedPosts.length}
                       </span>
                     </div>
@@ -1139,7 +1143,7 @@ const Profile = () => {
             <div className="min-h-screen">
               {/* Posts Content */}
               {activeTab === 'saved' ? (
-                <div className="p-4 sm:p-6">
+                <div className="p-6">
                   {bookmarksLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -1176,7 +1180,7 @@ const Profile = () => {
                   )}
                 </div>
               ) : (
-                <div className="p-4 sm:p-6">
+                <div className="p-6">
                   {postsLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -1228,17 +1232,6 @@ const Profile = () => {
           </div>
         </div>
       </div>
-
-      {/* Custom CSS for hiding scrollbar */}
-      <style jsx>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </div>
   );
 };

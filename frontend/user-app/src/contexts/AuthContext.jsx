@@ -10,51 +10,108 @@ import { resetState } from '@/store/slices/userSlice';
 import { resetExamState } from '@/store/slices/examSlice';
 
 const AuthContext = createContext();
-
-// Cấu hình base URL
 const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
-export function AuthProvider({ children }) {
-  const initialUser = (() => {
-    try {
-      const savedUser = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
-      if (savedUser && token && token.length > 10) {
-        const parsed = JSON.parse(savedUser);
-        return { ...parsed, token, id: parsed.id || parsed.userID || parsed.userId };
-      }
-    } catch {}
-    return null;
-  })();
+// === XÓA SẠCH CACHE CHROME (CHỈ GỌI TRONG LOGOUT) ===
+const clearAllCaches = async () => {
+  // 1. XÓA localStorage + sessionStorage
+  localStorage.clear();
+  sessionStorage.clear();
 
-  const [currentUser, setCurrentUser] = useState(initialUser);
-  const [isAuthenticated, setIsAuthenticated] = useState(!!initialUser);
+  // 2. XÓA Service Worker
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      await reg.unregister();
+    }
+  }
+
+  // 3. XÓA Cache Storage (API cache)
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => caches.delete(name)));
+  }
+
+  // 4. RELOAD + CACHE BUST
+  window.location.href = `/?_=${Date.now()}`;
+};
+
+// === FORCE RELOAD ===
+const forceReload = (path = '/') => {
+  const url = `${path}${path.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+  window.location.href = url;
+};
+
+export function AuthProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
   const dispatch = useDispatch();
 
+  // === LOAD INITIAL USER ===
   useEffect(() => {
-    if (currentUser) localStorage.setItem('user', JSON.stringify(currentUser));
-    else localStorage.removeItem('user');
-  }, [currentUser]);
+    const loadUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const saved = localStorage.getItem('user');
+        if (token && saved) {
+          const user = JSON.parse(saved);
+          const normalized = normalizeUserData({ ...user, token });
+          setCurrentUser(normalized);
+          setIsAuthenticated(true);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (err) {
+        console.error('Load initial user failed:', err);
+      } finally {
+        setInitialAuthCheckDone(true);
+      }
+    };
+    loadUser();
+  }, []);
+
+  // === MULTI-TAB SYNC ===
+  useEffect(() => {
+    const handleStorage = () => {
+      const token = localStorage.getItem('token');
+      const saved = localStorage.getItem('user');
+      if (token && saved) {
+        const user = JSON.parse(saved);
+        const normalized = normalizeUserData({ ...user, token });
+        setCurrentUser(normalized);
+        setIsAuthenticated(true);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      } else {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        delete axios.defaults.headers.common['Authorization'];
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const clearFriendsCache = useCallback(() => {
     Object.keys(localStorage).forEach(key => {
-      if (key.match(/^(friends|pendingRequests|sentRequests)_/)) localStorage.removeItem(key);
+      if (/^(friends|pendingRequests|sentRequests)_/.test(key)) {
+        localStorage.removeItem(key);
+      }
     });
   }, []);
 
   const normalizeUserData = useCallback((userData) => {
     if (!userData) return null;
+    const id = userData.id || userData.userID || userData.userId;
     return {
       ...userData,
-      id: userData.id || userData.userID || userData.userId,
-      userID: userData.id || userData.userID || userData.userId,
-      userId: userData.id || userData.userID || userData.userId,
-      avatar: userData.image || userData.avatar || userData.profileImage,
-      profileImage: userData.image || userData.avatar || userData.profileImage,
-      Image: userData.image || userData.avatar || userData.profileImage
+      id,
+      userID: id,
+      userId: id,
+      avatar: userData.image || userData.avatar || userData.profileImage || '',
+      profileImage: userData.image || userData.avatar || userData.profileImage || '',
+      Image: userData.image || userData.avatar || userData.profileImage || '',
     };
   }, []);
 
@@ -118,21 +175,20 @@ export function AuthProvider({ children }) {
         const token = response.data.token;
         if (token.length < 10) throw new Error('Invalid token');
 
+        // LƯU BÌNH THƯỜNG – KHÔNG XÓA GÌ HẾT
         localStorage.setItem('token', token);
         if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
-
-        const userData = response.data.user || {};
-        const userWithToken = normalizeUserData({ ...userData, token });
+        const userWithToken = normalizeUserData({ ...response.data.user, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
 
-        setCurrentUser(userWithToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setCurrentUser(userWithToken);
         setIsAuthenticated(true);
 
         return { success: true, user: userWithToken };
-      } else throw new Error('Login response did not contain token');
+      }
+      throw new Error('No token');
     } catch (error) {
-      console.error('Login error:', error);
       const msg = error.response?.data?.message || error.message || 'Đăng nhập thất bại';
       setAuthError(msg);
       return { success: false, error: msg };
@@ -142,26 +198,27 @@ export function AuthProvider({ children }) {
   };
 
   // === GOOGLE LOGIN ===
-  const loginWithGoogle = async (token) => {
+  const loginWithGoogle = async (googleToken) => {
     try {
       setAuthError(null);
       setLoading(true);
 
-      const response = await axios.post(`${BASE_URL}/auth/google`, { token });
+      const response = await axios.post(`${BASE_URL}/auth/google`, { token: googleToken });
 
       if (response.data?.token) {
-        const newToken = response.data.token;
-        localStorage.setItem('token', newToken);
+        const token = response.data.token;
+        localStorage.setItem('token', token);
         if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
-
-        const userWithToken = normalizeUserData({ ...response.data.user, token: newToken });
+        const userWithToken = normalizeUserData({ ...response.data.user, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
 
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setCurrentUser(userWithToken);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
         setIsAuthenticated(true);
+
         return { success: true, user: userWithToken };
-      } else throw new Error('No token in response');
+      }
+      throw new Error('No token');
     } catch (error) {
       const msg = error.response?.data?.message || error.message || 'Google login failed';
       setAuthError(msg);
@@ -171,24 +228,28 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // === FACEBOOK LOGIN ===
   const loginWithFacebook = async (accessToken) => {
     try {
       setAuthError(null);
       setLoading(true);
+
       const response = await axios.post(`${BASE_URL}/auth/facebook`, { accessToken });
 
       if (response.data?.token) {
         const token = response.data.token;
         localStorage.setItem('token', token);
         if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
-
         const userWithToken = normalizeUserData({ ...response.data.user, token });
         localStorage.setItem('user', JSON.stringify(userWithToken));
-        setCurrentUser(userWithToken);
+
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setCurrentUser(userWithToken);
         setIsAuthenticated(true);
+
         return { success: true, user: userWithToken };
-      } else throw new Error('No token');
+      }
+      throw new Error('No token');
     } catch (error) {
       const msg = error.response?.data?.message || error.message || 'Facebook login failed';
       setAuthError(msg);
@@ -198,7 +259,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // --- LOGOUT ---
+  // === LOGOUT + XÓA SẠCH CACHE ===
   const logout = async () => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -209,6 +270,8 @@ export function AuthProvider({ children }) {
         console.error('[AuthContext] Logout API error:', err);
       }
     }
+
+    // RESET REDUX
     dispatch(resetCourses());
     dispatch(resetChat());
     dispatch(resetNotifications());
@@ -216,6 +279,7 @@ export function AuthProvider({ children }) {
     dispatch(resetReports());
     dispatch(resetState());
     dispatch(resetExamState());
+
     clearAuthData();
 
     // XÓA SẠCH CACHE CHROME

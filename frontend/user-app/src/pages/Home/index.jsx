@@ -446,8 +446,8 @@ const Home = () => {
       {/* Main Container */}
       <main className="min-h-screen bg-white overflow-x-hidden">
         
-        {/* Hero Section with Large Background Image */}
-        <section className="relative min-h-screen bg-cover bg-center bg-no-repeat flex items-center" 
+        {/* Hero Section với padding bottom cho mobile */}
+        <section className="relative min-h-screen bg-cover bg-center bg-no-repeat flex items-center pb-32 sm:pb-4 md:pb-0" 
                  style={{
                    backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')`
                  }}>
@@ -456,10 +456,10 @@ const Home = () => {
             <div className="text-center text-white px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
               
               {/* Course & Training Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
                 className="inline-block bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-6 sm:mb-8"
               >
                 Course & Training
@@ -488,24 +488,24 @@ const Home = () => {
                 </span>
               </motion.p>
 
-              {/* CTA Button */}
-                <motion.button
+              {/* CTA Button - Thêm margin bottom cho mobile */}
+              <motion.button
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.6 }}
-                                      onClick={() => handlePublicNavigation("/courses")}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg"
-                >
+                onClick={() => handlePublicNavigation("/courses")}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg mb-8 sm:mb-0"
+              >
                 Bắt đầu ngay
-                </motion.button>
+              </motion.button>
             </div>
 
-            {/* Search Bar at Bottom - Compact & Aligned */}
-              <motion.div
+            {/* Search Bar - Điều chỉnh vị trí cho mobile */}
+            <motion.div
               initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.8 }}
-              className="absolute bottom-2 sm:bottom-4 left-4 right-4 max-w-6xl mx-auto"
+              className="absolute bottom-4 sm:bottom-8 left-4 right-4 max-w-6xl mx-auto"
             >
               <div className="bg-white rounded-lg sm:rounded-xl shadow-xl p-3 sm:p-4">
                 
@@ -605,15 +605,15 @@ const Home = () => {
                     <span>Tìm khóa học</span>
                   </button>
                 </div>
-                </div>
-              </motion.div>
-        </div>
-      </section>
+              </div>
+            </motion.div>
+          </div>
+        </section>
 
         {/* Adventure Categories Section */}
         <section className="py-16 sm:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              
             {/* Section Header */}
             <div className="text-center mb-12 sm:mb-16">
               <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HOẠT ĐỘNG NỔI BẬT</div>
@@ -625,12 +625,12 @@ const Home = () => {
             {/* Categories Grid - Responsive */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
               {adventureCategories.map((category, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
                   className="group cursor-pointer"
                   onClick={() => handlePublicNavigation("/courses")}
                 >
@@ -643,7 +643,7 @@ const Home = () => {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                </div>
+                    </div>
 
                     {/* Content Overlay */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
@@ -668,24 +668,24 @@ const Home = () => {
                         </span>
                       </div>
                     </div>
-                </div>
-              </motion.div>
-            ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Amazing Learning Experience Section */}
         <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               
               {/* Left Column - Image */}
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
                 className="relative order-2 lg:order-1"
               >
                 <div className="relative">
@@ -730,53 +730,53 @@ const Home = () => {
                   <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HỌC TẬP CÓ CÁO CHỖ</div>
                   <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
                     Trải nghiệm học tập tuyệt vời
-            </h2>
+                  </h2>
                 </div>
 
                 {/* Features List */}
                 <div className="space-y-6">
                   {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, delay: index * 0.1 }}
+                      viewport={{ once: true }}
                       className="flex items-start space-x-4"
-              >
+                    >
                       <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
                         <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
-                </div>
+                      </div>
                       <div className="min-w-0">
                         <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
                         <p className="text-gray-600 leading-relaxed text-sm sm:text-base">{feature.description}</p>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               </motion.div>
-            ))}
-                </div>
-              </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Experience Adventure Section - Dark Theme */}
         <section className="py-16 sm:py-20 bg-gray-900 text-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               
               {/* Left Column - Content */}
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
                 className="space-y-6 sm:space-y-8"
               >
                 <div>
                   <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HOẠT ĐỘNG NỔI BẬT</div>
                   <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 leading-tight">
                     Cảm giác thành thạo lập trình
-            </h2>
+                  </h2>
                 </div>
 
                 {/* Description */}
@@ -792,12 +792,12 @@ const Home = () => {
                 {/* Progress Bars */}
                 <div className="space-y-4 mb-6 sm:mb-8">
                   {experienceFeatures.map((item, index) => (
-              <motion.div
-                key={index}
+                    <motion.div
+                      key={index}
                       initial={{ opacity: 0, x: -20 }}
                       whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: index * 0.1 }}
+                      viewport={{ once: true }}
                       className="space-y-2"
                     >
                       <div className="flex justify-between">
@@ -813,11 +813,11 @@ const Home = () => {
                           className="bg-green-600 h-2 rounded-full"
                         ></motion.div>
                       </div>
-          </motion.div>
+                    </motion.div>
                   ))}
-                  </div>
-                  
-                                {/* Tech Stack Icons */}
+                </div>
+                
+                {/* Tech Stack Icons */}
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-3">
                     {/* React */}
@@ -836,7 +836,7 @@ const Home = () => {
                         alt="JavaScript" 
                         className="w-6 h-6"
                       />
-                  </div>
+                    </div>
                   
                     {/* Python */}
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
@@ -845,7 +845,7 @@ const Home = () => {
                         alt="Python" 
                         className="w-6 h-6"
                       />
-                      </div>
+                    </div>
                     
                     {/* Node.js */}
                     <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
@@ -854,7 +854,7 @@ const Home = () => {
                         alt="Node.js" 
                         className="w-6 h-6"
                       />
-                      </div>
+                    </div>
                     
                     {/* Plus Icon for more */}
                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
@@ -865,11 +865,11 @@ const Home = () => {
               </motion.div>
 
               {/* Right Column - Image */}
-                <motion.div
+              <motion.div
                 initial={{ opacity: 0, x: 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
-                  viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative"
               >
                 <img
@@ -879,15 +879,15 @@ const Home = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent rounded-2xl"></div>
               </motion.div>
-                      </div>
-                      </div>
+            </div>
+          </div>
 
           {/* Tent Icon */}
           <div className="absolute top-8 sm:top-16 left-8 sm:left-16 text-green-600 opacity-20 hidden lg:block">
             <div className="w-16 h-16 sm:w-24 sm:h-24 border-4 border-current rounded-lg flex items-center justify-center">
               <CodeBracketIcon className="w-8 h-8 sm:w-12 sm:h-12" />
-                    </div>
-                    </div>
+            </div>
+          </div>
         </section>
 
         {/* CTA Section - Green Theme */}
@@ -910,11 +910,11 @@ const Home = () => {
                 <div>
                   <h3 className="text-xl font-bold text-white mb-2 leading-tight">
                     Sẵn sàng phiêu lưu và tận hưởng thiên nhiên
-                      </h3>
+                  </h3>
                   <p className="text-green-100 text-base">
                     Hãy cùng chúng tôi khám phá thế giới lập trình đầy thú vị
-                      </p>
-                        </div>
+                  </p>
+                </div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -927,17 +927,17 @@ const Home = () => {
                   }}
                   className="w-full bg-white text-green-600 px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
                 >
-                      <span>Khám phá ngay</span>
+                  <span>Khám phá ngay</span>
                   <ArrowRightIcon className="w-5 h-5" />
                 </motion.button>
-                      </div>
+              </div>
 
               {/* Desktop: Horizontal Layout */}
               <div className="hidden sm:flex items-center justify-between">
                 <div className="flex items-center space-x-6">
                   <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
                     <RocketLaunchIcon className="w-8 h-8 text-white" />
-                    </div>
+                  </div>
                   <div className="min-w-0">
                     <h3 className="text-2xl lg:text-3xl font-bold text-white mb-2 leading-tight">
                       Sẵn sàng phiêu lưu và tận hưởng thiên nhiên
@@ -946,7 +946,7 @@ const Home = () => {
                       Hãy cùng chúng tôi khám phá thế giới lập trình đầy thú vị
                     </p>
                   </div>
-          </div>
+                </div>
 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -963,41 +963,41 @@ const Home = () => {
                   <span>Khám phá ngay</span>
                   <ArrowRightIcon className="w-5 h-5" />
                 </motion.button>
-                </div>
-              </motion.div>
-        </div>
-      </section>
+              </div>
+            </motion.div>
+          </div>
+        </section>
 
         {/* Popular Courses Section */}
         <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
               className="text-center mb-12"
             >
               <div className="text-green-600 font-semibold text-base sm:text-lg mb-4">TÍNH NĂNG TUYỆT VỜI</div>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
                 Các khóa học thú vị
-            </h2>
-          </motion.div>
+              </h2>
+            </motion.div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading ? (
+              {loading ? (
                 // Loading skeleton
                 Array(4).fill(0).map((_, index) => (
                   <div key={index} className="bg-gray-200 animate-pulse rounded-lg h-80"></div>
-              ))
-            ) : (
+                ))
+              ) : (
                 popularCourses.slice(0, 4).map((course, index) => (
-                <motion.div
-                  key={course.CourseID || index}
+                  <motion.div
+                    key={course.CourseID || index}
                     initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                    viewport={{ once: true }}
                     className="bg-white rounded-lg overflow-hidden shadow-lg group hover:shadow-xl transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       if (!isAuthenticated) {
@@ -1017,7 +1017,7 @@ const Home = () => {
                         handleNavigation(`/courses/${course.CourseID}`);
                       }
                     }}
-                >
+                  >
                     <div className="relative h-48">
                       <img
                         src={course.ImageUrl || `https://images.unsplash.com/photo-${1461749280684 + index}-dccba630e2f6?w=400&h=300&fit=crop`}
@@ -1028,8 +1028,8 @@ const Home = () => {
                         <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-semibold">
                           MỚI NHẤT
                         </span>
-                        </div>
                       </div>
+                    </div>
                     <div className="p-4">
                       <div className="flex items-center mb-2">
                         {[...Array(5)].map((_, i) => (
@@ -1061,8 +1061,8 @@ const Home = () => {
                   </motion.div>
                 ))
               )}
-                        </div>
-                      </div>
+            </div>
+          </div>
         </section>
 
         {/* Features Grid Section */}
@@ -1079,7 +1079,7 @@ const Home = () => {
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <CheckIcon className="w-6 h-6 text-green-600" />
-                      </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Chuyên tự do chính</h3>
                   <p className="text-gray-600 text-sm">
@@ -1097,13 +1097,13 @@ const Home = () => {
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <UserGroupIcon className="w-6 h-6 text-green-600" />
-                        </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Hướng dẫn viên chuyên nghiệp</h3>
                   <p className="text-gray-600 text-sm">
                     Đội ngũ mentor giàu kinh nghiệm từ các công ty công nghệ hàng đầu.
                   </p>
-                        </div>
+                </div>
               </motion.div>
 
               <motion.div
@@ -1115,71 +1115,71 @@ const Home = () => {
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <HeartIcon className="w-6 h-6 text-green-600" />
-                      </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Chất lượng dịch vụ cao</h3>
                   <p className="text-gray-600 text-sm">
                     Cam kết chất lượng cao với hệ thống đánh giá và phản hồi liên tục.
                   </p>
-                    </div>
-                </motion.div>
+                </div>
+              </motion.div>
 
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
-              viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="flex items-start space-x-4"
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <MapPinIcon className="w-6 h-6 text-green-600" />
-        </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Địa điểm đa dạng</h3>
                   <p className="text-gray-600 text-sm">
                     Học tập mọi lúc mọi nơi với nền tảng online hiện đại và tiện lợi.
                   </p>
-                  </div>
-                </motion.div>
+                </div>
+              </motion.div>
 
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-            viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="flex items-start space-x-4"
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <AcademicCapIcon className="w-6 h-6 text-green-600" />
-          </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Trải nghiệm độc đáo</h3>
                   <p className="text-gray-600 text-sm">
                     Phương pháp học tập sáng tạo với AI và công nghệ VR/AR tiên tiến.
                   </p>
                 </div>
-          </motion.div>
+              </motion.div>
 
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
-            viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="flex items-start space-x-4"
               >
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <ClockIcon className="w-6 h-6 text-green-600" />
-                  </div>
+                </div>
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Hỗ trợ dịch vụ 24/7</h3>
                   <p className="text-gray-600 text-sm">
                     Đội ngũ hỗ trợ sẵn sàng giải đáp mọi thắc mắc 24/7 qua nhiều kênh.
                   </p>
                 </div>
-          </motion.div>
+              </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Video Hero Section */}
         <section 
@@ -1188,15 +1188,15 @@ const Home = () => {
             backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')`
           }}
         >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               
               {/* Left Column - Content */}
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
                 className="text-white"
               >
                 <div className="text-green-400 font-semibold text-lg mb-4">BẠN ĐÃ SẴN SÀNG ĐỂ HỌC CHƯA?</div>
@@ -1204,7 +1204,7 @@ const Home = () => {
                   Sẵn sàng học tập với cuộc
                   <br />
                   phiêu lưu thực sự
-            </h2>
+                </h2>
                 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -1215,7 +1215,7 @@ const Home = () => {
                   <PlayIcon className="w-6 h-6" />
                   <span>Bắt đầu ngay</span>
                 </motion.button>
-          </motion.div>
+              </motion.div>
 
               {/* Right Column - Features */}
               <motion.div
@@ -1228,10 +1228,10 @@ const Home = () => {
                 <div className="text-center text-white">
                   <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                     <UserGroupIcon className="w-8 h-8" />
-                      </div>
+                  </div>
                   <h3 className="font-bold mb-2">Chuyên lập trình</h3>
                   <h3 className="font-bold">ứng dụng thực tế</h3>
-                    </div>
+                </div>
                 
                 <div className="text-center text-white">
                   <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1257,18 +1257,18 @@ const Home = () => {
                   <h3 className="font-bold">Đa dạng</h3>
                 </div>
               </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Tech Stack Gallery */}
         <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <motion.div
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-                  viewport={{ once: true }}
+              viewport={{ once: true }}
               className="text-center mb-16"
             >
               <div className="text-green-600 font-semibold text-lg mb-4">NHỮNG CÔNG NGHỆ TUYỆT VỜI</div>
@@ -1279,11 +1279,11 @@ const Home = () => {
               
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {/* Tech Stack Items */}
-                  <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6 }}
-                    viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer"
               >
                 <img
@@ -1293,15 +1293,15 @@ const Home = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <div className="absolute top-3 left-3">
-                                    <span className="bg-indigo-500 text-white px-2 py-1 rounded text-xs font-bold">
+                  <span className="bg-indigo-500 text-white px-2 py-1 rounded text-xs font-bold">
                     10 KHÓA HỌC
-                        </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                  </span>
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">React.js</h3>
                   <p className="text-xs opacity-90">Frontend Framework</p>
-                        </div>
-                  </motion.div>
+                </div>
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -1320,21 +1320,21 @@ const Home = () => {
                   <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold">
                     22 KHÓA HỌC
                   </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">Python</h3>
                   <p className="text-xs opacity-90">AI & Backend</p>
-                          </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer"
-            >
-              <img
+              >
+                <img
                   src="https://www.infoworld.com/wp-content/uploads/2025/05/2263137-0-24139200-1747637392-shutterstock_1361674454-100939444-orig.jpg?quality=50&strip=all"
                   alt="JavaScript"
                   className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
@@ -1344,12 +1344,12 @@ const Home = () => {
                   <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs font-bold">
                     28 KHÓA HỌC
                   </span>
-                          </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">JavaScript</h3>
                   <p className="text-xs opacity-90">Full-stack Development</p>
-                        </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -1368,14 +1368,14 @@ const Home = () => {
                   <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">
                     12 KHÓA HỌC
                   </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">Node.js</h3>
                   <p className="text-xs opacity-90">Backend Runtime</p>
-                    </div>
+                </div>
               </motion.div>
 
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
@@ -1392,7 +1392,7 @@ const Home = () => {
                   <span className="bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold">
                     8 KHÓA HỌC
                   </span>
-                      </div>
+                </div>
                 <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">AI & ML</h3>
                   <p className="text-xs opacity-90">Machine Learning</p>
@@ -1415,13 +1415,13 @@ const Home = () => {
                 <div className="absolute top-3 left-3">
                   <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
                     15 KHÓA HỌC
-                          </span>
-                        </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                  </span>
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">Database</h3>
                   <p className="text-xs opacity-90">SQL & NoSQL</p>
-                        </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -1440,50 +1440,50 @@ const Home = () => {
                   <span className="bg-cyan-500 text-white px-2 py-1 rounded text-xs font-bold">
                     6 KHÓA HỌC
                   </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
+                </div>
+                <div className="absolute bottom-3 left-3 text-white">
                   <h3 className="font-bold text-lg">DevOps</h3>
                   <p className="text-xs opacity-90">Cloud & CI/CD</p>
-                  </div>
-                </motion.div>
+                </div>
+              </motion.div>
 
               {/* CTA Box */}
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
-              viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="bg-green-600 rounded-lg p-6 flex flex-col justify-center items-center text-white cursor-pointer hover:bg-green-700 transition-colors duration-300 h-40"
                 onClick={() => handlePublicNavigation("/courses")}
               >
-                                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                   <AcademicCapIcon className="w-6 h-6" />
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-center">Đăng ký khóa học</h3>
                 <h3 className="font-bold text-lg mb-4 text-center">với ưu đãi đặc biệt</h3>
                 <button className="bg-white text-green-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors">
                   Khám phá ngay
-              </button>
-            </motion.div>
-        </div>
-        </div>
-      </section>
+                </button>
+              </motion.div>
+            </div>
+          </div>
+        </section>
 
         {/* Achievement Stats */}
         <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
               <div className="text-green-600 font-semibold text-lg mb-4">CHUYÊN GIA TUYỆT VỜI</div>
               <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
                 Thành tựu đạt được
-            </h2>
-          </motion.div>
+              </h2>
+            </motion.div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
               <motion.div
@@ -1495,7 +1495,7 @@ const Home = () => {
               >
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserGroupIcon className="w-8 h-8 text-green-600" />
-                  </div>
+                </div>
                 <div className="text-4xl font-bold text-gray-900 mb-2">3500+</div>
                 <div className="text-gray-600 font-semibold">Học viên thân thiết</div>
               </motion.div>
@@ -1537,25 +1537,25 @@ const Home = () => {
               >
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <TrophyIcon className="w-8 h-8 text-green-600" />
-            </div>
+                </div>
                 <div className="text-4xl font-bold text-gray-900 mb-2">62+</div>
                 <div className="text-gray-600 font-semibold">Chuyên viên kinh nghiệm</div>
-          </motion.div>
+              </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Customer Reviews Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               
               {/* Left Column - Content */}
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
                 className="space-y-6"
               >
                 <div className="text-green-600 font-semibold text-lg mb-4">CHẤT LƯỢNG DỊCH VỤ</div>
@@ -1563,14 +1563,14 @@ const Home = () => {
                   Đánh giá tích cực từ
                   <br />
                   khách hàng
-            </h2>
+                </h2>
                 <p className="text-gray-600 leading-relaxed">
                   Đánh giá tích cực từ khách hàng là động lực để chúng tôi tiếp
                   tục cung cấp dịch vụ du lịch tốt nhất. Chúng tôi luôn cố gắng
                   không ngừng nâng cao chất lượng dịch vụ và mang đến những trải
                   nghiệm tuyệt vời cho mọi khách hàng.
-            </p>
-          </motion.div>
+                </p>
+              </motion.div>
 
               {/* Right Column - Testimonial Card */}
               <motion.div
@@ -1610,45 +1610,45 @@ const Home = () => {
                     <div>
                       <div className="font-bold text-gray-900">Jessica Brown</div>
                       <div className="text-sm text-gray-600">Khách hàng</div>
-                      </div>
                     </div>
                   </div>
+                </div>
               </motion.div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* Blog Articles Section */}
         <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
             {/* Section Header */}
             <div className="flex justify-between items-end mb-12">
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
+              >
                 <div className="text-green-600 font-semibold text-lg mb-4">TIN TỨC MỚI NHẤT</div>
                 <h2 className="text-4xl lg:text-5xl font-bold text-gray-900">
                   Bài viết và tin tức
                   <br />
                   về công nghệ
-              </h2>
+                </h2>
               </motion.div>
               
               <motion.button
                 initial={{ opacity: 0, x: 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8 }}
-                    viewport={{ once: true }}
+                viewport={{ once: true }}
                 onClick={() => handlePublicNavigation("/posts")}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold transition-colors duration-300"
               >
                 Xem tất cả
               </motion.button>
-                  </div>
+            </div>
 
             {/* Blog Articles Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -1722,7 +1722,7 @@ const Home = () => {
                       initial={{ opacity: 0, y: 30 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true }}
+                      viewport={{ once: true }}
                       className="bg-white rounded-xl overflow-hidden shadow-lg group hover:shadow-xl transition-all duration-300 cursor-pointer"
                       onClick={() => {
                         if (!isAuthenticated) {
@@ -1757,7 +1757,7 @@ const Home = () => {
                              post.Type === 'regular' && 'Chia sẻ' ||
                              (post.tags && post.tags.length > 0 ? (post.tags[0].Name || post.tags[0]) : 'Bài viết')}
                           </span>
-                </div>
+                        </div>
                         <div className="absolute top-3 right-3">
                           <span className="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">
                             {formatDate(post.CreatedAt)}
@@ -1807,18 +1807,18 @@ const Home = () => {
                   )}
                 </div>
               )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
         {/* IT Learning Gallery Section */}
         <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
             {/* Section Header */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
               className="text-center mb-16"
@@ -1827,17 +1827,17 @@ const Home = () => {
               <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
                 Không gian học tập IT hiện đại
               </h2>
-                  </motion.div>
+            </motion.div>
             
             {/* Gallery Grid */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               
               {/* Large Image 1 - Programming */}
-                  <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6 }}
-                    viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="col-span-2 md:col-span-2 row-span-2 relative group overflow-hidden rounded-lg cursor-pointer"
                 onClick={() => handlePublicNavigation("/courses")}
               >
@@ -1850,19 +1850,19 @@ const Home = () => {
                 <div className="absolute bottom-4 left-4 text-white">
                   <h3 className="font-bold text-xl">Frontend Development</h3>
                   <p className="text-sm opacity-90">HTML, CSS, JavaScript</p>
-              </div>
-                  </motion.div>
+                </div>
+              </motion.div>
 
               {/* Small Image 1 - Code Editor */}
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-              viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
                 onClick={() => handlePublicNavigation("/courses")}
-            >
-              <img
+              >
+                <img
                   src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=300&h=300&fit=crop"
                   alt="Code Editor"
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -1870,19 +1870,19 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Code Editor</p>
-              </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               {/* Small Image 2 - AI/ML */}
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
                 onClick={() => handlePublicNavigation("/courses")}
-            >
-              <img
+              >
+                <img
                   src="https://images.unsplash.com/photo-1518773553398-650c184e0bb3?w=300&h=300&fit=crop"
                   alt="AI Machine Learning"
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -1890,11 +1890,11 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">AI & ML</p>
-          </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               {/* Small Image 3 - Mobile Development */}
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
@@ -1910,11 +1910,11 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Mobile Dev</p>
-          </div>
+                </div>
               </motion.div>
 
               {/* Small Image 4 - Database */}
-            <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
@@ -1930,8 +1930,8 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Database</p>
-              </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               {/* Large Image 2 - Team Collaboration */}
               <motion.div
@@ -1951,8 +1951,8 @@ const Home = () => {
                 <div className="absolute bottom-4 left-4 text-white">
                   <h3 className="font-bold text-xl">Team Collaboration</h3>
                   <p className="text-sm opacity-90">Agile & Project Management</p>
-              </div>
-            </motion.div>
+                </div>
+              </motion.div>
 
               {/* Small Image 5 - Cloud Computing */}
               <motion.div
@@ -1971,15 +1971,15 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Cloud & DevOps</p>
-          </div>
+                </div>
               </motion.div>
 
               {/* Small Image 6 - Cybersecurity */}
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
-            viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
                 onClick={() => handlePublicNavigation("/courses")}
               >
@@ -1991,28 +1991,28 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Cybersecurity</p>
-        </div>
+                </div>
               </motion.div>
 
               {/* CTA Box */}
-          <motion.div
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-            viewport={{ once: true }}
+                viewport={{ once: true }}
                 className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48 bg-gradient-to-br from-green-600 to-green-700 flex flex-col justify-center items-center text-white p-4"
                 onClick={() => handlePublicNavigation("/courses")}
               >
                 <div className="text-center">
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <CodeBracketIcon className="w-6 h-6" />
-            </div>
+                  </div>
                   <div className="font-bold text-sm mb-1">Bắt đầu học</div>
                   <div className="font-bold text-sm">NGAY HÔM NAY</div>
                 </div>
               </motion.div>
 
-                            {/* Small Image 7 - Data Science */}
+              {/* Small Image 7 - Data Science */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -2029,7 +2029,7 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 <div className="absolute bottom-2 left-2 text-white">
                   <p className="text-xs font-semibold">Data Science</p>
-            </div>
+                </div>
               </motion.div>
 
               {/* Horizontal Image - UI/UX Design */}
@@ -2050,12 +2050,12 @@ const Home = () => {
                 <div className="absolute bottom-4 left-4 text-white">
                   <h3 className="font-bold text-lg">UI/UX Design</h3>
                   <p className="text-sm opacity-90">Creative & User Experience</p>
+                </div>
+              </motion.div>
             </div>
-          </motion.div>
-            </div>
-        </div>
-      </section>
-    </main>
+          </div>
+        </section>
+      </main>
     </>
   )
 }

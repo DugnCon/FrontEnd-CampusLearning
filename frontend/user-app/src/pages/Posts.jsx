@@ -11,7 +11,7 @@ import SharePostModal from '../components/Post/SharePostModal';
 import { useSocket } from '../contexts/SocketContext';
 
 // Base URL for media files
-const BASE_URL = '/user/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
 // Custom styles for Markdown elements
 const markdownStyles = {
@@ -401,7 +401,7 @@ const Posts = () => {
       });
 
       // Gửi yêu cầu xóa
-      const response = await fetch(`/posts/comments/${commentId}`, {
+      const response = await fetch(`${BASE_URL}/posts/comments/${commentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });

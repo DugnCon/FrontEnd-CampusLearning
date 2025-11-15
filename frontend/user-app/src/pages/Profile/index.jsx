@@ -1241,10 +1241,10 @@ function filteredPosts(posts, tab) {
   if (!Array.isArray(posts)) return [];
   if (tab === 'all') return posts;
   if (tab === 'image') {
-    return posts.filter(post => Array.isArray(post.media) && post.media.some(m => m.MediaType === 'image'));
+    return posts.filter(post => Array.isArray(post.media) && post.media.some(m => m.mediaType === 'image'));
   }
   if (tab === 'video') {
-    return posts.filter(post => Array.isArray(post.media) && post.media.some(m => m.MediaType === 'video'));
+    return posts.filter(post => Array.isArray(post.media) && post.media.some(m => m.mediaType === 'video'));
   }
   return posts;
 }

@@ -85,8 +85,16 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
     } else if (currentMedia.mediaUrl.startsWith('http')) {
       mediaUrl = currentMedia.mediaUrl;
     } else {
-      let cleanPath = currentMedia.mediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
-      mediaUrl = `/uploads/${cleanPath}`;
+      // Nếu là đường dẫn tương đối, thêm base URL
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const timestamp = new Date().getTime();
+      
+      // Xử lý đường dẫn
+      let cleanPath = mediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+      
+      // Xóa /user/api nếu có trong baseUrl
+      const cleanBaseUrl = baseUrl.replace('/user/api', '');
+      const fullUrl = `${cleanBaseUrl}/uploads/${cleanPath}?t=${timestamp}`;
     }
   } catch (error) {
     console.error('Error processing media URL:', error);

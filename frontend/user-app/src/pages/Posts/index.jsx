@@ -23,7 +23,7 @@ const Posts = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      let endpoint = `/api/posts?limit=20`;
+      let endpoint = `/posts?limit=20`;
       if (activeCategory !== 'all') {
         endpoint += `&category=${activeCategory}`;
       }
@@ -52,7 +52,7 @@ const Posts = () => {
   const handleLike = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}/like`, {
+      const response = await fetch(`/posts/${postId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -68,8 +68,8 @@ const Posts = () => {
         if (post.postID === postId) {
           return {
             ...post,
-            IsLiked: !post.isLiked,
-            LikesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1
+            IsLiked: !post.liked,
+            LikesCount: post.liked ? post.likesCount - 1 : post.likesCount + 1
           };
         }
         return post;
@@ -95,7 +95,7 @@ const Posts = () => {
   const handleBookmark = async (postId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/posts/${postId}/bookmark`, {
+      const response = await fetch(`/posts/${postId}/bookmark`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

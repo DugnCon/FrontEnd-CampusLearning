@@ -61,6 +61,9 @@ const Chat = () => {
   const [editText, setEditText] = useState('');
   const [updatingMessage, setUpdatingMessage] = useState(false);
 
+  // === STATE MỚI CHO NÚT NHẮN TIN ===
+  const [creatingConversations, setCreatingConversations] = useState({});
+
   // === REFS ===
   const messagesEndRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -584,22 +587,43 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     return () => clearTimeout(timer);
   }, [userSearchTerm]);
 
-  // === START CONVERSATION ===
+  // === START CONVERSATION (SỬA ĐỂ CHỐNG SPAM) ===
   const handleStartConversation = async (selectedUser) => {
+    // Kiểm tra nếu đang tạo conversation với user này rồi thì không cho tạo tiếp
+    if (creatingConversations[selectedUser.userID]) {
+      console.log('🛑 Đang tạo conversation, vui lòng đợi...');
+      return;
+    }
+
     try {
+      // Set loading state cho user này
+      setCreatingConversations(prev => ({
+        ...prev,
+        [selectedUser.userID]: true
+      }));
+
       const response = await chatApi.createConversation({
         participants: [selectedUser.userID],
         type: 'private'
       });
+      
       if (response.success) {
         const existing = conversations.find(c => c.conversationID === response.data.conversationID);
         if (!existing) setConversations(prev => [response.data, ...prev]);
         selectConversation(response.data);
         setShowUserSearch(false); 
         setUserSearchTerm('');
+        toast.success('Đã bắt đầu cuộc trò chuyện');
       }
     } catch (error) {
-      toast.success('Đã bắt đầu cuộc trò chuyện');
+      console.error('Create conversation error:', error);
+      toast.error('Không thể tạo cuộc trò chuyện');
+    } finally {
+      // Reset loading state
+      setCreatingConversations(prev => ({
+        ...prev,
+        [selectedUser.userID]: false
+      }));
     }
   };
 
@@ -631,8 +655,7 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     }
   };
 
-  // === FILE UPLOAD HANDLERS === (FIX DOUBLE MESSAGE)
-// === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
+  // === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
 const sendFileMessage = async (files) => {
     if (!currentConversation || !files.length || sendingMessage) return;
 
@@ -660,15 +683,12 @@ const sendFileMessage = async (files) => {
                 continue;
             }
 
-            // 🔥 QUAN TRỌNG: KHÔNG tạo temp message nữa
-
             // Gọi API upload file
             const response = await chatApi.sendFileMessage(
                 currentConversation.conversationID,
                 file,
                 '', // caption
                 (progressEvent) => {
-                    // Có thể giữ progress nếu muốn, nhưng không liên quan đến temp message
                     const percentCompleted = Math.round(
                         (progressEvent.loaded * 100) / progressEvent.total
                     );
@@ -678,7 +698,6 @@ const sendFileMessage = async (files) => {
             
             if (response.success) {
                 toast.success(`Đã gửi file: ${file.name}`);
-                // 🔥 KHÔNG làm gì cả - đợi socket từ BE gửi message thật
             } else {
                 toast.error(`Lỗi gửi file: ${file.name}`);
             }
@@ -1059,6 +1078,14 @@ const sendFileMessage = async (files) => {
     );
   };
 
+  // === CLOSE USER SEARCH MODAL ===
+  const closeUserSearchModal = () => {
+    setShowUserSearch(false); 
+    setUserSearchTerm(''); 
+    setSearchUsers([]);
+    setCreatingConversations({}); // Reset tất cả loading states
+  };
+
   return (
     <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden rounded-lg shadow-lg mx-2 mt-4 mb-2">
       {!isConnected && (
@@ -1408,14 +1435,14 @@ const sendFileMessage = async (files) => {
         </div>
       )}
 
-      {/* User Search Modal */}
+      {/* User Search Modal (ĐÃ SỬA - CÓ NÚT NHẮN TIN RIÊNG) */}
       {showUserSearch && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-4 w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Bắt đầu cuộc trò chuyện</h3>
+              <h3 className="text-lg font-semibold">Tìm người dùng</h3>
               <button 
-                onClick={() => { setShowUserSearch(false); setUserSearchTerm(''); setSearchUsers([]); }} 
+                onClick={closeUserSearchModal}
                 className="text-gray-500 hover:text-gray-700 p-1"
               >
                 <XMarkIcon className="w-5 h-5" />
@@ -1434,19 +1461,47 @@ const sendFileMessage = async (files) => {
               ) : searchUsers.length === 0 && userSearchTerm ? (
                 <div className="text-center py-4 text-gray-500">Không tìm thấy</div>
               ) : (
-                searchUsers.map(user => (
-                  <div 
-                    key={user.userID} 
-                    onClick={() => handleStartConversation(user)} 
-                    className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
-                  >
-                    <Avatar src={user.avatar} alt={user.fullName} size="medium" />
-                    <div>
-                      <p className="font-medium text-gray-900">{user.fullName}</p>
-                      <p className="text-sm text-gray-500">@{user.username}</p>
+                searchUsers.map(user => {
+                  const isCreating = creatingConversations[user.userID];
+                  return (
+                    <div 
+                      key={user.userID} 
+                      className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg"
+                    >
+                      {/* Phần thông tin user - KHÔNG click được nữa */}
+                      <div className="flex items-center space-x-3 flex-1">
+                        <Avatar src={user.avatar} alt={user.fullName} size="medium" />
+                        <div>
+                          <p className="font-medium text-gray-900">{user.fullName}</p>
+                          <p className="text-sm text-gray-500">@{user.username}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Nút nhắn tin - CHỈ bấm vào đây mới tạo conversation */}
+                      <button
+                        onClick={() => handleStartConversation(user)}
+                        disabled={isCreating}
+                        className={`ml-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                          isCreating 
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isCreating ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                            <span>Đang tạo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <PaperAirplaneIcon className="w-3 h-3 transform rotate-45" />
+                            <span>Nhắn tin</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import CallInterface from './CallInterface';
 import IncomingCall from './IncomingCall';
-import { callApi } from '../../services/callApi';
+import { callApi } from '../../api/callApi';
 
 const CallManager = () => {
   const socket = useSocket();

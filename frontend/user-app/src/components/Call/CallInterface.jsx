@@ -29,11 +29,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const call = propCall || contextCall;
   const onEndCall = propOnEndCall || contextEndCall;
 
-  // If there is no call information available, do not render anything
-  if (!call) {
-    return null;
-  }
-
+  // ✅ THÊM: State cho incoming call
+  const [incomingCall, setIncomingCall] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(isVideoCall);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
@@ -47,7 +44,127 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const peerConnectionRef = useRef(null);
   const targetUserIdRef = useRef(null);
 
-  // Get target user ID - ĐÃ SỬA FIELD NAMES
+  // ✅ THÊM: WebSocket listeners cho incoming calls
+  useEffect(() => {
+    if (!socket) return;
+
+    console.log('🎯 Setting up incoming call listeners...');
+
+    // Listen for incoming call
+    socket.on('CALL_INITIATED', (data) => {
+      console.log('📞 INCOMING CALL RECEIVED:', data);
+      setIncomingCall(data.data);
+    });
+
+    socket.on('CALL_ANSWERED', (data) => {
+      console.log('✅ CALL ANSWERED:', data);
+      setConnectionStatus('connected');
+    });
+
+    socket.on('CALL_ENDED', (data) => {
+      console.log('❌ CALL ENDED:', data);
+      handleEndCall();
+    });
+
+    socket.on('CALL_REJECTED', (data) => {
+      console.log('🚫 CALL REJECTED:', data);
+      setIncomingCall(null);
+    });
+
+    return () => {
+      socket.off('CALL_INITIATED');
+      socket.off('CALL_ANSWERED');
+      socket.off('CALL_ENDED');
+      socket.off('CALL_REJECTED');
+    };
+  }, [socket]);
+
+  // ✅ THÊM: Incoming Call Handler Functions
+  const handleAnswerCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      console.log('📞 Answering call:', incomingCall.callId);
+      // Gọi API answer call
+      // await callApi.answerCall({ callId: incomingCall.callId });
+      
+      // Set active call và initialize WebRTC
+      // call = incomingCall; // Không thể reassign prop
+      await initializeCall();
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Error answering call:', error);
+    }
+  };
+
+  const handleRejectCall = async () => {
+    if (!incomingCall) return;
+    
+    try {
+      console.log('🚫 Rejecting call:', incomingCall.callId);
+      // Gọi API reject call
+      // await callApi.rejectCall({ callId: incomingCall.callId });
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Error rejecting call:', error);
+    }
+  };
+
+  // ✅ THÊM: Incoming Call Component (embedded)
+  const IncomingCallPopup = () => {
+    if (!incomingCall) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="text-center">
+            <Avatar
+              src={incomingCall.initiatorPicture}
+              alt={incomingCall.initiatorName}
+              size="xl"
+              className="mx-auto mb-4"
+            />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Incoming Call
+            </h2>
+            <p className="text-gray-600 mb-1">
+              {incomingCall.initiatorName} is calling you
+            </p>
+            <p className="text-gray-500 text-sm mb-6">
+              {incomingCall.type === 'video' ? 'Video Call' : 'Audio Call'}
+            </p>
+            
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={handleRejectCall}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-full transition-colors"
+              >
+                Decline
+              </button>
+              <button
+                onClick={handleAnswerCall}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full transition-colors"
+              >
+                Answer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // If there is no call information available, do not render anything
+  if (!call && !incomingCall) {
+    return null;
+  }
+
+  // ✅ THÊM: Nếu có incoming call, chỉ hiển thị popup
+  if (incomingCall && !call) {
+    return <IncomingCallPopup />;
+  }
+
+  // Get target user ID
   useEffect(() => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
@@ -66,7 +183,9 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
   // Initialize media stream and WebRTC
   useEffect(() => {
-    initializeCall();
+    if (call) {
+      initializeCall();
+    }
     return () => {
       cleanupMedia();
     };
@@ -85,7 +204,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       await initializeMedia();
       await initializeWebRTC();
       
-      if (call.initiatorID === getCurrentUserId()) { // ✅ SỬA thành initiatorID
+      if (call.initiatorID === getCurrentUserId()) {
         // We are the caller - create and send offer
         await createAndSendOffer();
       }
@@ -163,7 +282,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
           to: targetUserIdRef.current,
           offer: offer,
           callType: isVideoCall ? 'video' : 'audio',
-          callId: call.callID // ✅ SỬA thành callID
+          callId: call.callID
         });
       }
     } catch (error) {
@@ -171,35 +290,10 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  // ✅ THÊM: WebSocket event handlers for call events
+  // WebRTC signaling events
   useEffect(() => {
     if (!socket) return;
 
-    // Handle incoming call invitation from BE
-    socket.on('CALL_INITIATED', (data) => {
-      console.log('Received call invitation:', data);
-      // BE sẽ gửi thông báo khi có cuộc gọi đến
-    });
-
-    // Handle call answered from other user
-    socket.on('CALL_ANSWERED', (data) => {
-      console.log('Call answered by other user:', data);
-      setConnectionStatus('connected');
-    });
-
-    // Handle call ended from other user
-    socket.on('CALL_ENDED', (data) => {
-      console.log('Call ended by other user:', data);
-      handleEndCall();
-    });
-
-    // Handle call rejected from other user
-    socket.on('CALL_REJECTED', (data) => {
-      console.log('Call rejected by other user:', data);
-      handleCallRejected();
-    });
-
-    // WebRTC signaling events (giữ nguyên)
     socket.on('webrtc-offer', async (data) => {
       try {
         await peerConnectionRef.current.setRemoteDescription(data.offer);
@@ -209,7 +303,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         socket.emit('webrtc-answer', {
           to: data.from,
           answer: answer,
-          callId: data.callID
+          callId: data.callId
         });
       } catch (error) {
         console.error('Error handling offer:', error);
@@ -234,11 +328,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     });
 
     return () => {
-      // Clean up all event listeners
-      socket.off('CALL_INITIATED');
-      socket.off('CALL_ANSWERED');
-      socket.off('CALL_ENDED');
-      socket.off('CALL_REJECTED');
       socket.off('webrtc-offer');
       socket.off('webrtc-answer');
       socket.off('webrtc-ice-candidate');
@@ -246,7 +335,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   }, [socket]);
 
   const getCurrentUserId = () => {
-    // Replace this with your actual user ID retrieval logic
     return localStorage.getItem('userId') || 'current-user';
   };
 
@@ -259,66 +347,18 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  // ✅ SỬA: Handle end call với API call
-  const handleEndCall = async () => {
-    try {
-      // Gọi API end call đến BE
-      await callApi.endCall({
-        callId: call.callID, // ✅ SỬA thành callID
-        reason: 'user_ended'
+  const handleEndCall = () => {
+    // WebSocket notification đến user khác
+    if (targetUserIdRef.current) {
+      socket.emit('end-call', {
+        to: targetUserIdRef.current,
+        callId: call.callID
       });
-
-      // WebSocket notification đến user khác (nếu cần)
-      if (targetUserIdRef.current) {
-        socket.emit('end-call', {
-          to: targetUserIdRef.current,
-          callId: call.callID // ✅ SỬA thành callID
-        });
-      }
-
-      cleanupMedia();
-      if (onEndCall) {
-        onEndCall();
-      }
-    } catch (error) {
-      console.error('Error ending call:', error);
     }
-  };
 
-  // ✅ THÊM: Handle call rejected
-  const handleCallRejected = () => {
-    console.log('Call was rejected by other user');
     cleanupMedia();
     if (onEndCall) {
       onEndCall();
-    }
-  };
-
-  // ✅ THÊM: Answer call function
-  const answerCall = async () => {
-    try {
-      await callApi.answerCall({ 
-        callId: call.callID // ✅ SỬA thành callID
-      });
-      // Initialize WebRTC connection
-      await initializeCall();
-    } catch (error) {
-      console.error('Error answering call:', error);
-    }
-  };
-
-  // ✅ THÊM: Reject call function  
-  const rejectCall = async () => {
-    try {
-      await callApi.rejectCall({ 
-        callId: call.callID // ✅ SỬA thành callID
-      });
-      cleanupMedia();
-      if (onEndCall) {
-        onEndCall();
-      }
-    } catch (error) {
-      console.error('Error rejecting call:', error);
     }
   };
 
@@ -397,7 +437,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ✅ SỬA: Field names trong participant functions
   const getParticipantName = () => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
@@ -415,165 +454,173 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
-      {/* Call Header */}
-      <div className="bg-black bg-opacity-50 text-white p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Avatar
-            src={getParticipantAvatar()}
-            alt={getParticipantName()}
-            size="md"
-          />
-          <div>
-            <h2 className="text-lg font-semibold">{getParticipantName()}</h2>
-            <p className="text-sm text-gray-300">
-              {formatCallDuration(callDuration)}
-              <span className={`ml-2 text-xs ${
-                connectionStatus === 'connected' ? 'text-green-400' : 
-                connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                • {connectionStatus}
-              </span>
-            </p>
-          </div>
-        </div>
-        
-        <div className="text-sm text-gray-300">
-          {isVideoCall ? 'Video Call' : 'Voice Call'}
-        </div>
-      </div>
-
-      {/* Video Area */}
-      <div className="flex-1 relative">
-        {isVideoCall ? (
-          <>
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            
-            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            {connectionStatus !== 'connected' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="text-white text-center">
-                  <div className="text-lg mb-2">
-                    {connectionStatus === 'connecting' ? 'Connecting...' : 'Reconnecting...'}
-                  </div>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
+    <>
+      {/* Incoming Call Popup */}
+      <IncomingCallPopup />
+      
+      {/* Active Call Interface */}
+      {call && (
+        <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+          {/* Call Header */}
+          <div className="bg-black bg-opacity-50 text-white p-4 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
               <Avatar
                 src={getParticipantAvatar()}
                 alt={getParticipantName()}
-                size="2xl"
-                className="mx-auto mb-4"
+                size="md"
               />
-              <h2 className="text-2xl font-semibold text-white mb-2">
-                {getParticipantName()}
-              </h2>
-              <p className="text-gray-300">
-                {formatCallDuration(callDuration)}
-                <span className={`ml-2 text-xs ${
-                  connectionStatus === 'connected' ? 'text-green-400' : 
-                  connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
-                }`}>
-                  • {connectionStatus}
-                </span>
-              </p>
+              <div>
+                <h2 className="text-lg font-semibold">{getParticipantName()}</h2>
+                <p className="text-sm text-gray-300">
+                  {formatCallDuration(callDuration)}
+                  <span className={`ml-2 text-xs ${
+                    connectionStatus === 'connected' ? 'text-green-400' : 
+                    connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    • {connectionStatus}
+                  </span>
+                </p>
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-300">
+              {isVideoCall ? 'Video Call' : 'Voice Call'}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Call Controls */}
-      <div className="bg-black bg-opacity-75 p-6">
-        <div className="flex items-center justify-center space-x-6">
-          <button
-            onClick={toggleMute}
-            className={`p-4 rounded-full transition-colors ${
-              isMuted 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            title={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? (
-              <MicrophoneIconSolid className="w-6 h-6 text-white" />
+          {/* Video Area */}
+          <div className="flex-1 relative">
+            {isVideoCall ? (
+              <>
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                
+                <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {connectionStatus !== 'connected' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="text-white text-center">
+                      <div className="text-lg mb-2">
+                        {connectionStatus === 'connecting' ? 'Connecting...' : 'Reconnecting...'}
+                      </div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
-              <MicrophoneIcon className="w-6 h-6 text-white" />
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Avatar
+                    src={getParticipantAvatar()}
+                    alt={getParticipantName()}
+                    size="2xl"
+                    className="mx-auto mb-4"
+                  />
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    {getParticipantName()}
+                  </h2>
+                  <p className="text-gray-300">
+                    {formatCallDuration(callDuration)}
+                    <span className={`ml-2 text-xs ${
+                      connectionStatus === 'connected' ? 'text-green-400' : 
+                      connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      • {connectionStatus}
+                    </span>
+                  </p>
+                </div>
+              </div>
             )}
-          </button>
+          </div>
 
-          {isVideoCall && (
-            <button
-              onClick={toggleVideo}
-              className={`p-4 rounded-full transition-colors ${
-                !isVideoEnabled 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title={isVideoEnabled ? 'Turn off video' : 'Turn on video'}
-            >
-              {isVideoEnabled ? (
-                <VideoCameraIcon className="w-6 h-6 text-white" />
-              ) : (
-                <VideoCameraIconSolid className="w-6 h-6 text-white" />
+          {/* Call Controls */}
+          <div className="bg-black bg-opacity-75 p-6">
+            <div className="flex items-center justify-center space-x-6">
+              <button
+                onClick={toggleMute}
+                className={`p-4 rounded-full transition-colors ${
+                  isMuted 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+                title={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? (
+                  <MicrophoneIconSolid className="w-6 h-6 text-white" />
+                ) : (
+                  <MicrophoneIcon className="w-6 h-6 text-white" />
+                )}
+              </button>
+
+              {isVideoCall && (
+                <button
+                  onClick={toggleVideo}
+                  className={`p-4 rounded-full transition-colors ${
+                    !isVideoEnabled 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                  title={isVideoEnabled ? 'Turn off video' : 'Turn on video'}
+                >
+                  {isVideoEnabled ? (
+                    <VideoCameraIcon className="w-6 h-6 text-white" />
+                  ) : (
+                    <VideoCameraIconSolid className="w-6 h-6 text-white" />
+                  )}
+                </button>
               )}
-            </button>
-          )}
 
-          {isVideoCall && (
-            <button
-              onClick={startScreenShare}
-              className={`p-4 rounded-full transition-colors ${
-                isScreenSharing 
-                  ? 'bg-blue-600 hover:bg-blue-700' 
-                  : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-            >
-              <ComputerDesktopIcon className="w-6 h-6 text-white" />
-            </button>
-          )}
+              {isVideoCall && (
+                <button
+                  onClick={startScreenShare}
+                  className={`p-4 rounded-full transition-colors ${
+                    isScreenSharing 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                  title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+                >
+                  <ComputerDesktopIcon className="w-6 h-6 text-white" />
+                </button>
+              )}
 
-          <button
-            onClick={toggleSpeaker}
-            className={`p-4 rounded-full transition-colors ${
-              isSpeakerOn 
-                ? 'bg-blue-600 hover:bg-blue-700' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            title={isSpeakerOn ? 'Turn off speaker' : 'Turn on speaker'}
-          >
-            <SpeakerWaveIcon className="w-6 h-6 text-white" />
-          </button>
+              <button
+                onClick={toggleSpeaker}
+                className={`p-4 rounded-full transition-colors ${
+                  isSpeakerOn 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+                title={isSpeakerOn ? 'Turn off speaker' : 'Turn on speaker'}
+              >
+                <SpeakerWaveIcon className="w-6 h-6 text-white" />
+              </button>
 
-          <button
-            onClick={handleEndCall}
-            className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
-            title="End call"
-          >
-            <PhoneXMarkIcon className="w-6 h-6 text-white" />
-          </button>
+              <button
+                onClick={handleEndCall}
+                className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
+                title="End call"
+              >
+                <PhoneXMarkIcon className="w-6 h-6 text-white" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

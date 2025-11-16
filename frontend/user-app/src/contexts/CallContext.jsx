@@ -1,8 +1,8 @@
 /*-----------------------------------------------------------------
-* File: CallContext.jsx (STOMP Version)
+* File: CallContext.jsx (STOMP Version - PascalCase)
 * Author: Quyen Nguyen Duc
 * Date: 2025-07-24
-* Description: Call context using STOMP protocol for WebRTC signaling
+* Description: Call context using STOMP protocol with PascalCase fields
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
@@ -54,7 +54,7 @@ export const CallProvider = ({ children }) => {
           setCall(call);
           setCallStatus('ongoing');
           setCallType(call.type || 'video');
-          await setupMediaAndConnection({ callId: call.callId });
+          await setupMediaAndConnection({ callID: call.callID });
         }
         setIsCallServiceAvailable(true);
       } catch (error) {
@@ -111,7 +111,7 @@ export const CallProvider = ({ children }) => {
             // Auto-setup media for incoming call
             setupMediaAndConnection({ 
               isReceivingCall: true, 
-              fromUserId: data.initiatorId 
+              fromUserID: data.initiatorID 
             });
           } catch (error) {
             console.error('Error parsing incoming call:', error);
@@ -207,15 +207,15 @@ export const CallProvider = ({ children }) => {
   // WebRTC signaling handler - CORE RTC LOGIC
   const handleSignalingData = async (data) => {
     try {
-      const { signal, fromUserId } = data;
-      console.log('🔄 Handling signaling:', signal.type, 'from:', fromUserId);
+      const { signal, fromUserID } = data;
+      console.log('🔄 Handling signaling:', signal.type, 'from:', fromUserID);
       
       // Create peer connection if not exists
       if (!peerConnectionRef.current) {
         console.log('Creating new peer connection for signaling');
         await setupMediaAndConnection({ 
           isReceivingCall: true, 
-          fromUserId: fromUserId 
+          fromUserID: fromUserID 
         });
       }
       
@@ -229,9 +229,9 @@ export const CallProvider = ({ children }) => {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         
-        console.log('🔄 Sending answer to:', fromUserId);
+        console.log('🔄 Sending answer to:', fromUserID);
         sendViaStomp('/app/call.signal', {
-          toUserId: fromUserId,
+          toUserID: fromUserID,
           signal: {
             type: 'answer',
             sdp: peerConnection.localDescription.sdp
@@ -257,8 +257,8 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // Set up media streams and peer connection
-  const setupMediaAndConnection = async ({ callId, isReceivingCall = false, fromUserId }) => {
+  // Set up media streams and peer connection - PASCALCASE VERSION
+  const setupMediaAndConnection = async ({ callID, isReceivingCall = false, fromUserID }) => {
     try {
       console.log('🎥 Setting up media and connection, video:', callType === 'video');
       
@@ -320,7 +320,7 @@ export const CallProvider = ({ children }) => {
           console.log('🧊 Generated ICE candidate:', event.candidate.type);
           
           sendViaStomp('/app/call.signal', {
-            toUserId: fromUserId || call?.initiatorId || call?.receiverId,
+            toUserID: fromUserID || call?.initiatorID || call?.receiverID,
             signal: {
               type: 'candidate',
               candidate: event.candidate
@@ -359,9 +359,9 @@ export const CallProvider = ({ children }) => {
         });
         await peerConnection.setLocalDescription(offer);
         
-        console.log('🔄 Sending offer to:', fromUserId || call?.receiverId);
+        console.log('🔄 Sending offer to:', fromUserID || call?.receiverID);
         sendViaStomp('/app/call.signal', {
-          toUserId: fromUserId || call?.receiverId,
+          toUserID: fromUserID || call?.receiverID,
           signal: {
             type: 'offer',
             sdp: peerConnection.localDescription.sdp
@@ -370,8 +370,8 @@ export const CallProvider = ({ children }) => {
       }
 
       // Join call room
-      if (callId) {
-        sendViaStomp('/app/call.join', { callId });
+      if (callID) {
+        sendViaStomp('/app/call.join', { callID });
       }
 
       return peerConnection;
@@ -438,8 +438,8 @@ export const CallProvider = ({ children }) => {
     setRemoteStream(null);
   };
 
-  // API: Initiate a call
-  const initiateCall = async (receiverId, type = 'video') => {
+  // API: Initiate a call - PASCALCASE VERSION
+  const initiateCall = async (receiverID, type = 'video') => {
     try {
       if (!stompClient || !isConnected) {
         throw new Error('STOMP connection not available');
@@ -448,7 +448,7 @@ export const CallProvider = ({ children }) => {
       setIsMakingCall(true);
       setCallType(type);
       
-      const response = await callService.initiateCall(receiverId, type);
+      const response = await callService.initiateCall(receiverID, type);
       const callData = response.call || response;
       
       setCall(callData);
@@ -456,16 +456,16 @@ export const CallProvider = ({ children }) => {
       
       // Send call initiation via STOMP
       sendViaStomp('/app/call.initiate', {
-        receiverId: receiverId,
+        receiverID: receiverID,
         type: type,
-        callId: callData.callId || callData.id
+        callID: callData.callID || callData.id
       });
       
       // Setup media and WebRTC connection
       await setupMediaAndConnection({ 
-        callId: callData.callId || callData.id,
+        callID: callData.callID || callData.id,
         isReceivingCall: false,
-        fromUserId: receiverId
+        fromUserID: receiverID
       });
       
       return callData;
@@ -477,7 +477,7 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // API: Answer an incoming call
+  // API: Answer an incoming call - PASCALCASE VERSION
   const answerCall = async () => {
     try {
       if (!call) {
@@ -488,13 +488,13 @@ export const CallProvider = ({ children }) => {
         throw new Error('STOMP connection not available');
       }
       
-      const response = await callService.answerCall(call.callId || call.id);
+      const response = await callService.answerCall(call.callID || call.id);
       setCallStatus('ongoing');
       setIsReceivingCall(false);
       
       // Send answer via STOMP
       sendViaStomp('/app/call.answer', {
-        callId: call.callId || call.id,
+        callID: call.callID || call.id,
         answer: true
       });
       
@@ -509,23 +509,23 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // API: End an active call
+  // API: End an active call - PASCALCASE VERSION
   const endCall = async () => {
     try {
       if (!call) return;
 
       // Send end call via STOMP
       sendViaStomp('/app/call.end', {
-        callId: call.callId || call.id,
+        callID: call.callID || call.id,
         duration: callDuration
       });
       
       // Leave call room
       sendViaStomp('/app/call.leave', { 
-        callId: call.callId || call.id 
+        callID: call.callID || call.id 
       });
       
-      await callService.endCall(call.callId || call.id);
+      await callService.endCall(call.callID || call.id);
       
       endCallCleanup();
     } catch (error) {
@@ -536,17 +536,17 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // API: Reject an incoming call
+  // API: Reject an incoming call - PASCALCASE VERSION  
   const rejectCall = async () => {
     try {
       if (!call) return;
 
       // Send reject via STOMP
       sendViaStomp('/app/call.reject', {
-        callId: call.callId || call.id
+        callID: call.callID || call.id
       });
       
-      await callService.rejectCall(call.callId || call.id);
+      await callService.rejectCall(call.callID || call.id);
       
       endCallCleanup();
     } catch (error) {
@@ -569,7 +569,7 @@ export const CallProvider = ({ children }) => {
       // Notify other participants via STOMP
       if (call) {
         sendViaStomp('/app/call.media.toggle', {
-          callId: call.callId || call.id,
+          callID: call.callID || call.id,
           type: 'audio',
           enabled
         });
@@ -592,7 +592,7 @@ export const CallProvider = ({ children }) => {
       // Notify other participants via STOMP
       if (call) {
         sendViaStomp('/app/call.media.toggle', {
-          callId: call.callId || call.id,
+          callID: call.callID || call.id,
           type: 'video',
           enabled
         });

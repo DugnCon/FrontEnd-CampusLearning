@@ -9,8 +9,7 @@ import { Toaster } from 'react-hot-toast';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { CallInterface } from './components/Call/CallInterface'; // --- IGNORE ---
-import CallManager from './components/Call/CallManager'; // ✅ THÊM DÒNG NÀY
+import { CallInterface } from './components/Call';
 import MainLayout from './components/Layout/MainLayout';
 import { CallProvider } from './contexts/CallContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -86,10 +85,7 @@ function App() {
               },
             }}
           />
-          
-          {/* ✅ THAY THẾ CallInterface BẰNG CallManager */}
-          <CallManager />
-          
+          <CallInterface />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />

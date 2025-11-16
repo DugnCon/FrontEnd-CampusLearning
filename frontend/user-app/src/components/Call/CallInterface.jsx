@@ -12,7 +12,7 @@ import {
   VideoCameraIcon as VideoCameraIconSolid
 } from '@heroicons/react/24/solid';
 import Avatar from '../common/Avatar';
-import { callApi } from '../../services/callApi';
+import { callApi } from '../../api/callApi';
 
 const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall = false }) => {
   const socket = useSocket();

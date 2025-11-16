@@ -1,6 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-// Context
-import { useCall } from '../../contexts/CallContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { 
   PhoneXMarkIcon,
@@ -14,24 +12,43 @@ import {
   VideoCameraIcon as VideoCameraIconSolid
 } from '@heroicons/react/24/solid';
 import Avatar from '../common/Avatar';
+import { callApi } from '../../services/callApi';
 
 const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall = false }) => {
-  // Grab data from context – will be undefined if not within provider
-  const {
-    call: contextCall,
-    endCall: contextEndCall,
-    callStatus,
-  } = useCall() || {};
-
   const socket = useSocket();
+  const call = propCall;
+  const onEndCall = propOnEndCall;
 
-  // Determine active sources (prop takes precedence so we can still use component standalone in other places)
-  const call = propCall || contextCall;
-  const onEndCall = propOnEndCall || contextEndCall;
+  // ✅ THÊM DEBUG: Kiểm tra call data
+  useEffect(() => {
+    console.log('🔍 CALL INTERFACE - call object:', call);
+    console.log('🔍 CALL INTERFACE - call participants:', call?.participants);
+    console.log('🔍 CALL INTERFACE - call initiatorID:', call?.initiatorID);
+    console.log('🔍 CALL INTERFACE - current user ID:', getCurrentUserId());
+  }, [call]);
 
-  // If there is no call information available, do not render anything
-  if (!call) {
-    return null;
+  // ✅ SỬA: Kiểm tra kỹ hơn trước khi render
+  if (!call || !call.callID) {
+    console.log('❌ CALL INTERFACE - No valid call data:', call);
+    return (
+      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="text-lg">No call data available</div>
+          <div className="text-sm text-gray-400 mt-2">Call: {JSON.stringify(call)}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!call.participants || call.participants.length === 0) {
+    console.log('❌ CALL INTERFACE - No participants data');
+    return (
+      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="text-lg">No participants data</div>
+        </div>
+      </div>
+    );
   }
 
   const [isMuted, setIsMuted] = useState(false);
@@ -47,11 +64,12 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const peerConnectionRef = useRef(null);
   const targetUserIdRef = useRef(null);
 
-  // Get target user ID - ĐÃ SỬA FIELD NAMES
+  // Get target user ID
   useEffect(() => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
       targetUserIdRef.current = otherParticipant?.userID;
+      console.log('🎯 Target User ID:', targetUserIdRef.current);
     }
   }, [call]);
 
@@ -85,9 +103,11 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       await initializeMedia();
       await initializeWebRTC();
       
-      if (call.initiatorID === getCurrentUserId()) { // ✅ SỬA thành initiatorID
-        // We are the caller - create and send offer
+      if (call.initiatorID === getCurrentUserId()) {
+        console.log('🎯 We are the CALLER - creating offer');
         await createAndSendOffer();
+      } else {
+        console.log('🎯 We are the CALLEE - waiting for offer');
       }
     } catch (error) {
       console.error('Error initializing call:', error);
@@ -101,12 +121,14 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         video: isVideoCall
       };
 
+      console.log('🎥 Initializing media with constraints:', constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
 
       if (localVideoRef.current && isVideoCall) {
         localVideoRef.current.srcObject = stream;
       }
+      console.log('✅ Media initialized successfully');
     } catch (error) {
       console.error('Error accessing media devices:', error);
     }
@@ -115,6 +137,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const initializeWebRTC = async () => {
     try {
       peerConnectionRef.current = new RTCPeerConnection(rtcConfig);
+      console.log('✅ WebRTC peer connection created');
 
       // Add local stream tracks
       if (localStreamRef.current) {
@@ -125,7 +148,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
       // Handle incoming remote stream
       peerConnectionRef.current.ontrack = (event) => {
-        console.log('Received remote stream');
+        console.log('📹 Received remote stream');
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
@@ -144,8 +167,9 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
       // Handle connection state changes
       peerConnectionRef.current.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnectionRef.current.connectionState);
-        setConnectionStatus(peerConnectionRef.current.connectionState);
+        const state = peerConnectionRef.current.connectionState;
+        console.log('🔗 WebRTC connection state:', state);
+        setConnectionStatus(state);
       };
 
     } catch (error) {
@@ -163,45 +187,25 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
           to: targetUserIdRef.current,
           offer: offer,
           callType: isVideoCall ? 'video' : 'audio',
-          callId: call.callID // ✅ SỬA thành callID
+          callId: call.callID
         });
+        console.log('📤 WebRTC offer sent to:', targetUserIdRef.current);
       }
     } catch (error) {
       console.error('Error creating offer:', error);
     }
   };
 
-  // ✅ THÊM: WebSocket event handlers for call events
+  // WebSocket event handlers for WebRTC signaling
   useEffect(() => {
     if (!socket) return;
 
-    // Handle incoming call invitation from BE
-    socket.on('CALL_INITIATED', (data) => {
-      console.log('Received call invitation:', data);
-      // BE sẽ gửi thông báo khi có cuộc gọi đến
-    });
+    console.log('🔌 Setting up WebRTC signaling handlers');
 
-    // Handle call answered from other user
-    socket.on('CALL_ANSWERED', (data) => {
-      console.log('Call answered by other user:', data);
-      setConnectionStatus('connected');
-    });
-
-    // Handle call ended from other user
-    socket.on('CALL_ENDED', (data) => {
-      console.log('Call ended by other user:', data);
-      handleEndCall();
-    });
-
-    // Handle call rejected from other user
-    socket.on('CALL_REJECTED', (data) => {
-      console.log('Call rejected by other user:', data);
-      handleCallRejected();
-    });
-
-    // WebRTC signaling events (giữ nguyên)
+    // Handle incoming WebRTC offer
     socket.on('webrtc-offer', async (data) => {
       try {
+        console.log('📥 Received WebRTC offer');
         await peerConnectionRef.current.setRemoteDescription(data.offer);
         const answer = await peerConnectionRef.current.createAnswer();
         await peerConnectionRef.current.setLocalDescription(answer);
@@ -211,13 +215,16 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
           answer: answer,
           callId: data.callId
         });
+        console.log('📤 WebRTC answer sent');
       } catch (error) {
         console.error('Error handling offer:', error);
       }
     });
 
+    // Handle incoming WebRTC answer
     socket.on('webrtc-answer', async (data) => {
       try {
+        console.log('📥 Received WebRTC answer');
         await peerConnectionRef.current.setRemoteDescription(data.answer);
         setConnectionStatus('connected');
       } catch (error) {
@@ -225,8 +232,10 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       }
     });
 
+    // Handle incoming ICE candidates
     socket.on('webrtc-ice-candidate', async (data) => {
       try {
+        console.log('📥 Received ICE candidate');
         await peerConnectionRef.current.addIceCandidate(data.candidate);
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
@@ -234,11 +243,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     });
 
     return () => {
-      // Clean up all event listeners
-      socket.off('CALL_INITIATED');
-      socket.off('CALL_ANSWERED');
-      socket.off('CALL_ENDED');
-      socket.off('CALL_REJECTED');
       socket.off('webrtc-offer');
       socket.off('webrtc-answer');
       socket.off('webrtc-ice-candidate');
@@ -246,8 +250,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   }, [socket]);
 
   const getCurrentUserId = () => {
-    // Replace this with your actual user ID retrieval logic
-    return localStorage.getItem('userId') || 'current-user';
+    const userId = localStorage.getItem('userId');
+    return userId || 'current-user';
   };
 
   const cleanupMedia = () => {
@@ -259,20 +263,18 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  // ✅ SỬA: Handle end call với API call
   const handleEndCall = async () => {
     try {
-      // Gọi API end call đến BE
+      console.log('📞 Ending call:', call.callID);
       await callApi.endCall({
-        callId: call.callID, // ✅ SỬA thành callID
+        callId: call.callID,
         reason: 'user_ended'
       });
 
-      // WebSocket notification đến user khác (nếu cần)
       if (targetUserIdRef.current) {
         socket.emit('end-call', {
           to: targetUserIdRef.current,
-          callId: call.callID // ✅ SỬA thành callID
+          callId: call.callID
         });
       }
 
@@ -285,49 +287,13 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  // ✅ THÊM: Handle call rejected
-  const handleCallRejected = () => {
-    console.log('Call was rejected by other user');
-    cleanupMedia();
-    if (onEndCall) {
-      onEndCall();
-    }
-  };
-
-  // ✅ THÊM: Answer call function
-  const answerCall = async () => {
-    try {
-      await callApi.answerCall({ 
-        callId: call.callID // ✅ SỬA thành callID
-      });
-      // Initialize WebRTC connection
-      await initializeCall();
-    } catch (error) {
-      console.error('Error answering call:', error);
-    }
-  };
-
-  // ✅ THÊM: Reject call function  
-  const rejectCall = async () => {
-    try {
-      await callApi.rejectCall({ 
-        callId: call.callID // ✅ SỬA thành callID
-      });
-      cleanupMedia();
-      if (onEndCall) {
-        onEndCall();
-      }
-    } catch (error) {
-      console.error('Error rejecting call:', error);
-    }
-  };
-
   const toggleMute = () => {
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsMuted(!audioTrack.enabled);
+        console.log('🎤 Audio', audioTrack.enabled ? 'unmuted' : 'muted');
       }
     }
   };
@@ -338,6 +304,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
+        console.log('📹 Video', videoTrack.enabled ? 'enabled' : 'disabled');
       }
     }
   };
@@ -347,6 +314,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     if (remoteVideoRef.current) {
       remoteVideoRef.current.muted = !isSpeakerOn;
     }
+    console.log('🔊 Speaker', !isSpeakerOn ? 'on' : 'off');
   };
 
   const startScreenShare = async () => {
@@ -368,6 +336,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       }
 
       setIsScreenSharing(true);
+      console.log('🖥️ Screen sharing started');
 
       screenStream.getVideoTracks()[0].onended = () => {
         setIsScreenSharing(false);
@@ -380,6 +349,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             sender.replaceTrack(cameraTrack);
           }
         }
+        console.log('🖥️ Screen sharing stopped');
       };
     } catch (error) {
       console.error('Error starting screen share:', error);
@@ -397,7 +367,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ✅ SỬA: Field names trong participant functions
   const getParticipantName = () => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);

@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CallHistory.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useEffect, useState } from 'react';
 import { useCall } from '../../contexts/CallContext';
 import { FaPhone, FaPhoneSlash, FaVideo } from 'react-icons/fa';
@@ -85,19 +79,19 @@ const CallHistory = () => {
             
             <div>
               <p className="font-semibold">
-                {call.InitiatorID === call.UserID ? 
+                {call.initiatorID === call.userID ? 
                   'Outgoing Call' : 
                   'Incoming Call'
                 }
               </p>
               
               <p className="text-sm text-gray-500">
-                {formatCallDate(call.StartTime)}
+                {formatCallDate(call.startTime)}
               </p>
               
               {call.Duration > 0 && (
                 <p className="text-xs text-gray-500">
-                  Duration: {formatCallDuration(call.Duration)}
+                  Duration: {formatCallDuration(call.duration)}
                 </p>
               )}
             </div>
@@ -106,7 +100,7 @@ const CallHistory = () => {
           <div className="flex space-x-2">
             <button
               onClick={() => handleCallUser(
-                call.InitiatorID === call.UserID ? call.ReceiverID : call.InitiatorID,
+                call.initiatorID === call.userID ? call.receiverID : call.initiatorID,
                 'audio'
               )}
               className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
@@ -116,7 +110,7 @@ const CallHistory = () => {
             
             <button
               onClick={() => handleCallUser(
-                call.InitiatorID === call.UserID ? call.ReceiverID : call.InitiatorID,
+                call.initiatorID === call.userID ? call.receiverID : call.initiatorID,
                 'video'
               )}
               className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"

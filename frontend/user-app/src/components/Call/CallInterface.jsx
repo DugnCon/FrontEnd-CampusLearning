@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 // Context
 import { useCall } from '../../contexts/CallContext';
@@ -48,7 +47,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const peerConnectionRef = useRef(null);
   const targetUserIdRef = useRef(null);
 
-  // Get target user ID
+  // Get target user ID - ĐÃ SỬA FIELD NAMES
   useEffect(() => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
@@ -86,7 +85,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       await initializeMedia();
       await initializeWebRTC();
       
-      if (call.initiatorId === getCurrentUserId()) {
+      if (call.initiatorID === getCurrentUserId()) { // ✅ SỬA thành initiatorID
         // We are the caller - create and send offer
         await createAndSendOffer();
       }
@@ -164,7 +163,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
           to: targetUserIdRef.current,
           offer: offer,
           callType: isVideoCall ? 'video' : 'audio',
-          callId: call.callID
+          callId: call.callID // ✅ SỬA thành callID
         });
       }
     } catch (error) {
@@ -172,11 +171,35 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  // Socket event handlers for WebRTC signaling
+  // ✅ THÊM: WebSocket event handlers for call events
   useEffect(() => {
     if (!socket) return;
 
-    // Handle incoming WebRTC offer
+    // Handle incoming call invitation from BE
+    socket.on('CALL_INITIATED', (data) => {
+      console.log('Received call invitation:', data);
+      // BE sẽ gửi thông báo khi có cuộc gọi đến
+    });
+
+    // Handle call answered from other user
+    socket.on('CALL_ANSWERED', (data) => {
+      console.log('Call answered by other user:', data);
+      setConnectionStatus('connected');
+    });
+
+    // Handle call ended from other user
+    socket.on('CALL_ENDED', (data) => {
+      console.log('Call ended by other user:', data);
+      handleEndCall();
+    });
+
+    // Handle call rejected from other user
+    socket.on('CALL_REJECTED', (data) => {
+      console.log('Call rejected by other user:', data);
+      handleCallRejected();
+    });
+
+    // WebRTC signaling events (giữ nguyên)
     socket.on('webrtc-offer', async (data) => {
       try {
         await peerConnectionRef.current.setRemoteDescription(data.offer);
@@ -186,14 +209,13 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         socket.emit('webrtc-answer', {
           to: data.from,
           answer: answer,
-          callId: data.callID
+          callId: data.callId
         });
       } catch (error) {
         console.error('Error handling offer:', error);
       }
     });
 
-    // Handle incoming WebRTC answer
     socket.on('webrtc-answer', async (data) => {
       try {
         await peerConnectionRef.current.setRemoteDescription(data.answer);
@@ -203,7 +225,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       }
     });
 
-    // Handle incoming ICE candidates
     socket.on('webrtc-ice-candidate', async (data) => {
       try {
         await peerConnectionRef.current.addIceCandidate(data.candidate);
@@ -212,16 +233,15 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       }
     });
 
-    // Handle call end from remote
-    socket.on('call-ended', () => {
-      handleEndCall();
-    });
-
     return () => {
+      // Clean up all event listeners
+      socket.off('CALL_INITIATED');
+      socket.off('CALL_ANSWERED');
+      socket.off('CALL_ENDED');
+      socket.off('CALL_REJECTED');
       socket.off('webrtc-offer');
       socket.off('webrtc-answer');
       socket.off('webrtc-ice-candidate');
-      socket.off('call-ended');
     };
   }, [socket]);
 
@@ -239,18 +259,66 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
   };
 
-  const handleEndCall = () => {
-    // Notify other user
-    if (targetUserIdRef.current) {
-      socket.emit('end-call', {
-        to: targetUserIdRef.current,
-        callId: call.callID
+  // ✅ SỬA: Handle end call với API call
+  const handleEndCall = async () => {
+    try {
+      // Gọi API end call đến BE
+      await callApi.endCall({
+        callId: call.callID, // ✅ SỬA thành callID
+        reason: 'user_ended'
       });
-    }
 
+      // WebSocket notification đến user khác (nếu cần)
+      if (targetUserIdRef.current) {
+        socket.emit('end-call', {
+          to: targetUserIdRef.current,
+          callId: call.callID // ✅ SỬA thành callID
+        });
+      }
+
+      cleanupMedia();
+      if (onEndCall) {
+        onEndCall();
+      }
+    } catch (error) {
+      console.error('Error ending call:', error);
+    }
+  };
+
+  // ✅ THÊM: Handle call rejected
+  const handleCallRejected = () => {
+    console.log('Call was rejected by other user');
     cleanupMedia();
     if (onEndCall) {
       onEndCall();
+    }
+  };
+
+  // ✅ THÊM: Answer call function
+  const answerCall = async () => {
+    try {
+      await callApi.answerCall({ 
+        callId: call.callID // ✅ SỬA thành callID
+      });
+      // Initialize WebRTC connection
+      await initializeCall();
+    } catch (error) {
+      console.error('Error answering call:', error);
+    }
+  };
+
+  // ✅ THÊM: Reject call function  
+  const rejectCall = async () => {
+    try {
+      await callApi.rejectCall({ 
+        callId: call.callID // ✅ SỬA thành callID
+      });
+      cleanupMedia();
+      if (onEndCall) {
+        onEndCall();
+      }
+    } catch (error) {
+      console.error('Error rejecting call:', error);
     }
   };
 
@@ -276,7 +344,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
   const toggleSpeaker = () => {
     setIsSpeakerOn(!isSpeakerOn);
-    // Implement speaker toggle logic - you might need to use AudioContext
     if (remoteVideoRef.current) {
       remoteVideoRef.current.muted = !isSpeakerOn;
     }
@@ -289,7 +356,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         audio: true
       });
       
-      // Replace video track with screen share
       if (peerConnectionRef.current) {
         const videoTrack = screenStream.getVideoTracks()[0];
         const sender = peerConnectionRef.current.getSenders().find(s => 
@@ -303,10 +369,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
       setIsScreenSharing(true);
 
-      // Handle screen share end
       screenStream.getVideoTracks()[0].onended = () => {
         setIsScreenSharing(false);
-        // Switch back to camera
         if (localStreamRef.current) {
           const cameraTrack = localStreamRef.current.getVideoTracks()[0];
           const sender = peerConnectionRef.current.getSenders().find(s => 
@@ -333,6 +397,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // ✅ SỬA: Field names trong participant functions
   const getParticipantName = () => {
     if (call?.participants && call.participants.length > 0) {
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
@@ -382,7 +447,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       <div className="flex-1 relative">
         {isVideoCall ? (
           <>
-            {/* Remote Video */}
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -390,7 +454,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
               className="w-full h-full object-cover"
             />
             
-            {/* Local Video */}
             <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600">
               <video
                 ref={localVideoRef}
@@ -401,7 +464,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
               />
             </div>
 
-            {/* Connection Status Overlay */}
             {connectionStatus !== 'connected' && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
                 <div className="text-white text-center">
@@ -414,7 +476,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             )}
           </>
         ) : (
-          /* Audio Call - Show Avatar */
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Avatar
@@ -443,7 +504,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       {/* Call Controls */}
       <div className="bg-black bg-opacity-75 p-6">
         <div className="flex items-center justify-center space-x-6">
-          {/* Mute Button */}
           <button
             onClick={toggleMute}
             className={`p-4 rounded-full transition-colors ${
@@ -460,7 +520,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             )}
           </button>
 
-          {/* Video Button (only for video calls) */}
           {isVideoCall && (
             <button
               onClick={toggleVideo}
@@ -479,7 +538,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             </button>
           )}
 
-          {/* Screen Share Button (only for video calls) */}
           {isVideoCall && (
             <button
               onClick={startScreenShare}
@@ -494,7 +552,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             </button>
           )}
 
-          {/* Speaker Button */}
           <button
             onClick={toggleSpeaker}
             className={`p-4 rounded-full transition-colors ${
@@ -507,7 +564,6 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             <SpeakerWaveIcon className="w-6 h-6 text-white" />
           </button>
 
-          {/* End Call Button */}
           <button
             onClick={handleEndCall}
             className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"

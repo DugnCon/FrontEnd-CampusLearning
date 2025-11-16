@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 // Context
 import { useCall } from '../../contexts/CallContext';
@@ -16,104 +15,73 @@ import {
 import Avatar from '../common/Avatar';
 
 const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall = false }) => {
-  // Grab data from context – will be undefined if not within provider
-  const {
-    call: contextCall,
-    endCall: contextEndCall,
-    callStatus,
-  } = useCall() || {};
+  // Sử dụng context với safe fallback
+  const callContext = useCall();
+  
+  // Xác định nguồn dữ liệu với validation
+  const call = propCall || callContext?.call;
+  const contextEndCall = callContext?.endCall;
+  const localStream = callContext?.localStream;
+  const remoteStream = callContext?.remoteStream;
+  const isAudioEnabled = callContext?.isAudioEnabled ?? true;
+  const isVideoEnabled = callContext?.isVideoEnabled ?? true;
+  const callDuration = callContext?.callDuration ?? 0;
+  const toggleAudio = callContext?.toggleAudio;
+  const toggleVideo = callContext?.toggleVideo;
+  const localVideoRef = callContext?.localVideoRef || useRef(null);
+  const remoteVideoRef = callContext?.remoteVideoRef || useRef(null);
 
-  // Determine active sources (prop takes precedence so we can still use component standalone in other places)
-  const call = propCall || contextCall;
-  const onEndCall = propOnEndCall || contextEndCall;
+  // Safe handler cho onEndCall
+  const handleEndCall = () => {
+    if (typeof propOnEndCall === 'function') {
+      propOnEndCall();
+    } else if (typeof contextEndCall === 'function') {
+      contextEndCall();
+    } else {
+      console.error('No end call handler available');
+      window.location.reload();
+    }
+  };
 
-  // If there is no call information available, do not render anything
+  // Safe handler cho toggle audio
+  const handleToggleAudio = () => {
+    if (typeof toggleAudio === 'function') {
+      toggleAudio();
+    } else {
+      console.warn('Toggle audio not available');
+    }
+  };
+
+  // Safe handler cho toggle video
+  const handleToggleVideo = () => {
+    if (typeof toggleVideo === 'function') {
+      toggleVideo();
+    } else {
+      console.warn('Toggle video not available');
+    }
+  };
+
+  // Nếu không có call data, không render
   if (!call) {
     return null;
   }
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(isVideoCall);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
 
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const peerConnectionRef = useRef(null);
-
-  // Timer for call duration
+  // Setup video elements với streams từ context
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Initialize media stream
-  useEffect(() => {
-    initializeMedia();
-    return () => {
-      cleanupMedia();
-    };
-  }, [isVideoCall]);
-
-  const initializeMedia = async () => {
-    try {
-      const constraints = {
-        audio: true,
-        video: isVideoCall
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      localStreamRef.current = stream;
-
-      if (localVideoRef.current && isVideoCall) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      // Initialize WebRTC peer connection here
-      // This is a simplified version - you'd need to implement full WebRTC signaling
-      
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
     }
-  };
-
-  const cleanupMedia = () => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+    
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
     }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-    }
-  };
-
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-      }
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
-      }
-    }
-  };
+  }, [localStream, remoteStream]);
 
   const toggleSpeaker = () => {
     setIsSpeakerOn(!isSpeakerOn);
-    // Implement speaker toggle logic
   };
 
   const startScreenShare = async () => {
@@ -123,16 +91,9 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         audio: true
       });
       
-      // Replace video track with screen share
-      if (peerConnectionRef.current) {
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = peerConnectionRef.current.getSenders().find(s => 
-          s.track && s.track.kind === 'video'
-        );
-        
-        if (sender) {
-          await sender.replaceTrack(videoTrack);
-        }
+      // Hiện tại chỉ hiển thị local screen share
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = screenStream;
       }
 
       setIsScreenSharing(true);
@@ -141,14 +102,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       screenStream.getVideoTracks()[0].onended = () => {
         setIsScreenSharing(false);
         // Switch back to camera
-        if (localStreamRef.current) {
-          const cameraTrack = localStreamRef.current.getVideoTracks()[0];
-          const sender = peerConnectionRef.current.getSenders().find(s => 
-            s.track && s.track.kind === 'video'
-          );
-          if (sender && cameraTrack) {
-            sender.replaceTrack(cameraTrack);
-          }
+        if (localVideoRef.current && localStream) {
+          localVideoRef.current.srcObject = localStream;
         }
       };
     } catch (error) {
@@ -157,13 +112,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   };
 
   const formatCallDuration = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
+    const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-
-    if (hrs > 0) {
-      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -172,7 +122,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
       return otherParticipant?.fullName || otherParticipant?.username || 'Unknown';
     }
-    return 'Unknown';
+    return call?.receiverName || call?.participantName || 'Unknown';
   };
 
   const getParticipantAvatar = () => {
@@ -180,7 +130,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
       return otherParticipant?.profilePicture;
     }
-    return null;
+    return call?.receiverAvatar || null;
   };
 
   return (
@@ -203,6 +153,9 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         
         <div className="text-sm text-gray-300">
           {isVideoCall ? 'Video Call' : 'Voice Call'}
+          {callContext?.isStompConnected && (
+            <span className="ml-2 text-green-400">● Connected</span>
+          )}
         </div>
       </div>
 
@@ -215,11 +168,11 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover bg-black"
             />
             
             {/* Local Video */}
-            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden">
+            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-white">
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -255,25 +208,25 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
         <div className="flex items-center justify-center space-x-6">
           {/* Mute Button */}
           <button
-            onClick={toggleMute}
+            onClick={handleToggleAudio}
             className={`p-4 rounded-full transition-colors ${
-              isMuted 
+              !isAudioEnabled 
                 ? 'bg-red-600 hover:bg-red-700' 
                 : 'bg-gray-700 hover:bg-gray-600'
             }`}
-            title={isMuted ? 'Unmute' : 'Mute'}
+            title={isAudioEnabled ? 'Mute' : 'Unmute'}
           >
-            {isMuted ? (
-              <MicrophoneIconSolid className="w-6 h-6 text-white" />
-            ) : (
+            {isAudioEnabled ? (
               <MicrophoneIcon className="w-6 h-6 text-white" />
+            ) : (
+              <MicrophoneIconSolid className="w-6 h-6 text-white" />
             )}
           </button>
 
           {/* Video Button (only for video calls) */}
           {isVideoCall && (
             <button
-              onClick={toggleVideo}
+              onClick={handleToggleVideo}
               className={`p-4 rounded-full transition-colors ${
                 !isVideoEnabled 
                   ? 'bg-red-600 hover:bg-red-700' 
@@ -319,7 +272,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
           {/* End Call Button */}
           <button
-            onClick={onEndCall}
+            onClick={handleEndCall}
             className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
             title="End call"
           >
@@ -331,4 +284,4 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   );
 };
 
-export default CallInterface; 
+export default CallInterface;

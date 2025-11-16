@@ -1,8 +1,8 @@
 /*-----------------------------------------------------------------
-* File: CallContext.jsx
+* File: CallContext.jsx (STOMP Version)
 * Author: Quyen Nguyen Duc
 * Date: 2025-07-24
-* Description: This file is a component/module for the student application.
+* Description: Call context using STOMP protocol for WebRTC signaling
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
@@ -13,7 +13,7 @@ import { toast } from 'react-hot-toast';
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
-  const { socket, user } = useSocket();
+  const { stompClient, isConnected, user } = useSocket();
   const [call, setCall] = useState(null);
   const [callStatus, setCallStatus] = useState(null); // 'ringing', 'ongoing', 'ended'
   const [callType, setCallType] = useState(null); // 'audio', 'video'
@@ -31,6 +31,19 @@ export const CallProvider = ({ children }) => {
   const remoteVideoRef = useRef();
   const peerConnectionRef = useRef();
   const callTimerRef = useRef();
+  const subscriptionsRef = useRef([]);
+
+  // STOMP send helper
+  const sendViaStomp = (destination, body) => {
+    if (stompClient && isConnected) {
+      console.log('🟢 Sending via STOMP:', destination, body);
+      stompClient.send(destination, {}, JSON.stringify(body));
+      return true;
+    } else {
+      console.error('🔴 STOMP not connected, cannot send:', destination);
+      return false;
+    }
+  };
 
   // Check for active call on load
   useEffect(() => {
@@ -40,40 +53,23 @@ export const CallProvider = ({ children }) => {
         if (hasActiveCall) {
           setCall(call);
           setCallStatus('ongoing');
-          setCallType(call.Type);
-          // Setup media and peer connection
-          await setupMediaAndConnection({ callId: call.CallID });
+          setCallType(call.type || 'video');
+          await setupMediaAndConnection({ callId: call.callId });
         }
-        // Service is available if we get a proper response
         setIsCallServiceAvailable(true);
       } catch (error) {
-        // Log only in development
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Call service unavailable:', error.message || 'Unknown error');
-        }
-
-        // Check if this is a 404 error, which means the endpoint doesn't exist
-        if (error.response?.status === 404 || 
-            error.message?.includes('404') || 
-            error.message?.includes('not found')) {
+        console.warn('Call service unavailable:', error.message);
+        if (error.response?.status === 404 || error.message?.includes('404')) {
           setIsCallServiceAvailable(false);
-        }
-        
-        // Don't show error toast for expected service unavailability
-        if (error.response?.status !== 404) {
-          // Uncomment if you want to show an error toast
-          // toast.error('Could not connect to call service');
         }
       }
     };
 
-    // Only check for active calls if user is logged in and call service was not already determined to be unavailable
     if (user && isCallServiceAvailable) {
       checkActiveCall();
     }
     
     return () => {
-      // Cleanup on unmount
       stopMediaTracks();
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
@@ -81,125 +77,199 @@ export const CallProvider = ({ children }) => {
       if (callTimerRef.current) {
         clearInterval(callTimerRef.current);
       }
+      // Cleanup subscriptions
+      subscriptionsRef.current.forEach(sub => sub.unsubscribe());
     };
   }, [user, isCallServiceAvailable]);
 
-  // Socket event listeners for call handling
+  // STOMP event listeners for call handling
   useEffect(() => {
-    if (!socket || !isCallServiceAvailable) return;
-
-    // Incoming call handler
-    const handleIncomingCall = async (data) => {
-      console.log('Incoming call:', data);
-      setCall(data);
-      setCallType(data.type);
-      setCallStatus('ringing');
-      setIsReceivingCall(true);
-    };
-
-    // Call answered handler
-    const handleCallAnswered = async (data) => {
-      console.log('Call answered:', data);
-      setCallStatus('ongoing');
-      startCallTimer();
-    };
-
-    // Call ended handler
-    const handleCallEnded = (data) => {
-      console.log('Call ended:', data);
-      toast.success(`Call ended. Duration: ${formatCallDuration(data.duration)}`);
-      endCallCleanup();
-    };
-
-    // Call rejected handler
-    const handleCallRejected = (data) => {
-      console.log('Call rejected:', data);
-      toast.error('Call was rejected');
-      endCallCleanup();
-    };
-
-    // WebRTC signaling handlers
-    const handleSignalingData = async (data) => {
-      try {
-        console.log('Received signaling data:', data.signal.type, data);
-        
-        if (!peerConnectionRef.current) {
-          console.log('Setting up new peer connection for incoming call/signal');
-          await setupMediaAndConnection({ 
-            isReceivingCall: true, 
-            fromUserId: data.fromUserId
-          });
-        }
-        
-        const { type, sdp, candidate } = data.signal;
-        
-        if (type === 'offer') {
-          console.log('Setting remote description (offer)');
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
-          console.log('Creating answer');
-          const answer = await peerConnectionRef.current.createAnswer();
-          console.log('Setting local description (answer)');
-          await peerConnectionRef.current.setLocalDescription(answer);
-          
-          console.log('Sending answer to:', data.fromUserId);
-          socket.emit('call-signal', {
-            userId: data.fromUserId,
-            signal: {
-              type: 'answer',
-              sdp: peerConnectionRef.current.localDescription.sdp
-            }
-          });
-        } else if (type === 'answer') {
-          console.log('Setting remote description (answer)');
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
-          console.log('Connection should be establishing now');
-        } else if (type === 'candidate') {
-          try {
-            console.log('Adding ICE candidate');
-            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (err) {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Error adding received ice candidate', err);
-            }
-          }
-        }
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Error handling signaling data:', error);
-        }
-        toast.error('Failed to establish connection');
-      }
-    };
-
-    // Only register socket events if the call service is available
-    if (isCallServiceAvailable) {
-      // Register socket event listeners
-      socket.on('incoming-call', handleIncomingCall);
-      socket.on('call-answered', handleCallAnswered);
-      socket.on('call-ended', handleCallEnded);
-      socket.on('call-rejected', handleCallRejected);
-      socket.on('call-signal', handleSignalingData);
+    if (!stompClient || !isConnected || !isCallServiceAvailable) {
+      console.log('STOMP not ready for call listeners');
+      return;
     }
 
-    // Cleanup on component unmount
-    return () => {
-      if (socket) {
-        socket.off('incoming-call', handleIncomingCall);
-        socket.off('call-answered', handleCallAnswered);
-        socket.off('call-ended', handleCallEnded);
-        socket.off('call-rejected', handleCallRejected);
-        socket.off('call-signal', handleSignalingData);
+    console.log('🔔 Setting up STOMP call listeners');
+
+    // Cleanup previous subscriptions
+    subscriptionsRef.current.forEach(sub => sub.unsubscribe());
+    subscriptionsRef.current = [];
+
+    // Subscribe to call topics
+    const subscriptions = [
+      {
+        topic: `/user/topic/call.incoming`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log('📞 Incoming call via STOMP:', data);
+            setCall(data.call || data);
+            setCallType(data.type || 'video');
+            setCallStatus('ringing');
+            setIsReceivingCall(true);
+            
+            // Auto-setup media for incoming call
+            setupMediaAndConnection({ 
+              isReceivingCall: true, 
+              fromUserId: data.initiatorId 
+            });
+          } catch (error) {
+            console.error('Error parsing incoming call:', error);
+          }
+        }
+      },
+      {
+        topic: `/user/topic/call.answered`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log('✅ Call answered via STOMP:', data);
+            setCallStatus('ongoing');
+            setIsReceivingCall(false);
+            startCallTimer();
+          } catch (error) {
+            console.error('Error parsing call answered:', error);
+          }
+        }
+      },
+      {
+        topic: `/user/topic/call.ended`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log('📵 Call ended via STOMP:', data);
+            toast.success(`Call ended. Duration: ${formatCallDuration(data.duration || callDuration)}`);
+            endCallCleanup();
+          } catch (error) {
+            console.error('Error parsing call ended:', error);
+          }
+        }
+      },
+      {
+        topic: `/user/topic/call.rejected`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log('❌ Call rejected via STOMP:', data);
+            toast.error('Call was rejected');
+            endCallCleanup();
+          } catch (error) {
+            console.error('Error parsing call rejected:', error);
+          }
+        }
+      },
+      {
+        topic: `/user/topic/call.signal`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log('📡 Received signaling data via STOMP:', data.signal?.type);
+            handleSignalingData(data);
+          } catch (error) {
+            console.error('Error parsing signaling data:', error);
+          }
+        }
+      },
+      {
+        topic: `/user/topic/call.error`,
+        handler: (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.error('🚨 Call error via STOMP:', data);
+            toast.error(data.message || 'Call error occurred');
+          } catch (error) {
+            console.error('Error parsing call error:', error);
+          }
+        }
       }
+    ];
+
+    // Setup all subscriptions
+    subscriptions.forEach(({ topic, handler }) => {
+      const subscription = stompClient.subscribe(topic, handler);
+      subscriptionsRef.current.push(subscription);
+      console.log(`🔔 Subscribed to: ${topic}`);
+    });
+
+    // Cleanup subscriptions
+    return () => {
+      subscriptionsRef.current.forEach(sub => {
+        try {
+          sub.unsubscribe();
+        } catch (error) {
+          console.warn('Error unsubscribing:', error);
+        }
+      });
+      subscriptionsRef.current = [];
     };
-  }, [socket, user, isCallServiceAvailable]);
+  }, [stompClient, isConnected, isCallServiceAvailable]);
+
+  // WebRTC signaling handler - CORE RTC LOGIC
+  const handleSignalingData = async (data) => {
+    try {
+      const { signal, fromUserId } = data;
+      console.log('🔄 Handling signaling:', signal.type, 'from:', fromUserId);
+      
+      // Create peer connection if not exists
+      if (!peerConnectionRef.current) {
+        console.log('Creating new peer connection for signaling');
+        await setupMediaAndConnection({ 
+          isReceivingCall: true, 
+          fromUserId: fromUserId 
+        });
+      }
+      
+      const peerConnection = peerConnectionRef.current;
+      
+      if (signal.type === 'offer') {
+        console.log('📥 Setting remote description (offer)');
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+        
+        console.log('📤 Creating answer');
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        console.log('🔄 Sending answer to:', fromUserId);
+        sendViaStomp('/app/call.signal', {
+          toUserId: fromUserId,
+          signal: {
+            type: 'answer',
+            sdp: peerConnection.localDescription.sdp
+          }
+        });
+        
+      } else if (signal.type === 'answer') {
+        console.log('📥 Setting remote description (answer)');
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+        console.log('✅ Peer connection established!');
+        
+      } else if (signal.type === 'candidate') {
+        try {
+          console.log('📥 Adding ICE candidate');
+          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } catch (err) {
+          console.warn('Error adding ICE candidate:', err);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error handling signaling data:', error);
+      toast.error('Failed to establish connection: ' + error.message);
+    }
+  };
 
   // Set up media streams and peer connection
-  const setupMediaAndConnection = async ({ callId, isReceivingCall, fromUserId }) => {
+  const setupMediaAndConnection = async ({ callId, isReceivingCall = false, fromUserId }) => {
     try {
+      console.log('🎥 Setting up media and connection, video:', callType === 'video');
+      
       // Get user media
       const constraints = {
         audio: true,
-        video: callType === 'video'
+        video: callType === 'video' ? {
+          width: 1280,
+          height: 720,
+          frameRate: 30
+        } : false
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -210,7 +280,7 @@ export const CallProvider = ({ children }) => {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Create peer connection
+      // Create peer connection with better configuration
       const configuration = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -220,7 +290,8 @@ export const CallProvider = ({ children }) => {
           { urls: 'stun:stun4.l.google.com:19302' }
         ],
         iceCandidatePoolSize: 10,
-        bundlePolicy: 'max-bundle'
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
       };
       
       const peerConnection = new RTCPeerConnection(configuration);
@@ -228,52 +299,69 @@ export const CallProvider = ({ children }) => {
 
       // Add local stream to peer connection
       stream.getTracks().forEach(track => {
+        console.log('🎵 Adding track to peer connection:', track.kind);
         peerConnection.addTrack(track, stream);
       });
 
-      // Set up remote stream handler
+      // Handle incoming remote stream
       peerConnection.ontrack = (event) => {
-        console.log('Got remote track:', event.streams[0]);
-        setRemoteStream(event.streams[0]);
+        console.log('🎬 Got remote track:', event.streams[0]);
+        const remoteStream = event.streams[0];
+        setRemoteStream(remoteStream);
         
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+          remoteVideoRef.current.srcObject = remoteStream;
         }
       };
 
-      // Send ICE candidates to the other peer
+      // Send ICE candidates to the other peer via STOMP
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Generated new ICE candidate:', event.candidate.candidate);
+          console.log('🧊 Generated ICE candidate:', event.candidate.type);
           
-          socket.emit('call-signal', {
-            userId: fromUserId || call.initiatorId || call.receiverId,
+          sendViaStomp('/app/call.signal', {
+            toUserId: fromUserId || call?.initiatorId || call?.receiverId,
             signal: {
               type: 'candidate',
               candidate: event.candidate
             }
           });
         } else {
-          console.log('ICE candidate generation complete');
+          console.log('✅ ICE candidate generation complete');
         }
       };
-      
-      // Log connection state changes
-      peerConnection.oniceconnectionstatechange = () => {
-        console.log('ICE connection state change:', peerConnection.iceConnectionState);
-      };
-      
-      peerConnection.onicegatheringstatechange = () => {
-        console.log('ICE gathering state change:', peerConnection.iceGatheringState);
+
+      // Connection state monitoring
+      peerConnection.onconnectionstatechange = () => {
+        console.log('🔗 Connection state:', peerConnection.connectionState);
+        switch (peerConnection.connectionState) {
+          case 'connected':
+            console.log('✅ Peer connection connected!');
+            break;
+          case 'disconnected':
+          case 'failed':
+            console.error('❌ Peer connection failed');
+            toast.error('Call connection lost');
+            endCall();
+            break;
+          case 'closed':
+            console.log('📵 Peer connection closed');
+            break;
+        }
       };
 
       // Create and send offer if initiating the call
       if (!isReceivingCall) {
-        const offer = await peerConnection.createOffer();
+        console.log('🎯 Creating offer for call initiation');
+        const offer = await peerConnection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: callType === 'video'
+        });
         await peerConnection.setLocalDescription(offer);
         
-        socket.emit('call-signal', {
-          userId: fromUserId || call.receiverId,
+        console.log('🔄 Sending offer to:', fromUserId || call?.receiverId);
+        sendViaStomp('/app/call.signal', {
+          toUserId: fromUserId || call?.receiverId,
           signal: {
             type: 'offer',
             sdp: peerConnection.localDescription.sdp
@@ -281,27 +369,19 @@ export const CallProvider = ({ children }) => {
         });
       }
 
-      // Join call room for multi-user communication
+      // Join call room
       if (callId) {
-        socket.emit('join-call-room', callId);
+        sendViaStomp('/app/call.join', { callId });
       }
-
-      // Set up connection state change handler
-      peerConnection.onconnectionstatechange = (event) => {
-        console.log('Connection state change:', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'disconnected' || 
-            peerConnection.connectionState === 'failed') {
-          toast.error('Call connection lost');
-          endCall();
-        }
-      };
 
       return peerConnection;
     } catch (error) {
-      console.error('Error setting up media and connection:', error);
+      console.error('❌ Error setting up media and connection:', error);
       
       if (error.name === 'NotAllowedError') {
         toast.error('Please allow camera and microphone access');
+      } else if (error.name === 'NotFoundError') {
+        toast.error('Camera or microphone not found');
       } else {
         toast.error('Failed to setup call: ' + error.message);
       }
@@ -327,6 +407,7 @@ export const CallProvider = ({ children }) => {
 
   // Clean up call resources
   const endCallCleanup = () => {
+    console.log('🧹 Cleaning up call resources');
     setCall(null);
     setCallStatus(null);
     setCallType(null);
@@ -349,7 +430,9 @@ export const CallProvider = ({ children }) => {
   // Stop all media tracks
   const stopMediaTracks = () => {
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+      localStream.getTracks().forEach(track => {
+        track.stop();
+      });
       setLocalStream(null);
     }
     setRemoteStream(null);
@@ -358,21 +441,36 @@ export const CallProvider = ({ children }) => {
   // API: Initiate a call
   const initiateCall = async (receiverId, type = 'video') => {
     try {
+      if (!stompClient || !isConnected) {
+        throw new Error('STOMP connection not available');
+      }
+
       setIsMakingCall(true);
       setCallType(type);
       
       const response = await callService.initiateCall(receiverId, type);
-      setCall(response.call);
+      const callData = response.call || response;
+      
+      setCall(callData);
       setCallStatus('ringing');
       
-      await setupMediaAndConnection({ 
-        callId: response.call.callId,
-        isReceivingCall: false
+      // Send call initiation via STOMP
+      sendViaStomp('/app/call.initiate', {
+        receiverId: receiverId,
+        type: type,
+        callId: callData.callId || callData.id
       });
       
-      return response.call;
+      // Setup media and WebRTC connection
+      await setupMediaAndConnection({ 
+        callId: callData.callId || callData.id,
+        isReceivingCall: false,
+        fromUserId: receiverId
+      });
+      
+      return callData;
     } catch (error) {
-      console.error('Error initiating call:', error);
+      console.error('❌ Error initiating call:', error);
       toast.error(error.message || 'Failed to initiate call');
       endCallCleanup();
       throw error;
@@ -382,23 +480,29 @@ export const CallProvider = ({ children }) => {
   // API: Answer an incoming call
   const answerCall = async () => {
     try {
-      if (!call) return;
+      if (!call) {
+        throw new Error('No call to answer');
+      }
+
+      if (!stompClient || !isConnected) {
+        throw new Error('STOMP connection not available');
+      }
       
-      const response = await callService.answerCall(call.callId);
+      const response = await callService.answerCall(call.callId || call.id);
       setCallStatus('ongoing');
       setIsReceivingCall(false);
       
-      await setupMediaAndConnection({ 
-        callId: call.callId,
-        isReceivingCall: true,
-        fromUserId: call.initiatorId
+      // Send answer via STOMP
+      sendViaStomp('/app/call.answer', {
+        callId: call.callId || call.id,
+        answer: true
       });
       
       startCallTimer();
       
       return response;
     } catch (error) {
-      console.error('Error answering call:', error);
+      console.error('❌ Error answering call:', error);
       toast.error(error.message || 'Failed to answer call');
       endCallCleanup();
       throw error;
@@ -409,16 +513,23 @@ export const CallProvider = ({ children }) => {
   const endCall = async () => {
     try {
       if (!call) return;
+
+      // Send end call via STOMP
+      sendViaStomp('/app/call.end', {
+        callId: call.callId || call.id,
+        duration: callDuration
+      });
       
-      await callService.endCall(call.callId);
+      // Leave call room
+      sendViaStomp('/app/call.leave', { 
+        callId: call.callId || call.id 
+      });
       
-      if (socket) {
-        socket.emit('leave-call-room', call.callId);
-      }
+      await callService.endCall(call.callId || call.id);
       
       endCallCleanup();
     } catch (error) {
-      console.error('Error ending call:', error);
+      console.error('❌ Error ending call:', error);
       toast.error(error.message || 'Failed to end call');
       endCallCleanup();
       throw error;
@@ -429,11 +540,17 @@ export const CallProvider = ({ children }) => {
   const rejectCall = async () => {
     try {
       if (!call) return;
+
+      // Send reject via STOMP
+      sendViaStomp('/app/call.reject', {
+        callId: call.callId || call.id
+      });
       
-      await callService.rejectCall(call.callId);
+      await callService.rejectCall(call.callId || call.id);
+      
       endCallCleanup();
     } catch (error) {
-      console.error('Error rejecting call:', error);
+      console.error('❌ Error rejecting call:', error);
       toast.error(error.message || 'Failed to reject call');
       endCallCleanup();
       throw error;
@@ -449,10 +566,10 @@ export const CallProvider = ({ children }) => {
       });
       setIsAudioEnabled(enabled);
       
-      // Notify other participants
-      if (socket && call) {
-        socket.emit('toggle-media', {
-          callId: call.callId,
+      // Notify other participants via STOMP
+      if (call) {
+        sendViaStomp('/app/call.media.toggle', {
+          callId: call.callId || call.id,
           type: 'audio',
           enabled
         });
@@ -472,10 +589,10 @@ export const CallProvider = ({ children }) => {
       });
       setIsVideoEnabled(enabled);
       
-      // Notify other participants
-      if (socket && call) {
-        socket.emit('toggle-media', {
-          callId: call.callId,
+      // Notify other participants via STOMP
+      if (call) {
+        sendViaStomp('/app/call.media.toggle', {
+          callId: call.callId || call.id,
           type: 'video',
           enabled
         });
@@ -490,8 +607,8 @@ export const CallProvider = ({ children }) => {
   const loadCallHistory = async (limit = 10, offset = 0) => {
     try {
       const response = await callService.getCallHistory(limit, offset);
-      setCallHistory(response.calls);
-      return response.calls;
+      setCallHistory(response.calls || response);
+      return response.calls || response;
     } catch (error) {
       console.error('Error loading call history:', error);
       toast.error(error.message || 'Failed to load call history');
@@ -499,35 +616,90 @@ export const CallProvider = ({ children }) => {
     }
   };
 
+  const contextValue = {
+    // State
+    call,
+    callStatus,
+    callType,
+    isReceivingCall,
+    isMakingCall,
+    callHistory,
+    localStream,
+    remoteStream,
+    isAudioEnabled,
+    isVideoEnabled,
+    callDuration,
+    
+    // Refs
+    localVideoRef,
+    remoteVideoRef,
+    
+    // Actions
+    initiateCall,
+    answerCall,
+    endCall,
+    rejectCall,
+    toggleAudio,
+    toggleVideo,
+    loadCallHistory,
+    formatCallDuration,
+    
+    // STOMP status
+    isStompConnected: isConnected
+  };
+
   return (
-    <CallContext.Provider
-      value={{
-        call,
-        callStatus,
-        callType,
-        isReceivingCall,
-        isMakingCall,
-        callHistory,
-        localStream,
-        remoteStream,
-        isAudioEnabled,
-        isVideoEnabled,
-        callDuration,
-        localVideoRef,
-        remoteVideoRef,
-        initiateCall,
-        answerCall,
-        endCall,
-        rejectCall,
-        toggleAudio,
-        toggleVideo,
-        loadCallHistory,
-        formatCallDuration
-      }}
-    >
+    <CallContext.Provider value={contextValue}>
       {children}
     </CallContext.Provider>
   );
 };
 
-export const useCall = () => useContext(CallContext); 
+export const useCall = () => {
+  const context = useContext(CallContext);
+  
+  if (!context) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('useCall must be used within a CallProvider');
+    }
+    
+    return {
+      call: null,
+      callStatus: null,
+      callType: null,
+      isReceivingCall: false,
+      isMakingCall: false,
+      callHistory: [],
+      localStream: null,
+      remoteStream: null,
+      isAudioEnabled: true,
+      isVideoEnabled: true,
+      callDuration: 0,
+      localVideoRef: { current: null },
+      remoteVideoRef: { current: null },
+      initiateCall: async () => { 
+        throw new Error('CallProvider not available'); 
+      },
+      answerCall: async () => { 
+        throw new Error('CallProvider not available'); 
+      },
+      endCall: async () => { 
+        throw new Error('CallProvider not available'); 
+      },
+      rejectCall: async () => { 
+        throw new Error('CallProvider not available'); 
+      },
+      toggleAudio: () => false,
+      toggleVideo: () => false,
+      loadCallHistory: async () => [],
+      formatCallDuration: (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      },
+      isStompConnected: false
+    };
+  }
+  
+  return context;
+};

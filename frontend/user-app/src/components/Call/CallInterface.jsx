@@ -1,13 +1,8 @@
-/*-----------------------------------------------------------------
-* File: CallInterface.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Call interface component for voice and video calls
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState, useRef, useEffect } from 'react';
 // Context
 import { useCall } from '../../contexts/CallContext';
+import { useSocket } from '../../contexts/SocketContext';
 import { 
   PhoneXMarkIcon,
   MicrophoneIcon,
@@ -29,6 +24,8 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     callStatus,
   } = useCall() || {};
 
+  const socket = useSocket();
+
   // Determine active sources (prop takes precedence so we can still use component standalone in other places)
   const call = propCall || contextCall;
   const onEndCall = propOnEndCall || contextEndCall;
@@ -43,11 +40,21 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const targetUserIdRef = useRef(null);
+
+  // Get target user ID
+  useEffect(() => {
+    if (call?.participants && call.participants.length > 0) {
+      const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
+      targetUserIdRef.current = otherParticipant?.userID;
+    }
+  }, [call]);
 
   // Timer for call duration
   useEffect(() => {
@@ -58,13 +65,35 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     return () => clearInterval(timer);
   }, []);
 
-  // Initialize media stream
+  // Initialize media stream and WebRTC
   useEffect(() => {
-    initializeMedia();
+    initializeCall();
     return () => {
       cleanupMedia();
     };
-  }, [isVideoCall]);
+  }, [isVideoCall, call]);
+
+  // WebRTC configuration
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  const initializeCall = async () => {
+    try {
+      await initializeMedia();
+      await initializeWebRTC();
+      
+      if (call.initiatorId === getCurrentUserId()) {
+        // We are the caller - create and send offer
+        await createAndSendOffer();
+      }
+    } catch (error) {
+      console.error('Error initializing call:', error);
+    }
+  };
 
   const initializeMedia = async () => {
     try {
@@ -79,13 +108,126 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
       if (localVideoRef.current && isVideoCall) {
         localVideoRef.current.srcObject = stream;
       }
-
-      // Initialize WebRTC peer connection here
-      // This is a simplified version - you'd need to implement full WebRTC signaling
-      
     } catch (error) {
       console.error('Error accessing media devices:', error);
     }
+  };
+
+  const initializeWebRTC = async () => {
+    try {
+      peerConnectionRef.current = new RTCPeerConnection(rtcConfig);
+
+      // Add local stream tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          peerConnectionRef.current.addTrack(track, localStreamRef.current);
+        });
+      }
+
+      // Handle incoming remote stream
+      peerConnectionRef.current.ontrack = (event) => {
+        console.log('Received remote stream');
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+          setConnectionStatus('connected');
+        }
+      };
+
+      // Handle ICE candidates
+      peerConnectionRef.current.onicecandidate = (event) => {
+        if (event.candidate && targetUserIdRef.current) {
+          socket.emit('webrtc-ice-candidate', {
+            to: targetUserIdRef.current,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      // Handle connection state changes
+      peerConnectionRef.current.onconnectionstatechange = () => {
+        console.log('Connection state:', peerConnectionRef.current.connectionState);
+        setConnectionStatus(peerConnectionRef.current.connectionState);
+      };
+
+    } catch (error) {
+      console.error('Error initializing WebRTC:', error);
+    }
+  };
+
+  const createAndSendOffer = async () => {
+    try {
+      const offer = await peerConnectionRef.current.createOffer();
+      await peerConnectionRef.current.setLocalDescription(offer);
+
+      if (targetUserIdRef.current) {
+        socket.emit('webrtc-offer', {
+          to: targetUserIdRef.current,
+          offer: offer,
+          callType: isVideoCall ? 'video' : 'audio',
+          callId: call.callID
+        });
+      }
+    } catch (error) {
+      console.error('Error creating offer:', error);
+    }
+  };
+
+  // Socket event handlers for WebRTC signaling
+  useEffect(() => {
+    if (!socket) return;
+
+    // Handle incoming WebRTC offer
+    socket.on('webrtc-offer', async (data) => {
+      try {
+        await peerConnectionRef.current.setRemoteDescription(data.offer);
+        const answer = await peerConnectionRef.current.createAnswer();
+        await peerConnectionRef.current.setLocalDescription(answer);
+        
+        socket.emit('webrtc-answer', {
+          to: data.from,
+          answer: answer,
+          callId: data.callID
+        });
+      } catch (error) {
+        console.error('Error handling offer:', error);
+      }
+    });
+
+    // Handle incoming WebRTC answer
+    socket.on('webrtc-answer', async (data) => {
+      try {
+        await peerConnectionRef.current.setRemoteDescription(data.answer);
+        setConnectionStatus('connected');
+      } catch (error) {
+        console.error('Error handling answer:', error);
+      }
+    });
+
+    // Handle incoming ICE candidates
+    socket.on('webrtc-ice-candidate', async (data) => {
+      try {
+        await peerConnectionRef.current.addIceCandidate(data.candidate);
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
+    });
+
+    // Handle call end from remote
+    socket.on('call-ended', () => {
+      handleEndCall();
+    });
+
+    return () => {
+      socket.off('webrtc-offer');
+      socket.off('webrtc-answer');
+      socket.off('webrtc-ice-candidate');
+      socket.off('call-ended');
+    };
+  }, [socket]);
+
+  const getCurrentUserId = () => {
+    // Replace this with your actual user ID retrieval logic
+    return localStorage.getItem('userId') || 'current-user';
   };
 
   const cleanupMedia = () => {
@@ -94,6 +236,21 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
     }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
+    }
+  };
+
+  const handleEndCall = () => {
+    // Notify other user
+    if (targetUserIdRef.current) {
+      socket.emit('end-call', {
+        to: targetUserIdRef.current,
+        callId: call.callID
+      });
+    }
+
+    cleanupMedia();
+    if (onEndCall) {
+      onEndCall();
     }
   };
 
@@ -119,7 +276,10 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
   const toggleSpeaker = () => {
     setIsSpeakerOn(!isSpeakerOn);
-    // Implement speaker toggle logic
+    // Implement speaker toggle logic - you might need to use AudioContext
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.muted = !isSpeakerOn;
+    }
   };
 
   const startScreenShare = async () => {
@@ -175,16 +335,16 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
   const getParticipantName = () => {
     if (call?.participants && call.participants.length > 0) {
-      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
-      return otherParticipant?.FullName || otherParticipant?.Username || 'Unknown';
+      const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
+      return otherParticipant?.fullName || otherParticipant?.username || 'Unknown';
     }
     return 'Unknown';
   };
 
   const getParticipantAvatar = () => {
     if (call?.participants && call.participants.length > 0) {
-      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
-      return otherParticipant?.ProfilePicture;
+      const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
+      return otherParticipant?.profilePicture;
     }
     return null;
   };
@@ -203,6 +363,12 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             <h2 className="text-lg font-semibold">{getParticipantName()}</h2>
             <p className="text-sm text-gray-300">
               {formatCallDuration(callDuration)}
+              <span className={`ml-2 text-xs ${
+                connectionStatus === 'connected' ? 'text-green-400' : 
+                connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                • {connectionStatus}
+              </span>
             </p>
           </div>
         </div>
@@ -225,7 +391,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
             />
             
             {/* Local Video */}
-            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden">
+            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600">
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -234,6 +400,18 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
                 className="w-full h-full object-cover"
               />
             </div>
+
+            {/* Connection Status Overlay */}
+            {connectionStatus !== 'connected' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="text-white text-center">
+                  <div className="text-lg mb-2">
+                    {connectionStatus === 'connecting' ? 'Connecting...' : 'Reconnecting...'}
+                  </div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* Audio Call - Show Avatar */
@@ -250,6 +428,12 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
               </h2>
               <p className="text-gray-300">
                 {formatCallDuration(callDuration)}
+                <span className={`ml-2 text-xs ${
+                  connectionStatus === 'connected' ? 'text-green-400' : 
+                  connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+                }`}>
+                  • {connectionStatus}
+                </span>
               </p>
             </div>
           </div>
@@ -325,7 +509,7 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
           {/* End Call Button */}
           <button
-            onClick={onEndCall}
+            onClick={handleEndCall}
             className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
             title="End call"
           >
@@ -337,4 +521,4 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
   );
 };
 
-export default CallInterface; 
+export default CallInterface;

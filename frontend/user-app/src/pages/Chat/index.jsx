@@ -18,7 +18,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { chatApi } from '../../api/chatApi';
 import { callApi } from '../../api/callApi';
-import { callService } from '../../services/callService';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/common/Avatar';
@@ -1089,13 +1088,11 @@ const sendFileMessage = async (files) => {
 
   return (
     <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden rounded-lg shadow-lg mx-2 mt-4 mb-2">
-      <div className={`fixed top-4 right-4 px-3 py-1 rounded-full text-xs font-medium z-50 ${
-      isConnected 
-        ? 'bg-green-100 text-green-800 border border-green-300' 
-        : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-        }`}>
-          {isConnected ? '🟢 Đang kết nối' : '🟡 Đang kết nối...'}
+      {!isConnected && (
+        <div className="fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          🔄 Đang kết nối...
         </div>
+      )}
 
       {/* Hidden file input */}
       <input 

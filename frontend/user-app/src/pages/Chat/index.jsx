@@ -757,72 +757,47 @@ const sendFileMessage = async (files) => {
   };
 
   // === CALL FUNCTIONS ===
-const startAudioCall = async () => {
-  if (!currentConversation) return;
-  try {
-    setIsWaitingForResponse(true);
-    
-    // LẤY RECEIVERID TỪ CONVERSATION
-    const receiverID = extractReceiverIDFromConversation(currentConversation);
-    
-    if (!receiverID) {
-      toast.error('Không thể xác định người nhận cuộc gọi');
-      return;
-    }
-
-    console.log('📞 Starting audio call to receiverID:', receiverID);
-    
-    const response = await callApi.initiateCall({
-      receiverID: receiverID,  // ĐỔI THÀNH receiverID
-      type: 'audio'
-    });
-    
-    if (response.success) {
-      setCurrentCall(response.data); 
-      setInCall(true);
-      
-      sendMessage('/call.initiate', {
-        receiverID: receiverID,  // ĐỔI THÀNH receiverID
-        type: 'audio',
-        callId: response.data.callId
-      });
-      
-      toast.info('Đang gọi...');
-    }
-  } catch (error) {
-    console.error('Audio call error:', error);
-    toast.error('Không thể gọi: ' + (error.message || 'Lỗi không xác định'));
-  } finally {
-    setIsWaitingForResponse(false);
-  }
-};
-
-  const startVideoCall = async () => {
+  const startAudioCall = async () => {
     if (!currentConversation) return;
     try {
       setIsWaitingForResponse(true);
-      
-      // LẤY RECEIVERID TỪ CONVERSATION
-      const receiverID = extractReceiverIDFromConversation(currentConversation);
-      
-      if (!receiverID) {
-        toast.error('Không thể xác định người nhận cuộc gọi');
-        return;
-      }
-
-      console.log('🎥 Starting video call to receiverID:', receiverID);
-      
       const response = await callApi.initiateCall({
-        receiverID: receiverID,  // ĐỔI THÀNH receiverID
-        type: 'video'
+        conversationID: currentConversation.conversationID,
+        type: 'audio'
       });
-      
       if (response.success) {
         setCurrentCall(response.data); 
         setInCall(true);
         
         sendMessage('/call.initiate', {
-          receiverID: receiverID,  // ĐỔI THÀNH receiverID
+          conversationID: currentConversation.conversationID,
+          type: 'audio',
+          callId: response.data.callId
+        });
+        
+        toast.info('Đang gọi...');
+      }
+    } catch (error) {
+      toast.error('Không thể gọi');
+    } finally {
+      setIsWaitingForResponse(false);
+    }
+  };
+
+  const startVideoCall = async () => {
+    if (!currentConversation) return;
+    try {
+      setIsWaitingForResponse(true);
+      const response = await callApi.initiateCall({
+        conversationID: currentConversation.conversationID,
+        type: 'video'
+      });
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true);
+        
+        sendMessage('/call.initiate', {
+          conversationID: currentConversation.conversationID,
           type: 'video',
           callId: response.data.callId
         });
@@ -830,52 +805,10 @@ const startAudioCall = async () => {
         toast.info('Đang gọi video...');
       }
     } catch (error) {
-      console.error('Video call error:', error);
-      toast.error('Không thể gọi video: ' + (error.message || 'Lỗi không xác định'));
+      toast.error('Không thể gọi video');
     } finally {
       setIsWaitingForResponse(false);
     }
-  };
-
-  // === HÀM EXTRACT RECEIVERID ===
-  const extractReceiverIDFromConversation = (conversation) => {
-    if (!conversation) return null;
-    
-    console.log('🔍 Extracting receiverID from conversation:', conversation);
-    
-    // Cách 1: Lấy từ conversationInfo.receiverID
-    if (conversation.conversationInfo?.receiverID) {
-      const receiverIDs = conversation.conversationInfo.receiverID;
-      if (Array.isArray(receiverIDs) && receiverIDs.length > 0) {
-        const receiverID = receiverIDs[0];
-        console.log('Found receiverID from conversationInfo:', receiverID);
-        return receiverID.toString();
-      }
-    }
-    
-    // Cách 2: Lấy từ participants
-    if (conversation.participants && Array.isArray(conversation.participants)) {
-      const currentUserID = user?.userID || user?.id;
-      const otherParticipant = conversation.participants.find(
-        participant => (participant.userID || participant.id) !== currentUserID
-      );
-      
-      if (otherParticipant) {
-        const receiverID = otherParticipant.userID || otherParticipant.id;
-        console.log('Found receiverID from participants:', receiverID);
-        return receiverID.toString();
-      }
-    }
-    
-    // Cách 3: Lấy từ receiverID trực tiếp
-    if (conversation.receiverID) {
-      console.log('Found receiverID directly:', conversation.receiverID);
-      return conversation.receiverID.toString();
-    }
-    
-    // Cách 4: Debug - log toàn bộ conversation để xem structure
-    console.log('Cannot find receiverID. Full conversation:', conversation);
-    return null;
   };
 
   const answerCall = async () => {

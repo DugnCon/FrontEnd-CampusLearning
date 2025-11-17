@@ -1,3 +1,4 @@
+
 // components/Chat/Chat.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -60,9 +61,6 @@ const Chat = () => {
   const [editingMessage, setEditingMessage] = useState(null);
   const [editText, setEditText] = useState('');
   const [updatingMessage, setUpdatingMessage] = useState(false);
-
-  // === STATE MỚI CHO NÚT NHẮN TIN ===
-  const [creatingConversations, setCreatingConversations] = useState({});
 
   // === REFS ===
   const messagesEndRef = useRef(null);
@@ -587,43 +585,22 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     return () => clearTimeout(timer);
   }, [userSearchTerm]);
 
-  // === START CONVERSATION (SỬA ĐỂ CHỐNG SPAM) ===
+  // === START CONVERSATION ===
   const handleStartConversation = async (selectedUser) => {
-    // Kiểm tra nếu đang tạo conversation với user này rồi thì không cho tạo tiếp
-    if (creatingConversations[selectedUser.userID]) {
-      console.log('🛑 Đang tạo conversation, vui lòng đợi...');
-      return;
-    }
-
     try {
-      // Set loading state cho user này
-      setCreatingConversations(prev => ({
-        ...prev,
-        [selectedUser.userID]: true
-      }));
-
       const response = await chatApi.createConversation({
         participants: [selectedUser.userID],
         type: 'private'
       });
-      
       if (response.success) {
         const existing = conversations.find(c => c.conversationID === response.data.conversationID);
         if (!existing) setConversations(prev => [response.data, ...prev]);
         selectConversation(response.data);
         setShowUserSearch(false); 
         setUserSearchTerm('');
-        toast.success('Đã bắt đầu cuộc trò chuyện');
       }
     } catch (error) {
-      console.error('Create conversation error:', error);
-      toast.error('Không thể tạo cuộc trò chuyện');
-    } finally {
-      // Reset loading state
-      setCreatingConversations(prev => ({
-        ...prev,
-        [selectedUser.userID]: false
-      }));
+      toast.success('Đã bắt đầu cuộc trò chuyện');
     }
   };
 
@@ -655,7 +632,8 @@ const deleteMessage = async (messageId, deleteForEveryone = false) => {
     }
   };
 
-  // === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
+  // === FILE UPLOAD HANDLERS === (FIX DOUBLE MESSAGE)
+// === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
 const sendFileMessage = async (files) => {
     if (!currentConversation || !files.length || sendingMessage) return;
 
@@ -683,12 +661,15 @@ const sendFileMessage = async (files) => {
                 continue;
             }
 
+            // 🔥 QUAN TRỌNG: KHÔNG tạo temp message nữa
+
             // Gọi API upload file
             const response = await chatApi.sendFileMessage(
                 currentConversation.conversationID,
                 file,
                 '', // caption
                 (progressEvent) => {
+                    // Có thể giữ progress nếu muốn, nhưng không liên quan đến temp message
                     const percentCompleted = Math.round(
                         (progressEvent.loaded * 100) / progressEvent.total
                     );
@@ -698,6 +679,7 @@ const sendFileMessage = async (files) => {
             
             if (response.success) {
                 toast.success(`Đã gửi file: ${file.name}`);
+                // 🔥 KHÔNG làm gì cả - đợi socket từ BE gửi message thật
             } else {
                 toast.error(`Lỗi gửi file: ${file.name}`);
             }
@@ -761,7 +743,7 @@ const sendFileMessage = async (files) => {
     try {
       setIsWaitingForResponse(true);
       const response = await callApi.initiateCall({
-        conversationID: currentConversation.conversationID,
+        conversationId: currentConversation.conversationID,
         type: 'audio'
       });
       if (response.success) {
@@ -769,7 +751,7 @@ const sendFileMessage = async (files) => {
         setInCall(true);
         
         sendMessage('/call.initiate', {
-          conversationID: currentConversation.conversationID,
+          conversationId: currentConversation.conversationID,
           type: 'audio',
           callId: response.data.callId
         });
@@ -788,7 +770,7 @@ const sendFileMessage = async (files) => {
     try {
       setIsWaitingForResponse(true);
       const response = await callApi.initiateCall({
-        conversationID: currentConversation.conversationID,
+        conversationId: currentConversation.conversationID,
         type: 'video'
       });
       if (response.success) {
@@ -796,7 +778,7 @@ const sendFileMessage = async (files) => {
         setInCall(true);
         
         sendMessage('/call.initiate', {
-          conversationID: currentConversation.conversationID,
+          conversationId: currentConversation.conversationID,
           type: 'video',
           callId: response.data.callId
         });
@@ -813,14 +795,14 @@ const sendFileMessage = async (files) => {
   const answerCall = async () => {
     if (!incomingCall) return;
     try {
-      const response = await callApi.answerCall({ callId: incomingCall.callID });
+      const response = await callApi.answerCall({ callId: incomingCall.callId });
       if (response.success) {
         setCurrentCall(response.data); 
         setInCall(true); 
         setIncomingCall(null);
         
         sendMessage('/call.answer', {
-          callId: incomingCall.callID
+          callId: incomingCall.callId
         });
       }
     } catch (error) {
@@ -831,7 +813,7 @@ const sendFileMessage = async (files) => {
   const rejectCall = async () => {
     if (!incomingCall) return;
     try {
-      await callApi.rejectCall({ callId: incomingCall.callID });
+      await callApi.rejectCall({ callId: incomingCall.callId });
       setIncomingCall(null);
     } catch (error) {
       console.error(error);
@@ -841,7 +823,7 @@ const sendFileMessage = async (files) => {
   const endCall = async () => {
     if (!currentCall) return;
     try {
-      await callApi.endCall({ callId: currentCall.callID });
+      await callApi.endCall({ callId: currentCall.callId });
       
       sendMessage('/call.end', {
         callId: currentCall.callId
@@ -1078,23 +1060,13 @@ const sendFileMessage = async (files) => {
     );
   };
 
-  // === CLOSE USER SEARCH MODAL ===
-  const closeUserSearchModal = () => {
-    setShowUserSearch(false); 
-    setUserSearchTerm(''); 
-    setSearchUsers([]);
-    setCreatingConversations({}); // Reset tất cả loading states
-  };
-
   return (
     <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden rounded-lg shadow-lg mx-2 mt-4 mb-2">
-      <div className={`fixed top-4 right-4 px-3 py-1 rounded-full text-xs font-medium z-50 ${
-      isConnected 
-        ? 'bg-green-100 text-green-800 border border-green-300' 
-        : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-    }`}>
-      {isConnected ? '🟢 Đã kết nối' : '🟡 Đang kết nối...'}
-    </div>
+      {!isConnected && (
+        <div className="fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          🔄 Đang kết nối...
+        </div>
+      )}
 
       {/* Hidden file input */}
       <input 
@@ -1437,14 +1409,14 @@ const sendFileMessage = async (files) => {
         </div>
       )}
 
-      {/* User Search Modal (ĐÃ SỬA - CÓ NÚT NHẮN TIN RIÊNG) */}
+      {/* User Search Modal */}
       {showUserSearch && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-4 w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Tìm người dùng</h3>
+              <h3 className="text-lg font-semibold">Bắt đầu cuộc trò chuyện</h3>
               <button 
-                onClick={closeUserSearchModal}
+                onClick={() => { setShowUserSearch(false); setUserSearchTerm(''); setSearchUsers([]); }} 
                 className="text-gray-500 hover:text-gray-700 p-1"
               >
                 <XMarkIcon className="w-5 h-5" />
@@ -1463,47 +1435,19 @@ const sendFileMessage = async (files) => {
               ) : searchUsers.length === 0 && userSearchTerm ? (
                 <div className="text-center py-4 text-gray-500">Không tìm thấy</div>
               ) : (
-                searchUsers.map(user => {
-                  const isCreating = creatingConversations[user.userID];
-                  return (
-                    <div 
-                      key={user.userID} 
-                      className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg"
-                    >
-                      {/* Phần thông tin user - KHÔNG click được nữa */}
-                      <div className="flex items-center space-x-3 flex-1">
-                        <Avatar src={user.avatar} alt={user.fullName} size="medium" />
-                        <div>
-                          <p className="font-medium text-gray-900">{user.fullName}</p>
-                          <p className="text-sm text-gray-500">@{user.username}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Nút nhắn tin - CHỈ bấm vào đây mới tạo conversation */}
-                      <button
-                        onClick={() => handleStartConversation(user)}
-                        disabled={isCreating}
-                        className={`ml-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
-                          isCreating 
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {isCreating ? (
-                          <>
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                            <span>Đang tạo...</span>
-                          </>
-                        ) : (
-                          <>
-                            <PaperAirplaneIcon className="w-3 h-3 transform rotate-45" />
-                            <span>Nhắn tin</span>
-                          </>
-                        )}
-                      </button>
+                searchUsers.map(user => (
+                  <div 
+                    key={user.userID} 
+                    onClick={() => handleStartConversation(user)} 
+                    className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                  >
+                    <Avatar src={user.avatar} alt={user.fullName} size="medium" />
+                    <div>
+                      <p className="font-medium text-gray-900">{user.fullName}</p>
+                      <p className="text-sm text-gray-500">@{user.username}</p>
                     </div>
-                  );
-                })
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -1575,7 +1519,7 @@ const sendFileMessage = async (files) => {
         </div>
       )}
 
-      {/* Call interface OK*/}
+      {/* Call Interface */}
       {inCall && currentCall && (
         <CallInterface call={currentCall} onEndCall={endCall} isVideoCall={currentCall.type === 'video'} />
       )}

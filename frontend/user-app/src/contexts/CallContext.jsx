@@ -27,7 +27,6 @@ export const CallProvider = ({ children }) => {
   const callTimerRef = useRef();
   const subscriptionsRef = useRef([]);
 
-  // STOMP send helper
   const sendViaStomp = (destination, body) => {
     if (stompClient && isConnected) {
       console.log('🟢 Sending via STOMP:', destination, body);
@@ -39,7 +38,6 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // Check for active call on load
   useEffect(() => {
     const checkActiveCall = async () => {
       try {

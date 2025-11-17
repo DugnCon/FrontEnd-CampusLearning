@@ -771,7 +771,7 @@ const sendFileMessage = async (files) => {
         sendMessage('/call.initiate', {
           conversationID: currentConversation.conversationID,
           type: 'audio',
-          callId: response.data.callId
+          callID: response.data.callID
         });
         
         toast.info('Đang gọi...');
@@ -798,7 +798,7 @@ const sendFileMessage = async (files) => {
         sendMessage('/call.initiate', {
           conversationID: currentConversation.conversationID,
           type: 'video',
-          callId: response.data.callId
+          callID: response.data.callID
         });
         
         toast.info('Đang gọi video...');
@@ -813,14 +813,14 @@ const sendFileMessage = async (files) => {
   const answerCall = async () => {
     if (!incomingCall) return;
     try {
-      const response = await callApi.answerCall({ callId: incomingCall.callID });
+      const response = await callApi.answerCall({ callID: incomingCall.callID });
       if (response.success) {
         setCurrentCall(response.data); 
         setInCall(true); 
         setIncomingCall(null);
         
         sendMessage('/call.answer', {
-          callId: incomingCall.callID
+          callID: incomingCall.callID
         });
       }
     } catch (error) {
@@ -831,7 +831,7 @@ const sendFileMessage = async (files) => {
   const rejectCall = async () => {
     if (!incomingCall) return;
     try {
-      await callApi.rejectCall({ callId: incomingCall.callID });
+      await callApi.rejectCall({ callID: incomingCall.callID });
       setIncomingCall(null);
     } catch (error) {
       console.error(error);
@@ -841,10 +841,10 @@ const sendFileMessage = async (files) => {
   const endCall = async () => {
     if (!currentCall) return;
     try {
-      await callApi.endCall({ callId: currentCall.callID });
+      await callApi.endCall({ callID: currentCall.callID });
       
       sendMessage('/call.end', {
-        callId: currentCall.callId
+        callID: currentCall.callID
       });
       
       setInCall(false); 

@@ -844,7 +844,7 @@ const sendFileMessage = async (files) => {
       await callApi.endCall({ callId: currentCall.callID });
       
       sendMessage('/call.end', {
-        callId: currentCall.callId
+        callId: currentCall.callID
       });
       
       setInCall(false); 

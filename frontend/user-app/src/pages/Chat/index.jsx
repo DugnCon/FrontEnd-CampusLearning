@@ -17,10 +17,10 @@ import {
   PencilIcon
 } from '@heroicons/react/24/outline';
 import { chatApi } from '../../api/chatApi';
-import { callApi } from '../../api/callApi'; // VẪN GIỮ ĐỂ CALLCONTEXT DÙNG
+import { callApi } from '../../api/callApi';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCall } from '../../contexts/CallContext'; // ⬅️ THÊM CALL CONTEXT
+import { useCall } from '../../contexts/CallContext'; 
 import Avatar from '../../components/common/Avatar';
 import CallInterface from '../../components/Call/CallInterface';
 import { API_URL } from '../../config';

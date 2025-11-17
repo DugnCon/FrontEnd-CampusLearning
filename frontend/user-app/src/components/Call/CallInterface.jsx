@@ -10,10 +10,16 @@ import {
   MicrophoneIcon,
   VideoCameraIcon,
   SpeakerWaveIcon,
-  ComputerDesktopIcon,
-  MicrophoneSlashIcon,
-  VideoCameraSlashIcon
+  ComputerDesktopIcon
 } from '@heroicons/react/24/outline';
+
+// Import từ solid (có sẵn icon tắt mic/cam)
+import { 
+  MicrophoneIcon as MicrophoneSlashIconSolid,
+  VideoCameraIcon as VideoCameraSlashIconSolid,
+  XCircleIcon
+} from '@heroicons/react/24/solid';
+
 import Avatar from '../common/Avatar';
 
 const CallInterface = () => {

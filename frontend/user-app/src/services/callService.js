@@ -82,10 +82,10 @@ const callService = {
    * @param {string} type - Type of call ('audio' or 'video')
    * @returns {Promise} - Promise with call data
    */
-  initiateCall: async (receiverId, type = 'video') => {
+  initiateCall: async (conversationID, type = 'video') => {
     try {
       const response = await api.post('/calls/initiate', {
-        receiverId,
+        conversationID,
         type
       });
       

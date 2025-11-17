@@ -1,9 +1,12 @@
 /*-----------------------------------------------------------------
-* File: CallInterface.jsx - ĐÃ FIX HOÀN CHỈNH 2025
-* Author: Quyen Nguyen Duc + Bro fix sạch 100% bug
-* Description: Giao diện gọi video/voice - Cam hiện, timer đúng, screen share ngon
+* File: CallInterface.jsx
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: Call interface component for voice and video calls
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+// Context
 import { useCall } from '../../contexts/CallContext';
 import { 
   PhoneXMarkIcon,
@@ -12,163 +15,321 @@ import {
   SpeakerWaveIcon,
   ComputerDesktopIcon
 } from '@heroicons/react/24/outline';
-
-// Import từ solid (có sẵn icon tắt mic/cam)
-import { 
-  MicrophoneIcon as MicrophoneSlashIconSolid,
-  VideoCameraIcon as VideoCameraSlashIconSolid,
-  XCircleIcon
+import {
+  MicrophoneIcon as MicrophoneIconSolid,
+  VideoCameraIcon as VideoCameraIconSolid
 } from '@heroicons/react/24/solid';
-
 import Avatar from '../common/Avatar';
 
-const CallInterface = () => {
+const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall = false }) => {
+  // Grab data from context – will be undefined if not within provider
   const {
-    call,
-    callType,
+    call: contextCall,
+    endCall: contextEndCall,
     callStatus,
-    callDuration,
-    localStream,
-    remoteStream,
-    localVideoRef,
-    remoteVideoRef,
-    isAudioEnabled,
-    isVideoEnabled,
-    toggleAudio,
-    toggleVideo,
-    endCall,
-    startScreenShare,
-    formatCallDuration = (s) => {
-      const m = String(Math.floor(s / 60)).padStart(2, '0');
-      const sec = String(s % 60).padStart(2, '0');
-      return `${m}:${sec}`;
+  } = useCall() || {};
+
+  // Determine active sources (prop takes precedence so we can still use component standalone in other places)
+  const call = propCall || contextCall;
+  const onEndCall = propOnEndCall || contextEndCall;
+
+  // If there is no call information available, do not render anything
+  if (!call) {
+    return null;
+  }
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(isVideoCall);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+
+  // Timer for call duration
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCallDuration(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Initialize media stream
+  useEffect(() => {
+    initializeMedia();
+    return () => {
+      cleanupMedia();
+    };
+  }, [isVideoCall]);
+
+  const initializeMedia = async () => {
+    try {
+      const constraints = {
+        audio: true,
+        video: isVideoCall
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current && isVideoCall) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      // Initialize WebRTC peer connection here
+      // This is a simplified version - you'd need to implement full WebRTC signaling
+      
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
     }
-  } = useCall();
+  };
 
-  // Nếu không có cuộc gọi → không render gì
-  if (!call || !callStatus) return null;
+  const cleanupMedia = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+    }
+  };
 
-  const isVideoCall = callType === 'video';
-  const isOngoing = callStatus === 'ongoing';
+  const toggleMute = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
+    }
+  };
 
-  // Lấy tên + avatar người kia
-  const participant = call.participants?.find(p => p.UserID !== call.initiatorId) || {};
-  const name = participant.FullName || participant.Username || call.receiverName || 'Unknown';
-  const avatar = participant.ProfilePicture || call.receiverAvatar;
+  const toggleVideo = () => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+      }
+    }
+  };
+
+  const toggleSpeaker = () => {
+    setIsSpeakerOn(!isSpeakerOn);
+    // Implement speaker toggle logic
+  };
+
+  const startScreenShare = async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      });
+      
+      // Replace video track with screen share
+      if (peerConnectionRef.current) {
+        const videoTrack = screenStream.getVideoTracks()[0];
+        const sender = peerConnectionRef.current.getSenders().find(s => 
+          s.track && s.track.kind === 'video'
+        );
+        
+        if (sender) {
+          await sender.replaceTrack(videoTrack);
+        }
+      }
+
+      setIsScreenSharing(true);
+
+      // Handle screen share end
+      screenStream.getVideoTracks()[0].onended = () => {
+        setIsScreenSharing(false);
+        // Switch back to camera
+        if (localStreamRef.current) {
+          const cameraTrack = localStreamRef.current.getVideoTracks()[0];
+          const sender = peerConnectionRef.current.getSenders().find(s => 
+            s.track && s.track.kind === 'video'
+          );
+          if (sender && cameraTrack) {
+            sender.replaceTrack(cameraTrack);
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error starting screen share:', error);
+    }
+  };
+
+  const formatCallDuration = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hrs > 0) {
+      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getParticipantName = () => {
+    if (call?.participants && call.participants.length > 0) {
+      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
+      return otherParticipant?.FullName || otherParticipant?.Username || 'Unknown';
+    }
+    return 'Unknown';
+  };
+
+  const getParticipantAvatar = () => {
+    if (call?.participants && call.participants.length > 0) {
+      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
+      return otherParticipant?.ProfilePicture;
+    }
+    return null;
+  };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col text-white">
-      {/* Header */}
-      <div className="bg-black/60 backdrop-blur-sm p-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <Avatar src={avatar} alt={name} size="md" />
+    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+      {/* Call Header */}
+      <div className="bg-black bg-opacity-50 text-white p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <Avatar
+            src={getParticipantAvatar()}
+            alt={getParticipantName()}
+            size="md"
+          />
           <div>
-            <h2 className="font-semibold text-lg">{name}</h2>
-            <p className="text-sm opacity-90">
+            <h2 className="text-lg font-semibold">{getParticipantName()}</h2>
+            <p className="text-sm text-gray-300">
               {formatCallDuration(callDuration)}
-              {isOngoing && " • Đang kết nối"}
             </p>
           </div>
         </div>
-        <div className="text-sm opacity-80">
+        
+        <div className="text-sm text-gray-300">
           {isVideoCall ? 'Video Call' : 'Voice Call'}
         </div>
       </div>
 
       {/* Video Area */}
-      <div className="flex-1 relative bg-black">
+      <div className="flex-1 relative">
         {isVideoCall ? (
           <>
-            {/* Remote Video - FULL MÀN HÌNH */}
+            {/* Remote Video */}
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              muted={false}
               className="w-full h-full object-cover"
-              style={{ background: '#000' }}
             />
-
-            {/* Local Video - Góc nhỏ */}
-            <div className="absolute top-4 right-4 w-40 h-32 sm:w-48 sm:h-36 rounded-xl overflow-hidden border-4 border-white/20 shadow-2xl">
+            
+            {/* Local Video */}
+            <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden">
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover scale-x-[-1]" // Lật cam trước
+                className="w-full h-full object-cover"
               />
-              {!isVideoEnabled && (
-                <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-                  <VideoCameraSlashIcon className="w-12 h-12 text-gray-400" />
-                </div>
-              )}
             </div>
           </>
         ) : (
-          /* Audio Call - Avatar lớn giữa màn hình */
-          <div className="h-full flex items-center justify-center">
+          /* Audio Call - Show Avatar */
+          <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Avatar src={avatar} alt={name} size="3xl" className="mb-6" />
-              <h2 className="text-3xl font-bold mb-2">{name}</h2>
-              <p className="text-2xl opacity-80">{formatCallDuration(callDuration)}</p>
+              <Avatar
+                src={getParticipantAvatar()}
+                alt={getParticipantName()}
+                size="2xl"
+                className="mx-auto mb-4"
+              />
+              <h2 className="text-2xl font-semibold text-white mb-2">
+                {getParticipantName()}
+              </h2>
+              <p className="text-gray-300">
+                {formatCallDuration(callDuration)}
+              </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Control Bar */}
-      <div className="bg-gradient-to-t from-black/90 to-transparent p-6">
-        <div className="flex justify-center items-center gap-6">
-          {/* Mic */}
+      {/* Call Controls */}
+      <div className="bg-black bg-opacity-75 p-6">
+        <div className="flex items-center justify-center space-x-6">
+          {/* Mute Button */}
           <button
-            onClick={toggleAudio}
-            className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-              !isAudioEnabled ? 'bg-red-600' : 'bg-gray-700'
+            onClick={toggleMute}
+            className={`p-4 rounded-full transition-colors ${
+              isMuted 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-gray-700 hover:bg-gray-600'
             }`}
+            title={isMuted ? 'Unmute' : 'Mute'}
           >
-            {!isAudioEnabled ? (
-              <MicrophoneSlashIcon className="w-7 h-7" />
+            {isMuted ? (
+              <MicrophoneIconSolid className="w-6 h-6 text-white" />
             ) : (
-              <MicrophoneIcon className="w-7 h-7" />
+              <MicrophoneIcon className="w-6 h-6 text-white" />
             )}
           </button>
 
-          {/* Camera (chỉ video call) */}
+          {/* Video Button (only for video calls) */}
           {isVideoCall && (
             <button
               onClick={toggleVideo}
-              className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-                !isVideoEnabled ? 'bg-red-600' : 'bg-gray-700'
+              className={`p-4 rounded-full transition-colors ${
+                !isVideoEnabled 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-gray-700 hover:bg-gray-600'
               }`}
+              title={isVideoEnabled ? 'Turn off video' : 'Turn on video'}
             >
-              {!isVideoEnabled ? (
-                <VideoCameraSlashIcon className="w-7 h-7" />
+              {isVideoEnabled ? (
+                <VideoCameraIcon className="w-6 h-6 text-white" />
               ) : (
-                <VideoCameraIcon className="w-7 h-7" />
+                <VideoCameraIconSolid className="w-6 h-6 text-white" />
               )}
             </button>
           )}
 
-          {/* Screen Share (chỉ video call) */}
+          {/* Screen Share Button (only for video calls) */}
           {isVideoCall && (
             <button
               onClick={startScreenShare}
-              className="p-5 rounded-full bg-gray-700 hover:bg-gray-600 transition-all transform hover:scale-110"
+              className={`p-4 rounded-full transition-colors ${
+                isScreenSharing 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
             >
-              <ComputerDesktopIcon className="w-7 h-7" />
+              <ComputerDesktopIcon className="w-6 h-6 text-white" />
             </button>
           )}
 
-          {/* Loa (tạm ẩn nếu chưa hỗ trợ) */}
-          {/* <button>...</button> */}
-
-          {/* Cúp máy */}
+          {/* Speaker Button */}
           <button
-            onClick={endCall}
-            className="p-6 bg-red-600 hover:bg-red-700 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            onClick={toggleSpeaker}
+            className={`p-4 rounded-full transition-colors ${
+              isSpeakerOn 
+                ? 'bg-blue-600 hover:bg-blue-700' 
+                : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            title={isSpeakerOn ? 'Turn off speaker' : 'Turn on speaker'}
           >
-            <PhoneXMarkIcon className="w-8 h-8" />
+            <SpeakerWaveIcon className="w-6 h-6 text-white" />
+          </button>
+
+          {/* End Call Button */}
+          <button
+            onClick={onEndCall}
+            className="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-colors"
+            title="End call"
+          >
+            <PhoneXMarkIcon className="w-6 h-6 text-white" />
           </button>
         </div>
       </div>
@@ -176,4 +337,4 @@ const CallInterface = () => {
   );
 };
 
-export default CallInterface;
+export default CallInterface; 

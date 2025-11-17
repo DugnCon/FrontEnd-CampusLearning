@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CallContext.jsx (STOMP Version - PascalCase)
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Call context using STOMP protocol with PascalCase fields
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
 import { useSocket } from './SocketContext';
 import callService from '../services/callService';

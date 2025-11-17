@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CallHistory.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useEffect, useState } from 'react';
 import { useCall } from '../../contexts/CallContext';
 import { FaPhone, FaPhoneSlash, FaVideo } from 'react-icons/fa';
@@ -74,12 +68,12 @@ const CallHistory = () => {
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
       {callHistory.map((call) => (
-        <div key={call.CallID} className="p-4 flex justify-between items-center">
+        <div key={call.callID} className="p-4 flex justify-between items-center">
           <div className="flex items-center">
             <div className="mr-3">
               {call.Type === 'video' ? 
                 <FaVideo className="text-blue-500" /> : 
-                getStatusIcon(call.Status)
+                getStatusIcon(call.status)
               }
             </div>
             

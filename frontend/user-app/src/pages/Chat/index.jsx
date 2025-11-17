@@ -1,4 +1,3 @@
-
 // components/Chat/Chat.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -757,105 +756,59 @@ const sendFileMessage = async (files) => {
   };
 
   // === CALL FUNCTIONS ===
-const startAudioCall = async () => {
-  if (!currentConversation) return;
-  try {
-    setIsWaitingForResponse(true);
-    
-    // LẤY RECEIVERID TỪ CONVERSATIONINFO (từ getMessages response)
-    const receiverID = extractReceiverIDFromConversationInfo();
-    
-    if (!receiverID) {
-      toast.error('Không thể xác định người nhận cuộc gọi');
-      return;
-    }
-
-    console.log('📞 Starting audio call to receiverID:', receiverID);
-    
-    const response = await callApi.initiateCall({
-      receiverID: receiverID,  // GỬI RECEIVERID
-      type: 'audio'
-    });
-    
-    if (response.success) {
-      setCurrentCall(response.data); 
-      setInCall(true);
-      
-      sendMessage('/call.initiate', {
-        receiverID: receiverID,  // GỬI RECEIVERID
-        type: 'audio',
-        callId: response.data.callId
+  const startAudioCall = async () => {
+    if (!currentConversation) return;
+    try {
+      setIsWaitingForResponse(true);
+      const response = await callApi.initiateCall({
+        conversationID: currentConversation.conversationID,
+        type: 'audio'
       });
-      
-      toast.info('Đang gọi...');
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true);
+        
+        sendMessage('/call.initiate', {
+          conversationID: currentConversation.conversationID,
+          type: 'audio',
+          callId: response.data.callId
+        });
+        
+        toast.info('Đang gọi...');
+      }
+    } catch (error) {
+      toast.error('Không thể gọi');
+    } finally {
+      setIsWaitingForResponse(false);
     }
-  } catch (error) {
-    toast.error('Không thể gọi');
-  } finally {
-    setIsWaitingForResponse(false);
-  }
-};
+  };
 
-const startVideoCall = async () => {
-  if (!currentConversation) return;
-  try {
-    setIsWaitingForResponse(true);
-    
-    // LẤY RECEIVERID TỪ CONVERSATIONINFO (từ getMessages response)
-    const receiverID = extractReceiverIDFromConversationInfo();
-    
-    if (!receiverID) {
-      toast.error('Không thể xác định người nhận cuộc gọi');
-      return;
-    }
-
-    console.log('🎥 Starting video call to receiverID:', receiverID);
-    
-    const response = await callApi.initiateCall({
-      receiverID: receiverID,  // GỬI RECEIVERID
-      type: 'video'
-    });
-    
-    if (response.success) {
-      setCurrentCall(response.data); 
-      setInCall(true);
-      
-      sendMessage('/call.initiate', {
-        receiverID: receiverID,  // GỬI RECEIVERID
-        type: 'video',
-        callId: response.data.callId
+  const startVideoCall = async () => {
+    if (!currentConversation) return;
+    try {
+      setIsWaitingForResponse(true);
+      const response = await callApi.initiateCall({
+        conversationID: currentConversation.conversationID,
+        type: 'video'
       });
-      
-      toast.info('Đang gọi video...');
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true);
+        
+        sendMessage('/call.initiate', {
+          conversationID: currentConversation.conversationID,
+          type: 'video',
+          callId: response.data.callId
+        });
+        
+        toast.info('Đang gọi video...');
+      }
+    } catch (error) {
+      toast.error('Không thể gọi video');
+    } finally {
+      setIsWaitingForResponse(false);
     }
-  } catch (error) {
-    toast.error('Không thể gọi video');
-  } finally {
-    setIsWaitingForResponse(false);
-  }
-};
-
-// === HÀM LẤY RECEIVERID TỪ CONVERSATIONINFO ===
-const extractReceiverIDFromConversationInfo = () => {
-  // CÁCH 1: Lấy từ conversationInfo trong messages response
-  if (currentConversation?.conversationInfo?.receiverID) {
-    const receiverIDs = currentConversation.conversationInfo.receiverID;
-    if (Array.isArray(receiverIDs) && receiverIDs.length > 0) {
-      const receiverID = receiverIDs[0];
-      console.log('✅ Found receiverID from conversationInfo:', receiverID);
-      return receiverID.toString();
-    }
-  }
-  
-  // CÁCH 2: Debug - log để xem structure
-  console.log('🔍 Current conversation structure:', {
-    conversationID: currentConversation?.conversationID,
-    conversationInfo: currentConversation?.conversationInfo,
-    participants: currentConversation?.participants
-  });
-  
-  return null;
-};
+  };
 
   const answerCall = async () => {
     if (!incomingCall) return;

@@ -1091,9 +1091,13 @@ const sendFileMessage = async (files) => {
     <div className="flex h-screen max-h-screen bg-gray-50 overflow-hidden rounded-lg shadow-lg mx-2 mt-4 mb-2">
       {!isConnected && (
         <div className="fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          🔄 Đang kết nối...
+          Đang kết nối
         </div>
-      )}
+      )} : {
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          Đã kết nối
+        </div>
+      }
 
       {/* Hidden file input */}
       <input 

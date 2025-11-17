@@ -20,7 +20,6 @@ import { chatApi } from '../../api/chatApi';
 import { callApi } from '../../api/callApi';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCall } from '../../contexts/CallContext'; 
 import Avatar from '../../components/common/Avatar';
 import CallInterface from '../../components/Call/CallInterface';
 import { API_URL } from '../../config';
@@ -42,6 +41,10 @@ const Chat = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [inCall, setInCall] = useState(false);
+  const [currentCall, setCurrentCall] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [typingUsers, setTypingUsers] = useState({});
   const [isTyping, setIsTyping] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
@@ -75,25 +78,6 @@ const Chat = () => {
   const { isConnected, subscribe, unsubscribe, sendMessage } = useSocket();
   const { user } = useAuth();
 
-  // === CALL CONTEXT - THAY THẾ STATE CALL CŨ ===
-  const {
-    // State
-    call,
-    callStatus, 
-    callType,
-    isReceivingCall,
-    isMakingCall,
-    callDuration,
-    
-    // Methods
-    initiateCall,
-    answerCall,
-    endCall,
-    rejectCall,
-    toggleAudio,
-    toggleVideo
-  } = useCall();
-
   // === AUTO SCROLL ===
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,7 +88,7 @@ const Chat = () => {
   }, [messages]);
 
   // Thêm debug chi tiết
-  useEffect(() => {
+useEffect(() => {
     console.log('🔄 MESSAGES STATE ANALYSIS:');
     
     // Phân tích state
@@ -136,12 +120,12 @@ const Chat = () => {
             }
         });
     }
-  }, [messages]);
+}, [messages]);
 
-  // Hàm tìm duplicate
-  const findDuplicates = (arr) => {
+// Hàm tìm duplicate
+const findDuplicates = (arr) => {
     return arr.filter((item, index) => arr.indexOf(item) !== index);
-  };
+};
 
   // === LOAD ON MOUNT ===
   useEffect(() => {
@@ -197,8 +181,8 @@ const Chat = () => {
     };
   }, [isConnected, currentConversation, subscribe, unsubscribe, sendMessage]);
 
-  // === HANDLE REAL-TIME MESSAGES ===
-  const handleRealTimeMessage = useCallback((data) => {
+// === HANDLE REAL-TIME MESSAGES === (SỬA - ĐƠN GIẢN)
+const handleRealTimeMessage = useCallback((data) => {
     console.log('📨 Received real message:', data);
 
     if (data.type !== 'NEW_MESSAGE') return;
@@ -209,6 +193,7 @@ const Chat = () => {
     if (!messageId) return;
 
     setMessages(prev => {
+        // CHỈ chống trùng đơn giản
         const alreadyExists = prev.some(msg => msg.messageID === messageId);
         if (alreadyExists) {
             console.log('⏩ Message already exists, skipping:', messageId);
@@ -237,8 +222,7 @@ const Chat = () => {
             )
         );
     }
-  }, [currentConversation]);
-
+}, [currentConversation]);
   // === HANDLE MESSAGE UPDATED ===
   const handleMessageUpdated = useCallback((data) => {
     const { messageId, content, isEdited, editedAt } = data;
@@ -342,11 +326,11 @@ const Chat = () => {
     
     if (isMobileView) setShowConversations(false);
     setShowDeleteMenu(false);
-    cancelEditMessage();
+    cancelEditMessage(); // Hủy edit khi chuyển conversation
   };
 
   // === SEND MESSAGE ===
-  const sendMessageHandler = async () => {
+const sendMessageHandler = async () => {
     if (!newMessage.trim() || !currentConversation || sendingMessage) return;
 
     const text = newMessage.trim();
@@ -358,20 +342,23 @@ const Chat = () => {
             conversationId: currentConversation.conversationID,
             content: text,
             type: 'text'
+            // KHÔNG gửi tempMessageId nữa
         });
 
         if (!response.success) {
             toast.error('Gửi tin nhắn thất bại');
         }
+        // Thành công thì đợi socket từ BE gửi real message
     } catch (error) {
         toast.error('Lỗi kết nối');
     } finally {
         setSendingMessage(false);
     }
-  };
+};
 
-  // === DELETE MESSAGE ===
-  const deleteMessage = async (messageId, deleteForEveryone = false) => {
+
+  // === DELETE MESSAGE === (SỬA)
+const deleteMessage = async (messageId, deleteForEveryone = false) => {
     if (deletingMessage || !messageId) return;
     
     setDeletingMessage(true);
@@ -379,6 +366,7 @@ const Chat = () => {
     try {
         console.log('🗑️ Deleting message:', { messageId, deleteForEveryone });
         
+        // CẬP NHẬT UI NGAY LẬP TỨC
         setMessages(prev => 
             prev.map(msg =>
                 msg.messageID === messageId
@@ -387,11 +375,13 @@ const Chat = () => {
             )
         );
         
+        // Gọi API - CHỈ truyền messageId thôi
         const response = await chatApi.deleteMessage(messageId);
         
         if (response.success) {
             console.log('✅ Message deleted successfully');
             
+            // Gửi socket event để thông báo cho người khác
             if (isConnected && deleteForEveryone) {
                 sendMessage('/chat.deleteMessage', {
                     messageId: messageId,
@@ -402,6 +392,7 @@ const Chat = () => {
             
             toast.success(deleteForEveryone ? 'Đã xóa cho mọi người' : 'Đã xóa cho bạn');
         } else {
+            // Nếu API fail, revert UI
             setMessages(prev => 
                 prev.map(msg =>
                     msg.messageID === messageId
@@ -414,6 +405,7 @@ const Chat = () => {
     } catch (error) {
         console.error('❌ Delete message error:', error);
         
+        // Revert UI khi có lỗi
         setMessages(prev => 
             prev.map(msg =>
                 msg.messageID === messageId
@@ -428,7 +420,7 @@ const Chat = () => {
         setShowDeleteMenu(false);
         setLongPressedMessage(null);
     }
-  };
+};
 
   // === EDIT MESSAGE ===
   const startEditMessage = (message) => {
@@ -441,6 +433,7 @@ const Chat = () => {
     setEditText(message.Content || message.content || '');
     setShowDeleteMenu(false);
     
+    // Focus vào input edit sau khi render
     setTimeout(() => {
       editInputRef.current?.focus();
       editInputRef.current?.select();
@@ -464,6 +457,7 @@ const Chat = () => {
     try {
       setUpdatingMessage(true);
       
+      // Cập nhật UI ngay lập tức
       setMessages(prev => 
         prev.map(msg =>
           msg.messageID === editingMessage.messageID
@@ -477,6 +471,7 @@ const Chat = () => {
         )
       );
 
+      // Gọi API update
       const response = await chatApi.updateMessage(editingMessage.messageID, {
         content: editText.trim()
       });
@@ -484,6 +479,7 @@ const Chat = () => {
       if (response.success) {
         toast.success('Đã cập nhật tin nhắn');
         
+        // Gửi socket event để thông báo cho người khác
         if (isConnected) {
           sendMessage('/chat.updateMessage', {
             messageId: editingMessage.messageID,
@@ -494,6 +490,7 @@ const Chat = () => {
           });
         }
       } else {
+        // Revert UI nếu API fail
         setMessages(prev => 
           prev.map(msg =>
             msg.messageID === editingMessage.messageID
@@ -511,6 +508,7 @@ const Chat = () => {
     } catch (error) {
       console.error('Edit message error:', error);
       
+      // Revert UI khi có lỗi
       setMessages(prev => 
         prev.map(msg =>
           msg.messageID === editingMessage.messageID
@@ -589,14 +587,16 @@ const Chat = () => {
     return () => clearTimeout(timer);
   }, [userSearchTerm]);
 
-  // === START CONVERSATION ===
+  // === START CONVERSATION (SỬA ĐỂ CHỐNG SPAM) ===
   const handleStartConversation = async (selectedUser) => {
+    // Kiểm tra nếu đang tạo conversation với user này rồi thì không cho tạo tiếp
     if (creatingConversations[selectedUser.userID]) {
       console.log('🛑 Đang tạo conversation, vui lòng đợi...');
       return;
     }
 
     try {
+      // Set loading state cho user này
       setCreatingConversations(prev => ({
         ...prev,
         [selectedUser.userID]: true
@@ -619,6 +619,7 @@ const Chat = () => {
       console.error('Create conversation error:', error);
       toast.error('Không thể tạo cuộc trò chuyện');
     } finally {
+      // Reset loading state
       setCreatingConversations(prev => ({
         ...prev,
         [selectedUser.userID]: false
@@ -654,19 +655,21 @@ const Chat = () => {
     }
   };
 
-  // === FILE UPLOAD HANDLERS ===
-  const sendFileMessage = async (files) => {
+  // === FILE UPLOAD HANDLERS === (ĐƠN GIẢN - KHÔNG TEMP MESSAGE)
+const sendFileMessage = async (files) => {
     if (!currentConversation || !files.length || sendingMessage) return;
 
     try {
         setSendingMessage(true);
         
         for (const file of files) {
+            // Validate file size (max 10MB)
             if (file.size > 10 * 1024 * 1024) {
                 toast.error(`File ${file.name} vượt quá 10MB`);
                 continue;
             }
 
+            // Validate file type
             const allowedTypes = [
                 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
                 'video/mp4', 'video/avi', 'video/mov', 'video/webm',
@@ -680,10 +683,11 @@ const Chat = () => {
                 continue;
             }
 
+            // Gọi API upload file
             const response = await chatApi.sendFileMessage(
                 currentConversation.conversationID,
                 file,
-                '',
+                '', // caption
                 (progressEvent) => {
                     const percentCompleted = Math.round(
                         (progressEvent.loaded * 100) / progressEvent.total
@@ -707,7 +711,7 @@ const Chat = () => {
         setShowFilePreview(false);
         setUploadProgress({});
     }
-  };
+};
 
   // Xử lý khi chọn file từ input
   const handleFileSelect = (e) => {
@@ -716,7 +720,7 @@ const Chat = () => {
       setSelectedFiles(files);
       setShowFilePreview(true);
     }
-    e.target.value = '';
+    e.target.value = ''; // Reset input
   };
 
   // Xử lý drag & drop
@@ -751,41 +755,104 @@ const Chat = () => {
     setShowFilePreview(false);
   };
 
-  // === CALL FUNCTIONS - SỬ DỤNG CALLCONTEXT ===
+  // === CALL FUNCTIONS ===
   const startAudioCall = async () => {
     if (!currentConversation) return;
     try {
-      await initiateCall(currentConversation.conversationID, 'audio');
-      toast.info('Đang gọi...');
+      setIsWaitingForResponse(true);
+      const response = await callApi.initiateCall({
+        conversationID: currentConversation.conversationID,
+        type: 'audio'
+      });
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true);
+        
+        sendMessage('/call.initiate', {
+          conversationID: currentConversation.conversationID,
+          type: 'audio',
+          callId: response.data.callId
+        });
+        
+        toast.info('Đang gọi...');
+      }
     } catch (error) {
-      toast.error('Không thể gọi: ' + (error.message || 'Lỗi không xác định'));
+      toast.error('Không thể gọi');
+    } finally {
+      setIsWaitingForResponse(false);
     }
   };
 
   const startVideoCall = async () => {
     if (!currentConversation) return;
     try {
-      await initiateCall(currentConversation.conversationID, 'video');
-      toast.info('Đang gọi video...');
+      setIsWaitingForResponse(true);
+      const response = await callApi.initiateCall({
+        conversationID: currentConversation.conversationID,
+        type: 'video'
+      });
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true);
+        
+        sendMessage('/call.initiate', {
+          conversationID: currentConversation.conversationID,
+          type: 'video',
+          callId: response.data.callId
+        });
+        
+        toast.info('Đang gọi video...');
+      }
     } catch (error) {
-      toast.error('Không thể gọi video: ' + (error.message || 'Lỗi không xác định'));
+      toast.error('Không thể gọi video');
+    } finally {
+      setIsWaitingForResponse(false);
     }
   };
 
-  // === FORMAT DATA CHO CALL INTERFACE ===
-  const getCallData = () => {
-    if (!call) return null;
-    
-    // Format data để tương thích với CallInterface
-    return {
-      ...call,
-      participants: currentConversation?.participants || [],
-      initiatorId: call.initiatorId || call.initiatorID,
-      receiverId: call.receiverId || call.receiverID,
-      // Giữ nguyên structure cũ
-      callID: call.callId || call.callID,
-      Type: callType || call.type
-    };
+  const answerCall = async () => {
+    if (!incomingCall) return;
+    try {
+      const response = await callApi.answerCall({ callId: incomingCall.callID });
+      if (response.success) {
+        setCurrentCall(response.data); 
+        setInCall(true); 
+        setIncomingCall(null);
+        
+        sendMessage('/call.answer', {
+          callId: incomingCall.callID
+        });
+      }
+    } catch (error) {
+      toast.error('Không thể trả lời');
+    }
+  };
+
+  const rejectCall = async () => {
+    if (!incomingCall) return;
+    try {
+      await callApi.rejectCall({ callId: incomingCall.callID });
+      setIncomingCall(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const endCall = async () => {
+    if (!currentCall) return;
+    try {
+      await callApi.endCall({ callId: currentCall.callID });
+      
+      sendMessage('/call.end', {
+        callId: currentCall.callId
+      });
+      
+      setInCall(false); 
+      setCurrentCall(null); 
+      setIsWaitingForResponse(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const renderFileMessage = (message) => {
@@ -835,7 +902,7 @@ const Chat = () => {
             )}
         </div>
     );
-  };
+};
 
   const formatMessageTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -871,8 +938,12 @@ const Chat = () => {
 
   // === RENDER MESSAGE ===
   const renderMessage = (message, index) => {
+    // FIX: Unified current user ID extraction
     const currentUserId = user?.userID || user?.id;
+    
+    // FIX: Better sender ID extraction
     const senderId = message.senderID || message.senderId || message.SenderID;
+    
     const isOwn = String(senderId) === String(currentUserId);
     const content = message.Content || message.content || '';
     const time = message.createdAt || message.timestamp || '';
@@ -883,12 +954,15 @@ const Chat = () => {
     const isEdited = message.isEdited;
     const editedTime = message.editedAt;
 
+    // FIX: HIỂN THỊ TIN NHẮN ĐÃ XÓA ĐÚNG VỊ TRÍ
     if (isDeleted) {
       let messageText = '';
       
       if (deleteForEveryone) {
+        // Xóa cho mọi người
         messageText = 'Tin nhắn đã bị xóa';
       } else {
+        // Xóa cho riêng mình
         if (isOwn) {
           messageText = 'Bạn đã xóa tin nhắn này';
         } else {
@@ -896,6 +970,7 @@ const Chat = () => {
         }
       }
 
+      // TIN NHẮN CỦA MÌNH → HIỂN THỊ BÊN PHẢI
       if (isOwn) {
         return (
           <div key={message.messageID || index} className="flex justify-end mb-1">
@@ -906,7 +981,9 @@ const Chat = () => {
             </div>
           </div>
         );
-      } else {
+      } 
+      // TIN NHẮN NGƯỜI KHÁC → HIỂN THỊ BÊN TRÁI
+      else {
         return (
           <div key={message.messageID || index} className="flex justify-start mb-1">
             <div className="flex max-w-xs md:max-w-md">
@@ -920,6 +997,7 @@ const Chat = () => {
       }
     }
 
+    // FIX: Tin nhắn của chính mình - hiển thị bên phải, KHÔNG có avatar
     if (isOwn) {
       return (
         <div 
@@ -944,6 +1022,7 @@ const Chat = () => {
       );
     }
 
+    // FIX: Tin nhắn của người khác - hiển thị bên trái, CÓ avatar
     const prevMessage = messages[index - 1];
     const nextMessage = messages[index + 1];
     const isFirstInGroup = !prevMessage || 
@@ -968,6 +1047,7 @@ const Chat = () => {
         className="flex justify-start mb-1 group"
       >
         <div className="flex max-w-xs md:max-w-md">
+          {/* FIX: Chỉ hiển thị avatar cho tin nhắn CUỐI cùng trong nhóm */}
           {isLastInGroup ? (
             <div className="w-10 h-10 mr-2 flex-shrink-0">
               <Avatar 
@@ -1003,7 +1083,7 @@ const Chat = () => {
     setShowUserSearch(false); 
     setUserSearchTerm(''); 
     setSearchUsers([]);
-    setCreatingConversations({});
+    setCreatingConversations({}); // Reset tất cả loading states
   };
 
   return (
@@ -1113,19 +1193,10 @@ const Chat = () => {
                 </div>
               </div>
               <div className="flex space-x-2">
-                {/* CALL BUTTONS - SỬ DỤNG STATE TỪ CALLCONTEXT */}
-                <button 
-                  onClick={startAudioCall} 
-                  disabled={isMakingCall || call} 
-                  className="p-2 text-gray-600 hover:text-green-600 hover:bg-gray-100 rounded-full disabled:opacity-50"
-                >
+                <button onClick={startAudioCall} disabled={isWaitingForResponse || inCall} className="p-2 text-gray-600 hover:text-green-600 hover:bg-gray-100 rounded-full disabled:opacity-50">
                   <PhoneIcon className="w-5 h-5" />
                 </button>
-                <button 
-                  onClick={startVideoCall} 
-                  disabled={isMakingCall || call} 
-                  className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-full disabled:opacity-50"
-                >
+                <button onClick={startVideoCall} disabled={isWaitingForResponse || inCall} className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-full disabled:opacity-50">
                   <VideoCameraIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -1323,6 +1394,7 @@ const Chat = () => {
         >
           <div className="bg-white rounded-xl p-4 w-full max-w-xs shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="space-y-2">
+              {/* Chỉ hiển thị nút Edit cho tin nhắn của chính mình và không phải file */}
               {String(longPressedMessage?.senderID || longPressedMessage?.senderId) === String(user?.userID || user?.id) && 
                longPressedMessage?.Type !== 'file' && longPressedMessage?.type !== 'file' && (
                 <button
@@ -1365,7 +1437,7 @@ const Chat = () => {
         </div>
       )}
 
-      {/* User Search Modal */}
+      {/* User Search Modal (ĐÃ SỬA - CÓ NÚT NHẮN TIN RIÊNG) */}
       {showUserSearch && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-4 w-full max-w-md shadow-2xl">
@@ -1398,6 +1470,7 @@ const Chat = () => {
                       key={user.userID} 
                       className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg"
                     >
+                      {/* Phần thông tin user - KHÔNG click được nữa */}
                       <div className="flex items-center space-x-3 flex-1">
                         <Avatar src={user.avatar} alt={user.fullName} size="medium" />
                         <div>
@@ -1406,6 +1479,7 @@ const Chat = () => {
                         </div>
                       </div>
                       
+                      {/* Nút nhắn tin - CHỈ bấm vào đây mới tạo conversation */}
                       <button
                         onClick={() => handleStartConversation(user)}
                         disabled={isCreating}
@@ -1486,44 +1560,24 @@ const Chat = () => {
         </div>
       )}
 
-      {/* Incoming Call Modal - SỬ DỤNG CALLCONTEXT */}
-      {isReceivingCall && call && (
+      {/* Incoming Call Modal */}
+      {incomingCall && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 text-center w-full max-w-sm shadow-2xl">
-            <Avatar 
-              src={call.initiatorPicture || call.initiatorAvatar} 
-              alt={call.initiatorName} 
-              size="xl" 
-              className="mx-auto mb-3" 
-            />
-            <h3 className="text-lg font-semibold mb-2">{call.initiatorName}</h3>
-            <p className="text-gray-500 mb-6">
-              {callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}
-            </p>
+            <Avatar src={incomingCall.initiatorPicture} alt={incomingCall.initiatorName} size="xl" className="mx-auto mb-3" />
+            <h3 className="text-lg font-semibold mb-2">{incomingCall.initiatorName}</h3>
+            <p className="text-gray-500 mb-6">{incomingCall.type === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</p>
             <div className="flex space-x-4">
-              <button 
-                onClick={rejectCall} 
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Từ chối
-              </button>
-              <button 
-                onClick={answerCall} 
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Trả lời
-              </button>
+              <button onClick={rejectCall} className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">Từ chối</button>
+              <button onClick={answerCall} className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">Trả lời</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Call interface - SỬ DỤNG CALLCONTEXT */}
-      {(call && callStatus === 'ongoing') && (
-        <CallInterface 
-          isVideoCall={callType === 'video'}
-          // Không cần truyền call và onEndCall vì CallInterface tự lấy từ Context
-        />
+      {/* Call interface OK*/}
+      {inCall && currentCall && (
+        <CallInterface call={currentCall} onEndCall={endCall} isVideoCall={currentCall.type === 'video'} />
       )}
     </div>
   );

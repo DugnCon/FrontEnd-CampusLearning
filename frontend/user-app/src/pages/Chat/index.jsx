@@ -771,7 +771,7 @@ const sendFileMessage = async (files) => {
         sendMessage('/call.initiate', {
           conversationID: currentConversation.conversationID,
           type: 'audio',
-          callId: response.data.callId
+          callId: response.data.callID
         });
         
         toast.info('Đang gọi...');
@@ -798,7 +798,7 @@ const sendFileMessage = async (files) => {
         sendMessage('/call.initiate', {
           conversationID: currentConversation.conversationID,
           type: 'video',
-          callId: response.data.callId
+          callId: response.data.callID
         });
         
         toast.info('Đang gọi video...');

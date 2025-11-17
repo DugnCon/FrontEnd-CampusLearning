@@ -25,7 +25,7 @@ export const SocketProvider = ({ children }) => {
 
   // 🔥 XÁC ĐỊNH URL DỰA TRÊN MÔI TRƯỜNG
   const getSocketUrl = useCallback(() => {
-    const LOCAL_URL = import.meta.env.VITE_API_URL || '/user/api';
+    const LOCAL_URL = import.meta.env.VITE_SOCKET_URL;
     const localUrl = `${LOCAL_URL}/ws`;
     console.log('Using Local HTTP SockJS URL:', localUrl);
     return localUrl;

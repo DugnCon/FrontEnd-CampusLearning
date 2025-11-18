@@ -124,7 +124,7 @@ export class CallService {
     // Create a call in the backend
     const callData = await callApi.initiateCall({
       conversationType: conversation.type,
-      conversationId: conversation.conversationID,
+      conversationID: conversation.conversationID,
       type: isVideoCall ? 'video' : 'audio',
       participantIds
     });

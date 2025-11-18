@@ -431,7 +431,7 @@ export const CallProvider = ({ children }) => {
   };
 
   // API: Initiate a call - PASCALCASE VERSION
-  const initiateCall = async (conversations, type = 'video') => {
+  const initiateCall = async (conversation, type = 'video') => {
     try {
       if (!stompClient || !isConnected) {
         throw new Error('STOMP connection not available');
@@ -440,27 +440,15 @@ export const CallProvider = ({ children }) => {
       setIsMakingCall(true);
       setCallType(type);
 
-      console.log('📞 Initiating call via service:', conversations, type);
+      console.log('📞 Initiating call via service:', conversation, type);
       
-      const response = await callService.initiateCall(conversations, type);
+      // 🟢 CHUYỂN type string thành boolean
+      const isVideoCall = type === 'video';
+      const response = await callService.initiateCall(conversation, isVideoCall);
       const callData = response.call || response;
       
       setCall(callData);
       setCallStatus('ringing');
-      
-      // Send call initiation via STOMP
-      /*sendViaStomp('/app/call.initiate', {
-        receiverID: receiverID,
-        type: type,
-        callID: callData.callID || callData.id
-      });*/
-      
-      // Setup media and WebRTC connection
-      /*await setupMediaAndConnection({ 
-        callID: callData.callID || callData.id,
-        isReceivingCall: false,
-        fromUserID: receiverID
-      });*/
       
       return callData;
     } catch (error) {

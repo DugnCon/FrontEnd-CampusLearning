@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { API_URL } from '../config';
 
-const API_BASE_URL = API_URL;
+const API_BASE_URL = API_URL || '/user/api';
 
 // Create axios instance with default config
 const callApiClient = axios.create({

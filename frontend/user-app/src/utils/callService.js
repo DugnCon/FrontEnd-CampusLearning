@@ -1,4 +1,4 @@
-
+import { callApi } from '../api/callApi';
 import { chatApi } from '../api/chatApi';
 import * as webRTC from './webRTC';
 
@@ -111,54 +111,54 @@ export class CallService {
    * @returns {Promise<void>}
    */
   async initiateCall(conversation, isVideoCall = false) {
-    try {
-      // Get the other participants from the conversation
-      const participantIds = conversation.participants
-        .filter(p => p.userID !== this.userId)
-        .map(p => p.userID);
+  try {
+    // Get the other participants from the conversation
+    const participantIds = conversation.participants
+      .filter(p => p.userID !== this.userId)
+      .map(p => p.userID);
 
-      if (participantIds.length === 0) {
-        throw new Error('No participants to call');
+    if (participantIds.length === 0) {
+      throw new Error('No participants to call');
+    }
+
+    // Create a call in the backend
+    const callData = await callApi.initiateCall({
+      conversationType: conversation.type,
+      conversationId: conversation.conversationID,
+      type: isVideoCall ? 'video' : 'audio',
+      participantIds
+    });
+
+    if (!callData) {
+      throw new Error('Failed to create call');
+    }
+
+    this.currentCallId = callData.callID;
+    this.currentCall = callData;
+    this.isInitiator = true;
+
+    // Set up WebRTC
+    await this.setupWebRTC(isVideoCall);
+
+    // Create offer
+    const offer = await webRTC.createOffer(this.peerConnection);
+
+    // Send call initiated event
+    this.socket.emit('call-initiated', {
+      callId: this.currentCallID, 
+      participantIds,
+      conversationId: conversation.conversationID,
+      offer,
+      isVideoCall,
+      initiator: {
+        id: this.userId,
+        name: conversation.participants.find(p => p.userID === this.userId)?.fullName || 'User'
       }
+    });
 
-      // Create a call in the backend
-      const callData = await chatApi.initiateCall({
-        conversationType: conversation.type,
-        conversationId: conversation.conversationID,
-        type: isVideoCall ? 'video' : 'audio',
-        participantIds
-      });
-
-      if (!callData) {
-        throw new Error('Failed to create call');
-      }
-
-      this.currentCallId = callData.callID;
-      this.currentCall = callData;
-      this.isInitiator = true;
-
-      // Set up WebRTC
-      await this.setupWebRTC(isVideoCall);
-
-      // Create offer
-      const offer = await webRTC.createOffer(this.peerConnection);
-
-      // Send call initiated event
-      this.socket.emit('call-initiated', {
-        callId: this.currentCallID,
-        participantIds,
-        conversationId: conversation.conversationID,
-        offer,
-        isVideoCall,
-        initiator: {
-          id: this.userId,
-          name: conversation.participants.find(p => p.userID === this.userId)?.fullName || 'User'
-        }
-      });
-
-      if (this.onCallStatusChange) {
-        this.onCallStatusChange('calling');
-      }
+    if (this.onCallStatusChange) {
+      this.onCallStatusChange('calling');
+    }
 
       return this.currentCallId;
     } catch (error) {
@@ -166,7 +166,6 @@ export class CallService {
       throw error;
     }
   }
-
   /**
    * Answer an incoming call
    * @returns {Promise<void>}

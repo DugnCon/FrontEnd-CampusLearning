@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: EventDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -223,31 +216,33 @@ const EventDetail = () => {
   ];
   
   const prizesColumns = [
-    {
-      title: 'Thứ hạng',
-      dataIndex: 'Rank',
-      key: 'rank',
-      render: (text) => {
-        const rankLabels = {
-          1: 'Nhất',
-          2: 'Nhì',
-          3: 'Ba'
-        };
-        return rankLabels[text] || `Hạng ${text}`;
-      }
-    },
-    {
-      title: 'Giá trị giải thưởng',
-      dataIndex: 'PrizeAmount',
-      key: 'amount',
-      render: (text) => `${text.toLocaleString('vi-VN')} VNĐ`,
-    },
-    {
-      title: 'Mô tả',
-      dataIndex: 'Description',
-      key: 'description',
+  {
+    title: 'Thứ hạng',
+    dataIndex: 'rank',
+    key: 'rank',
+    render: (text) => {
+      const rankLabels = {
+        1: 'Nhất',
+        2: 'Nhì',
+        3: 'Ba'
+      };
+      return rankLabels[text] || `Hạng ${text}`;
     }
-  ];
+  },
+  {
+    title: 'Giá trị giải thưởng',
+    dataIndex: 'amount',
+    key: 'amount',
+    render: (text) => text != null ? `${Number(text).toLocaleString('vi-VN')} VNĐ` : 'N/A'
+  },
+  {
+    title: 'Mô tả',
+    dataIndex: 'description', // sửa typo từ 'sescription'
+    key: 'description',
+    render: (text) => text || 'Chưa có mô tả'
+  }
+];
+
   
   const participantColumns = [
     {
@@ -427,8 +422,8 @@ const EventDetail = () => {
               <Card>
                 <Statistic
                   title="Số người tham gia"
-                  value={event.CurrentAttendees || 0}
-                  suffix={`/${event.MaxAttendees || 'không giới hạn'}`}
+                  value={event.currentAttendees || 0}
+                  suffix={`/${event.maxAttendees || 'không giới hạn'}`}
                   prefix={<TeamOutlined />}
                 />
               </Card>
@@ -437,7 +432,7 @@ const EventDetail = () => {
               <Card>
                 <Statistic
                   title="Giải thưởng"
-                  value={prizes.reduce((total, prize) => total + Number(prize.PrizeAmount), 0).toLocaleString('vi-VN')}
+                  value={prizes.reduce((total, prize) => total + Number(prize.amount), 0).toLocaleString('vi-VN')}
                   suffix="VNĐ"
                   prefix={<TrophyOutlined />}
                 />

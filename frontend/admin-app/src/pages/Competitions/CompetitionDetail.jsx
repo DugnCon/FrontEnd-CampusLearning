@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CompetitionDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -49,7 +43,8 @@ const CompetitionDetail = () => {
       // Fetch competition details
       const response = await competitionsAPI.getCompetition(id);
       setCompetition(response.competition);
-      setProblems(response.problems || []);
+      const responseProblems = await competitionsAPI.getProblems(id);
+      setProblems(responseProblems.problems || []);
 
       // Fetch leaderboard data
       try {
@@ -60,16 +55,16 @@ const CompetitionDetail = () => {
           const sortedParticipants = (leaderboardResponse.data || [])
             .sort((a, b) => {
               // First sort by score (descending)
-              if (b.Score !== a.Score) return b.Score - a.Score;
+              if (b.score !== a.score) return b.score - a.score;
 
               // If scores are equal, sort by completion time (ascending)
-              if (a.CompletionTime && b.CompletionTime) {
-                return a.CompletionTime - b.CompletionTime;
+              if (a.completionTime && b.completionTime) {
+                return a.completionTime - b.completionTime;
               }
 
               // If no completion time, sort by completed problems count
-              const aCompleted = Array.isArray(a.CompletedProblems) ? a.CompletedProblems.length : 0;
-              const bCompleted = Array.isArray(b.CompletedProblems) ? b.CompletedProblems.length : 0;
+              const aCompleted = Array.isArray(a.completedProblems) ? a.completedProblems.length : 0;
+              const bCompleted = Array.isArray(b.completedProblems) ? b.completedProblems.length : 0;
 
               return bCompleted - aCompleted;
             });
@@ -196,34 +191,34 @@ const CompetitionDetail = () => {
   const problemColumns = [
     {
       title: 'Tiêu đề',
-      dataIndex: 'Title',
+      dataIndex: 'title',
       key: 'title',
       render: (text, record) => (
-        <Link to={`/competitions/${id}/problems/${record.ProblemID}`}>
+        <Link to={`/competitions/${id}/problems/${record.problemID}`}>
           <Text strong>{text}</Text>
         </Link>
       ),
     },
     {
       title: 'Độ khó',
-      dataIndex: 'Difficulty',
+      dataIndex: 'difficulty',
       key: 'difficulty',
       render: (text) => getDifficultyTag(text),
     },
     {
       title: 'Điểm',
-      dataIndex: 'Points',
+      dataIndex: 'points',
       key: 'points',
     },
     {
       title: 'Giới hạn thời gian',
-      dataIndex: 'TimeLimit',
+      dataIndex: 'timeLimit',
       key: 'timeLimit',
       render: (text) => `${text} giây`,
     },
     {
       title: 'Giới hạn bộ nhớ',
-      dataIndex: 'MemoryLimit',
+      dataIndex: 'memoryLimit',
       key: 'memoryLimit',
       render: (text) => `${text} MB`,
     },
@@ -236,14 +231,14 @@ const CompetitionDetail = () => {
             <Button
               icon={<EyeOutlined />}
               size="small"
-              onClick={() => navigate(`/competitions/${id}/problems/${record.ProblemID}`)}
+              onClick={() => navigate(`/competitions/${id}/problems/${record.problemID}`)}
             />
           </Tooltip>
           <Tooltip title="Chỉnh sửa">
             <Button
               icon={<EditOutlined />}
               size="small"
-              onClick={() => navigate(`/competitions/${id}/problems/${record.ProblemID}/edit`)}
+              onClick={() => navigate(`/competitions/${id}/problems/${record.problemID}/edit`)}
             />
           </Tooltip>
           <Tooltip title="Xóa">
@@ -251,7 +246,7 @@ const CompetitionDetail = () => {
               icon={<DeleteOutlined />}
               size="small"
               danger
-              onClick={() => handleDeleteProblem(record.ProblemID)}
+              onClick={() => handleDeleteProblem(record.problemID)}
             />
           </Tooltip>
         </Space>
@@ -277,19 +272,19 @@ const CompetitionDetail = () => {
       key: 'fullName',
       render: (text, record) => (
         <Space>
-          <Avatar src={record.Avatar || record.Image} icon={<UserOutlined />} />
-          <Text>{record.FullName || record.Username}</Text>
+          <Avatar src={record.avatar || record.image} icon={<UserOutlined />} />
+          <Text>{record.fullName || record.username}</Text>
         </Space>
       ),
     },
     {
       title: 'Email',
-      dataIndex: 'Email',
+      dataIndex: 'email',
       key: 'email',
     },
     {
       title: 'Điểm số',
-      dataIndex: 'Score',
+      dataIndex: 'score',
       key: 'score',
       sorter: (a, b) => b.Score - a.Score, // Sort descending by default
       defaultSortOrder: 'descend',
@@ -301,7 +296,7 @@ const CompetitionDetail = () => {
     },
     {
       title: 'Bài giải đúng',
-      dataIndex: 'CompletedProblems',
+      dataIndex: 'completedProblems',
       key: 'problemsSolved',
       render: (completedProblems, record) => {
         const count = Array.isArray(completedProblems)
@@ -321,9 +316,9 @@ const CompetitionDetail = () => {
       key: 'completionTime',
       render: (text, record) => {
         // Calculate completion time in minutes if available
-        if (record.StartTime && record.EndTime) {
-          const start = new Date(record.StartTime);
-          const end = new Date(record.EndTime);
+        if (record.startTime && record.endTime) {
+          const start = new Date(record.startTime);
+          const end = new Date(record.endTime);
           const diffMinutes = Math.round((end - start) / (1000 * 60));
 
           return (
@@ -339,7 +334,7 @@ const CompetitionDetail = () => {
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'Status',
+      dataIndex: 'status',
       key: 'status',
       render: (text) => {
         const statusMap = {
@@ -410,7 +405,7 @@ const CompetitionDetail = () => {
             content={
               <Select
                 style={{ width: 200 }}
-                defaultValue={competition.Status}
+                defaultValue={competition.status}
                 onChange={handleUpdateStatus}
                 loading={statusLoading}
               >
@@ -423,7 +418,7 @@ const CompetitionDetail = () => {
             }
           >
             <Button type="primary" ghost style={{ marginRight: 8 }}>
-              {getStatusTag(competition.Status).text} <DownOutlined />
+              {getStatusTag(competition.status).text} <DownOutlined />
             </Button>
           </Popconfirm>
           <Link to={`/competitions/edit/${id}`}>
@@ -446,19 +441,19 @@ const CompetitionDetail = () => {
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <Title level={3}>{competition.Title}</Title>
+                <Title level={3}>{competition.title}</Title>
                 <Space wrap>
-                  {getStatusTag(competition.Status).tag}
-                  {getDifficultyTag(competition.Difficulty)}
+                  {getStatusTag(competition.status).tag}
+                  {getDifficultyTag(competition.difficulty)}
                   <Tag icon={<TrophyOutlined />} color="gold">
-                    Giải thưởng: {competition.PrizePool.toLocaleString('vi-VN')} VNĐ
+                    Giải thưởng: {competition.prizePool.toLocaleString('vi-VN')} VNĐ
                   </Tag>
                 </Space>
               </div>
-              {competition.CoverImageURL && (
+              {competition.coverImageURL && (
                 <Image
-                  src={competition.CoverImageURL}
-                  alt={competition.Title}
+                  src={competition.coverImageURL}
+                  alt={competition.title}
                   width={80}
                   height={80}
                   style={{ borderRadius: '8px' }}
@@ -474,35 +469,35 @@ const CompetitionDetail = () => {
                 marginBottom: 24,
               }}
             >
-              {competition.Description}
+              {competition.description}
             </Paragraph>
 
             <Descriptions bordered column={{ xxl: 4, xl: 3, lg: 3, md: 3, sm: 2, xs: 1 }}>
               <Descriptions.Item label="Thời gian bắt đầu">
                 <Space>
                   <CalendarOutlined />
-                  {new Date(competition.StartTime).toLocaleString('vi-VN')}
+                  {new Date(competition.startTime).toLocaleString('vi-VN')}
                 </Space>
               </Descriptions.Item>
 
               <Descriptions.Item label="Thời gian kết thúc">
                 <Space>
                   <CalendarOutlined />
-                  {new Date(competition.EndTime).toLocaleString('vi-VN')}
+                  {new Date(competition.endTime).toLocaleString('vi-VN')}
                 </Space>
               </Descriptions.Item>
 
               <Descriptions.Item label="Thời gian làm bài">
                 <Space>
                   <ClockCircleOutlined />
-                  {competition.Duration} phút
+                  {competition.duration} phút
                 </Space>
               </Descriptions.Item>
 
               <Descriptions.Item label="Người tổ chức">
                 <Space>
                   <UserOutlined />
-                  {competition.OrganizerName || 'Admin'}
+                  {competition.organizerName || 'Admin'}
                 </Space>
               </Descriptions.Item>
             </Descriptions>
@@ -515,8 +510,8 @@ const CompetitionDetail = () => {
               <Card>
                 <Statistic
                   title="Người tham gia"
-                  value={competition.CurrentParticipants}
-                  suffix={`/ ${competition.MaxParticipants}`}
+                  value={competition.currentParticipants}
+                  suffix={`/ ${competition.maxParticipants}`}
                   prefix={<TeamOutlined />}
                 />
               </Card>
@@ -585,7 +580,7 @@ const CompetitionDetail = () => {
           <Table
             columns={problemColumns}
             dataSource={problems}
-            rowKey="ProblemID"
+            rowKey="problemID"
             pagination={{ pageSize: 5 }}
           />
         </TabPane>
@@ -594,7 +589,7 @@ const CompetitionDetail = () => {
           <Table
             columns={participantColumns}
             dataSource={participants}
-            rowKey="ParticipantID"
+            rowKey="participantID"
             pagination={{ pageSize: 10 }}
           />
         </TabPane>

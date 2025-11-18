@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: CompetitionForm.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -37,6 +30,9 @@ const CompetitionForm = () => {
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [coverImageURL, setCoverImageURL] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // SỬA LẠI: Dùng process.env cho Create React App
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://112.137.129.158:8889/api';
   
   useEffect(() => {
     fetchInstructors();
@@ -62,22 +58,22 @@ const CompetitionForm = () => {
       const competition = response.competition;
       
       if (competition) {
-        setThumbnailUrl(competition.ThumbnailUrl);
-        setCoverImageURL(competition.CoverImageURL);
+        setThumbnailUrl(competition.thumbnailUrl);
+        setCoverImageURL(competition.coverImageURL);
         
         form.setFieldsValue({
-          title: competition.Title,
-          description: competition.Description,
+          title: competition.title,
+          description: competition.description,
           dateRange: [
-            moment(competition.StartTime),
-            moment(competition.EndTime)
+            moment(competition.startTime),
+            moment(competition.endTime)
           ],
-          duration: competition.Duration,
-          difficulty: competition.Difficulty,
-          status: competition.Status,
-          maxParticipants: competition.MaxParticipants,
-          prizePool: competition.PrizePool,
-          organizedBy: competition.OrganizedBy
+          duration: competition.duration,
+          difficulty: competition.difficulty,
+          status: competition.status,
+          maxParticipants: competition.maxParticipants,
+          prizePool: competition.prizePool,
+          organizedBy: competition.organizedBy
         });
       }
     } catch (error) {
@@ -147,7 +143,14 @@ const CompetitionForm = () => {
   
   const handleThumbnailChange = (info) => {
     if (info.file.status === 'done') {
-      setThumbnailUrl(info.file.response.url);
+      // Xử lý URL trả về từ backend
+      const responseUrl = info.file.response.url;
+      // Nếu backend trả về relative path, build full URL
+      const fullUrl = responseUrl.startsWith('http') 
+        ? responseUrl 
+        : `http://localhost:8081${responseUrl}`;
+      
+      setThumbnailUrl(fullUrl);
       message.success(`${info.file.name} tải lên thành công`);
     } else if (info.file.status === 'error') {
       message.error(`${info.file.name} tải lên thất bại`);
@@ -156,7 +159,14 @@ const CompetitionForm = () => {
   
   const handleCoverImageChange = (info) => {
     if (info.file.status === 'done') {
-      setCoverImageURL(info.file.response.url);
+      // Xử lý URL trả về từ backend
+      const responseUrl = info.file.response.url;
+      // Nếu backend trả về relative path, build full URL
+      const fullUrl = responseUrl.startsWith('http') 
+        ? responseUrl 
+        : `http://localhost:8081${responseUrl}`;
+      
+      setCoverImageURL(fullUrl);
       message.success(`${info.file.name} tải lên thành công`);
     } else if (info.file.status === 'error') {
       message.error(`${info.file.name} tải lên thất bại`);
@@ -395,11 +405,11 @@ const CompetitionForm = () => {
                 }}
               >
                 <Upload
-                  name="thumbnail"
+                  name="file"
                   listType="picture"
                   maxCount={1}
                   onChange={handleThumbnailChange}
-                  action="/api/upload"
+                  action={`${API_BASE_URL}/upload`}
                 >
                   <Button icon={<UploadOutlined />}>Tải lên ảnh thu nhỏ</Button>
                 </Upload>
@@ -417,11 +427,11 @@ const CompetitionForm = () => {
                 }}
               >
                 <Upload
-                  name="cover"
+                  name="file"
                   listType="picture"
                   maxCount={1}
                   onChange={handleCoverImageChange}
-                  action="/api/upload"
+                  action={`${API_BASE_URL}/upload`}
                 >
                   <Button icon={<UploadOutlined />}>Tải lên ảnh bìa</Button>
                 </Upload>

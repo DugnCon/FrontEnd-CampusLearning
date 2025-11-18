@@ -5,19 +5,32 @@
 * Description: This file is a component/module for the admin application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Row, Col, Card, Typography, Tag, Button, Tabs, Table, Image,
-  Descriptions, Avatar, Space, Divider, Statistic, Modal, message,
-  List, Tooltip
-} from 'antd';
-import {
-  ArrowLeftOutlined, EditOutlined, DeleteOutlined, 
-  UserOutlined, EyeOutlined, BookOutlined, ExclamationCircleOutlined,
-  ClockCircleOutlined, FileTextOutlined, LineChartOutlined,
-  TeamOutlined, CalendarOutlined, CheckCircleOutlined
+  ArrowLeftOutlined,
+  BookOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  ExclamationCircleOutlined,
+  EyeOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
+import {
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Divider,
+  Modal,
+  Row,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+  message
+} from 'antd';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { coursesAPI } from '../../api/courses';
 import MainCard from '../../components/MainCard';
 
@@ -37,26 +50,32 @@ const ModuleDetail = () => {
   }, [moduleId]);
   
   const fetchModuleData = async () => {
-    setLoading(true);
-    try {
-      // This API endpoint needs to be implemented
-      // Mock implementation for now
-      const response = await coursesAPI.getModule(id, moduleId);
-      setModule(response.module);
-      setLessons(response.lessons || []);
-    } catch (error) {
-      message.error('Không thể tải thông tin module');
+  setLoading(true);
+  try {
+    const response = await coursesAPI.getModule(id, moduleId);
+    console.log('Module API response:', JSON.stringify(response, null, 2));
+    if (!response.module) {
+      console.error('response.module is missing:', response);
+      message.error('Không tìm thấy module');
       navigate(`/courses/${id}`);
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+    setModule(response.module);
+    setLessons(Array.isArray(response.lessons) ? response.lessons : []); // Sửa: Dùng response.lessons trực tiếp
+  } catch (error) {
+    console.error('Error fetching module data:', error);
+    message.error('Không thể tải thông tin module');
+    navigate(`/courses/${id}`);
+  } finally {
+    setLoading(false);
+  }
+};
   
   const handleDeleteLesson = (lessonId) => {
     confirm({
       title: 'Bạn có chắc chắn muốn xóa bài học này?',
       icon: <ExclamationCircleOutlined />,
-      content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+      content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục được nữa.',
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
@@ -178,7 +197,7 @@ const ModuleDetail = () => {
               confirm({
                 title: 'Bạn có chắc chắn muốn xóa module này?',
                 icon: <ExclamationCircleOutlined />,
-                content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+                content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục được nữa.',
                 okText: 'Xóa',
                 okType: 'danger',
                 cancelText: 'Hủy',
@@ -219,21 +238,21 @@ const ModuleDetail = () => {
             
             <Descriptions title="Thông tin chi tiết" column={{ xs: 1, sm: 2, md: 3 }} bordered>
               <Descriptions.Item label="Thứ tự">
-                {module.OrderIndex + 1}
+                {module && typeof module.OrderIndex === 'number' ? module.OrderIndex + 1 : 'N/A'}
               </Descriptions.Item>
               <Descriptions.Item label="Thời lượng">
-                {module.Duration ? `${module.Duration} phút` : 'N/A'}
+                {module && module.Duration ? `${module.Duration} phút` : 'N/A'}
               </Descriptions.Item>
               <Descriptions.Item label="Số bài học">
-                {lessons.length}
+                {Array.isArray(lessons) ? lessons.length : 0}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày tạo">
-                {module.CreatedAt ? new Date(module.CreatedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                {module && module.CreatedAt ? new Date(module.CreatedAt).toLocaleDateString('vi-VN') : 'N/A'}
               </Descriptions.Item>
               <Descriptions.Item label="Cập nhật lần cuối">
-                {module.UpdatedAt ? new Date(module.UpdatedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                {module && module.UpdatedAt ? new Date(module.UpdatedAt).toLocaleDateString('vi-VN') : 'N/A'}
               </Descriptions.Item>
-            </Descriptions>
+          </Descriptions>
           </Card>
         </Col>
       </Row>
@@ -254,7 +273,7 @@ const ModuleDetail = () => {
             
             <Table
               columns={lessonColumns}
-              dataSource={lessons}
+              dataSource={Array.isArray(lessons) ? lessons : []}
               rowKey="LessonID"
               pagination={false}
             />

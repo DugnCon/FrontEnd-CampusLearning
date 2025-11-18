@@ -47,15 +47,15 @@ const ExamsManagement = () => {
       // Transform data để khớp với cấu trúc DataGrid
       const transformedExams = response.exams.map(exam => ({
         ...exam,
-        id: exam.ExamID, // Đảm bảo có trường id cho DataGrid
-        Title: exam.Title,
-        Type: exam.Type.toLowerCase(),
-        Status: exam.Status.toLowerCase(),
+        id: exam.examID, // Đảm bảo có trường id cho DataGrid
+        title: exam.title,
+        type: exam.type.toLowerCase(),
+        status: exam.Ssatus.toLowerCase(),
         startTime: exam.StartTime || exam.startTime,
-        Duration: exam.Duration,
-        QuestionCount: exam.QuestionCount || 0,
-        ParticipantCount: exam.ParticipantCount || 0,
-        CourseTitle: exam.CourseTitle || 'Không có khóa học'
+        duration: exam.duration,
+        questionCount: exam.QuestionCount || 0,
+        participantCount: exam.ParticipantCount || 0,
+        courseTitle: exam.CourseTitle || 'Không có khóa học'
       }));
 
       setExams(transformedExams);

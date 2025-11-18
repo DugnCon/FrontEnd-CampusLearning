@@ -1,19 +1,21 @@
 /*-----------------------------------------------------------------
-* File: ProblemForm.jsx
+* File: ProblemForm.jsx (COMPLETE VERSION)
 * Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
+* Date: 2025-07-24  
+* Description: Complete version with Test Cases for Judge0 integration
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Form, Input, InputNumber, Select, Button, Card, Typography,
-  Space, Divider, message, Row, Col, Upload, Spin
+  Space, Divider, message, Row, Col, Upload, Spin, Collapse,
+  Table, Tag, Modal
 } from 'antd';
 import {
   ArrowLeftOutlined, SaveOutlined, UploadOutlined,
-  CodeOutlined, FileTextOutlined, ReloadOutlined
+  CodeOutlined, FileTextOutlined, ReloadOutlined,
+  PlusOutlined, DeleteOutlined, EyeOutlined, EyeInvisibleOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import MainCard from '../../components/MainCard';
@@ -22,6 +24,7 @@ import { competitionsAPI } from '../../api/competitions';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
+const { Panel } = Collapse;
 
 // Debug flag - set to true to see debug information
 const DEBUG = false;
@@ -34,24 +37,32 @@ const ProblemForm = () => {
   const [dataLoading, setDataLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [currentProblem, setCurrentProblem] = useState(null);
-  const [initialValues, setInitialValues] = useState({
-    Title: '',
-    Description: '',
-    Difficulty: 'Trung bình',
-    Points: 100,
-    TimeLimit: 1,
-    MemoryLimit: 256,
-    InputFormat: '',
-    OutputFormat: '',
-    Constraints: '',
-    SampleInput: '',
-    SampleOutput: '',
-    Explanation: '',
-    Tags: '',
-    StarterCode: '',
-    Instructions: '',
-    ImageURL: ''
-  });
+  const [testCasesVisible, setTestCasesVisible] = useState([]);
+  const [testCasesHidden, setTestCasesHidden] = useState([]);
+  const [isTestCasesModalVisible, setIsTestCasesModalVisible] = useState(false);
+  const [editingTestCase, setEditingTestCase] = useState(null);
+  const [editingTestCaseType, setEditingTestCaseType] = useState('visible');
+
+  const initialValues = {
+    title: '',
+    description: '',
+    difficulty: 'Trung bình',
+    points: 100,
+    timeLimit: 1,
+    memoryLimit: 256,
+    inputFormat: '',
+    outputFormat: '',
+    constraints: '',
+    sampleInput: '',
+    sampleOutput: '',
+    explanation: '',
+    tags: '',
+    starterCode: '',
+    instructions: '',
+    imageURL: '',
+    testCasesVisible: '[]',
+    testCasesHidden: '[]'
+  };
 
   const isEditMode = !!problemId;
 
@@ -59,8 +70,9 @@ const ProblemForm = () => {
     if (isEditMode) {
       fetchProblemData();
     } else {
-      // Reset form when creating a new problem
       form.resetFields();
+      setTestCasesVisible([]);
+      setTestCasesHidden([]);
     }
   }, [competitionId, problemId, form]);
 
@@ -77,46 +89,43 @@ const ProblemForm = () => {
         const problem = response.problem;
         setCurrentProblem(problem);
         
-        if (DEBUG) {
-          console.log('Problem data loaded:', problem);
+        // Parse test cases
+        try {
+          const visibleCases = problem.testCasesVisible ? JSON.parse(problem.testCasesVisible) : [];
+          const hiddenCases = problem.testCasesHidden ? JSON.parse(problem.testCasesHidden) : [];
+          setTestCasesVisible(Array.isArray(visibleCases) ? visibleCases : []);
+          setTestCasesHidden(Array.isArray(hiddenCases) ? hiddenCases : []);
+        } catch (error) {
+          console.error('Error parsing test cases:', error);
+          setTestCasesVisible([]);
+          setTestCasesHidden([]);
         }
         
-        // Create new object with all fields from the problem
         const formData = {
-          Title: problem.Title || '',
-          Description: problem.Description || '',
-          Difficulty: problem.Difficulty || 'Trung bình',
-          Points: problem.Points || 100,
-          TimeLimit: problem.TimeLimit || 1,
-          MemoryLimit: problem.MemoryLimit || 256,
-          InputFormat: problem.InputFormat || '',
-          OutputFormat: problem.OutputFormat || '',
-          Constraints: problem.Constraints || '',
-          SampleInput: problem.SampleInput || '',
-          SampleOutput: problem.SampleOutput || '',
-          Explanation: problem.Explanation || '',
-          Tags: problem.Tags || '',
-          StarterCode: problem.StarterCode || '',
-          Instructions: problem.Instructions || '',
-          ImageURL: problem.ImageURL || ''
+          ...initialValues,
+          title: problem.title || '',
+          description: problem.description || '',
+          difficulty: problem.difficulty || 'Trung bình',
+          points: problem.points || 100,
+          timeLimit: problem.timeLimit || 1,
+          memoryLimit: problem.memoryLimit || 256,
+          inputFormat: problem.inputFormat || '',
+          outputFormat: problem.outputFormat || '',
+          constraints: problem.constraints || '',
+          sampleInput: problem.sampleInput || '',
+          sampleOutput: problem.sampleOutput || '',
+          explanation: problem.explanation || '',
+          tags: problem.tags || '',
+          starterCode: problem.starterCode || '',
+          instructions: problem.instructions || '',
+          imageURL: problem.imageURL || ''
         };
         
-        setInitialValues(formData);
-        
-        // Set form values after a small delay to ensure the form is ready
         setTimeout(() => {
           form.setFieldsValue(formData);
-          
-          if (DEBUG) {
-            console.log('Form values set:', formData);
-            console.log('Current form values:', form.getFieldsValue());
-          }
         }, 100);
       } else {
         message.error('Không tìm thấy thông tin bài tập');
-        if (DEBUG) {
-          console.error('Problem data missing in response:', response);
-        }
         navigate(`/competitions/${competitionId}`);
       }
     } catch (error) {
@@ -130,11 +139,24 @@ const ProblemForm = () => {
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
+      // Prepare test cases data
+      const submitData = {
+        ...values,
+        testCasesVisible: JSON.stringify(testCasesVisible),
+        testCasesHidden: JSON.stringify(testCasesHidden)
+      };
+
+      if (DEBUG) {
+        console.log('Submitting data:', submitData);
+        console.log('Visible test cases:', testCasesVisible);
+        console.log('Hidden test cases:', testCasesHidden);
+      }
+
       if (isEditMode) {
-        await competitionsAPI.updateProblem(competitionId, problemId, values);
+        await competitionsAPI.updateProblem(competitionId, problemId, submitData);
         message.success('Cập nhật bài tập thành công');
       } else {
-        await competitionsAPI.createProblem(competitionId, values);
+        await competitionsAPI.createProblem(competitionId, submitData);
         message.success('Tạo bài tập mới thành công');
       }
       navigate(`/competitions/${competitionId}`);
@@ -146,13 +168,122 @@ const ProblemForm = () => {
     }
   };
 
+  // Test Cases Management
+  const showAddTestCaseModal = (type = 'visible') => {
+    setEditingTestCase(null);
+    setEditingTestCaseType(type);
+    setIsTestCasesModalVisible(true);
+  };
+
+  const showEditTestCaseModal = (testCase, index, type) => {
+    setEditingTestCase({ ...testCase, index });
+    setEditingTestCaseType(type);
+    setIsTestCasesModalVisible(true);
+  };
+
+  const handleAddTestCase = (values) => {
+    const newTestCase = {
+      input: values.input,
+      output: values.output,
+      explanation: values.explanation || ''
+    };
+
+    if (editingTestCase) {
+      // Edit existing test case
+      const targetArray = editingTestCaseType === 'visible' ? testCasesVisible : testCasesHidden;
+      const newArray = [...targetArray];
+      newArray[editingTestCase.index] = newTestCase;
+      
+      if (editingTestCaseType === 'visible') {
+        setTestCasesVisible(newArray);
+      } else {
+        setTestCasesHidden(newArray);
+      }
+      message.success('Cập nhật test case thành công');
+    } else {
+      // Add new test case
+      if (editingTestCaseType === 'visible') {
+        setTestCasesVisible([...testCasesVisible, newTestCase]);
+      } else {
+        setTestCasesHidden([...testCasesHidden, newTestCase]);
+      }
+      message.success('Thêm test case thành công');
+    }
+
+    setIsTestCasesModalVisible(false);
+    setEditingTestCase(null);
+  };
+
+  const handleDeleteTestCase = (index, type) => {
+    if (type === 'visible') {
+      const newVisibleCases = testCasesVisible.filter((_, i) => i !== index);
+      setTestCasesVisible(newVisibleCases);
+    } else {
+      const newHiddenCases = testCasesHidden.filter((_, i) => i !== index);
+      setTestCasesHidden(newHiddenCases);
+    }
+    message.success('Xóa test case thành công');
+  };
+
+  const testCaseColumns = (type) => [
+    {
+      title: 'Input',
+      dataIndex: 'input',
+      key: 'input',
+      render: (text) => (
+        <pre style={{ margin: 0, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {text}
+        </pre>
+      ),
+    },
+    {
+      title: 'Output',
+      dataIndex: 'output',
+      key: 'output',
+      render: (text) => (
+        <pre style={{ margin: 0, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {text}
+        </pre>
+      ),
+    },
+    {
+      title: 'Giải thích',
+      dataIndex: 'explanation',
+      key: 'explanation',
+      render: (text) => text || '-',
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record, index) => (
+        <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => showEditTestCaseModal(record, index, type)}
+          >
+            Sửa
+          </Button>
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDeleteTestCase(index, type)}
+          >
+            Xóa
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
   const togglePreview = () => {
     setPreviewMode(!previewMode);
   };
 
   const uploadProps = {
     name: 'image',
-    action: `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5002'}/api/upload`,
+    action: `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081'}/api/upload`,
     headers: {
       authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('admin_token')}`,
     },
@@ -161,7 +292,7 @@ const ProblemForm = () => {
         const imageUrl = info.file.response.url || info.file.response.data?.url;
         message.success(`${info.file.name} tải lên thành công`);
         form.setFieldsValue({ 
-          ImageURL: imageUrl 
+          imageURL: imageUrl 
         });
       } else if (info.file.status === 'error') {
         message.error(`${info.file.name} tải lên thất bại`);
@@ -226,55 +357,128 @@ const ProblemForm = () => {
         </Space>
       }
     >
+      {/* Test Cases Modal */}
+      <Modal
+        title={editingTestCase ? 'Sửa Test Case' : 'Thêm Test Case Mới'}
+        open={isTestCasesModalVisible}
+        onCancel={() => {
+          setIsTestCasesModalVisible(false);
+          setEditingTestCase(null);
+        }}
+        footer={null}
+        width={700}
+      >
+        <Form
+          layout="vertical"
+          initialValues={editingTestCase || {}}
+          onFinish={handleAddTestCase}
+        >
+          <Form.Item
+            name="input"
+            label="Đầu vào"
+            rules={[{ required: true, message: 'Vui lòng nhập đầu vào' }]}
+          >
+            <TextArea
+              rows={4}
+              placeholder="Nhập đầu vào test case"
+              style={{ fontFamily: 'monospace' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="output"
+            label="Đầu ra mong đợi"
+            rules={[{ required: true, message: 'Vui lòng nhập đầu ra mong đợi' }]}
+          >
+            <TextArea
+              rows={4}
+              placeholder="Nhập đầu ra mong đợi"
+              style={{ fontFamily: 'monospace' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="explanation"
+            label="Giải thích (tuỳ chọn)"
+          >
+            <Input placeholder="Nhập giải thích cho test case này" />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">
+                {editingTestCase ? 'Cập nhật' : 'Thêm'}
+              </Button>
+              <Button onClick={() => {
+                setIsTestCasesModalVisible(false);
+                setEditingTestCase(null);
+              }}>
+                Hủy
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
       {previewMode ? (
         <Card>
-          <Title level={3}>{form.getFieldValue('Title')}</Title>
+          <Title level={3}>{form.getFieldValue('title')}</Title>
           <Space wrap style={{ marginBottom: 16 }}>
-            <Text type="secondary">Độ khó: {form.getFieldValue('Difficulty')}</Text>
-            <Text type="secondary">Điểm: {form.getFieldValue('Points')}</Text>
-            <Text type="secondary">Thời gian: {form.getFieldValue('TimeLimit')} giây</Text>
-            <Text type="secondary">Bộ nhớ: {form.getFieldValue('MemoryLimit')} MB</Text>
+            <Text type="secondary">Độ khó: {form.getFieldValue('difficulty')}</Text>
+            <Text type="secondary">Điểm: {form.getFieldValue('points')}</Text>
+            <Text type="secondary">Thời gian: {form.getFieldValue('timeLimit')} giây</Text>
+            <Text type="secondary">Bộ nhớ: {form.getFieldValue('memoryLimit')} MB</Text>
           </Space>
 
           <Divider orientation="left">Mô tả</Divider>
-          <ReactMarkdown>{form.getFieldValue('Description')}</ReactMarkdown>
+          <ReactMarkdown>{form.getFieldValue('description')}</ReactMarkdown>
 
           <Divider orientation="left">Định dạng đầu vào</Divider>
-          <ReactMarkdown>{form.getFieldValue('InputFormat')}</ReactMarkdown>
+          <ReactMarkdown>{form.getFieldValue('inputFormat')}</ReactMarkdown>
 
           <Divider orientation="left">Định dạng đầu ra</Divider>
-          <ReactMarkdown>{form.getFieldValue('OutputFormat')}</ReactMarkdown>
+          <ReactMarkdown>{form.getFieldValue('outputFormat')}</ReactMarkdown>
 
           <Divider orientation="left">Ràng buộc</Divider>
-          <ReactMarkdown>{form.getFieldValue('Constraints')}</ReactMarkdown>
+          <ReactMarkdown>{form.getFieldValue('constraints')}</ReactMarkdown>
 
           <Divider orientation="left">Ví dụ</Divider>
           <Row gutter={16}>
             <Col span={12}>
               <Card title="Đầu vào" bordered>
-                <pre>{form.getFieldValue('SampleInput')}</pre>
+                <pre>{form.getFieldValue('sampleInput')}</pre>
               </Card>
             </Col>
             <Col span={12}>
               <Card title="Đầu ra" bordered>
-                <pre>{form.getFieldValue('SampleOutput')}</pre>
+                <pre>{form.getFieldValue('sampleOutput')}</pre>
               </Card>
             </Col>
           </Row>
 
-          {form.getFieldValue('Explanation') && (
+          {form.getFieldValue('explanation') && (
             <>
               <Divider orientation="left">Giải thích</Divider>
-              <ReactMarkdown>{form.getFieldValue('Explanation')}</ReactMarkdown>
+              <ReactMarkdown>{form.getFieldValue('explanation')}</ReactMarkdown>
             </>
           )}
 
-          {form.getFieldValue('StarterCode') && (
+          {form.getFieldValue('starterCode') && (
             <>
               <Divider orientation="left">Mã khởi tạo</Divider>
               <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 4 }}>
-                {form.getFieldValue('StarterCode')}
+                {form.getFieldValue('starterCode')}
               </pre>
+            </>
+          )}
+
+          {/* Test Cases Preview */}
+          {(testCasesVisible.length > 0 || testCasesHidden.length > 0) && (
+            <>
+              <Divider orientation="left">Test Cases</Divider>
+              <Text type="secondary">
+                Có {testCasesVisible.length} test case hiển thị và {testCasesHidden.length} test case ẩn
+              </Text>
             </>
           )}
         </Card>
@@ -284,15 +488,12 @@ const ProblemForm = () => {
           layout="vertical"
           initialValues={initialValues}
           onFinish={handleSubmit}
-          onValuesChange={(changedValues, allValues) => {
-            // console.log('Form values changed:', changedValues, allValues);
-          }}
         >
           <Row gutter={16}>
             <Col xs={24} md={16}>
               <Card title="Thông tin bài tập" style={{ marginBottom: 16 }}>
                 <Form.Item
-                  name="Title"
+                  name="title"
                   label="Tiêu đề"
                   rules={[{ required: true, message: 'Vui lòng nhập tiêu đề bài tập' }]}
                 >
@@ -300,7 +501,7 @@ const ProblemForm = () => {
                 </Form.Item>
 
                 <Form.Item
-                  name="Description"
+                  name="description"
                   label="Mô tả"
                   rules={[{ required: true, message: 'Vui lòng nhập mô tả bài tập' }]}
                 >
@@ -313,7 +514,7 @@ const ProblemForm = () => {
                 <Row gutter={16}>
                   <Col span={8}>
                     <Form.Item
-                      name="Difficulty"
+                      name="difficulty"
                       label="Độ khó"
                       rules={[{ required: true, message: 'Vui lòng chọn độ khó' }]}
                     >
@@ -326,7 +527,7 @@ const ProblemForm = () => {
                   </Col>
                   <Col span={8}>
                     <Form.Item
-                      name="Points"
+                      name="points"
                       label="Điểm"
                       rules={[{ required: true, message: 'Vui lòng nhập điểm' }]}
                     >
@@ -340,7 +541,7 @@ const ProblemForm = () => {
                   </Col>
                   <Col span={8}>
                     <Form.Item
-                      name="Tags"
+                      name="tags"
                       label="Thẻ"
                     >
                       <Input placeholder="Nhập thẻ (phân cách bằng dấu phẩy)" />
@@ -351,7 +552,7 @@ const ProblemForm = () => {
                 <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item
-                      name="TimeLimit"
+                      name="timeLimit"
                       label="Giới hạn thời gian (giây)"
                       rules={[{ required: true, message: 'Vui lòng nhập giới hạn thời gian' }]}
                     >
@@ -366,7 +567,7 @@ const ProblemForm = () => {
                   </Col>
                   <Col span={12}>
                     <Form.Item
-                      name="MemoryLimit"
+                      name="memoryLimit"
                       label="Giới hạn bộ nhớ (MB)"
                       rules={[{ required: true, message: 'Vui lòng nhập giới hạn bộ nhớ' }]}
                     >
@@ -381,7 +582,7 @@ const ProblemForm = () => {
                 </Row>
 
                 <Form.Item
-                  name="InputFormat"
+                  name="inputFormat"
                   label="Định dạng đầu vào"
                   rules={[{ required: true, message: 'Vui lòng nhập định dạng đầu vào' }]}
                 >
@@ -392,7 +593,7 @@ const ProblemForm = () => {
                 </Form.Item>
 
                 <Form.Item
-                  name="OutputFormat"
+                  name="outputFormat"
                   label="Định dạng đầu ra"
                   rules={[{ required: true, message: 'Vui lòng nhập định dạng đầu ra' }]}
                 >
@@ -403,7 +604,7 @@ const ProblemForm = () => {
                 </Form.Item>
 
                 <Form.Item
-                  name="Constraints"
+                  name="constraints"
                   label="Ràng buộc"
                   rules={[{ required: true, message: 'Vui lòng nhập ràng buộc' }]}
                 >
@@ -416,7 +617,7 @@ const ProblemForm = () => {
 
               <Card title="Ví dụ" style={{ marginBottom: 16 }}>
                 <Form.Item
-                  name="SampleInput"
+                  name="sampleInput"
                   label="Đầu vào mẫu"
                   rules={[{ required: true, message: 'Vui lòng nhập đầu vào mẫu' }]}
                 >
@@ -427,7 +628,7 @@ const ProblemForm = () => {
                 </Form.Item>
 
                 <Form.Item
-                  name="SampleOutput"
+                  name="sampleOutput"
                   label="Đầu ra mẫu"
                   rules={[{ required: true, message: 'Vui lòng nhập đầu ra mẫu' }]}
                 >
@@ -438,7 +639,7 @@ const ProblemForm = () => {
                 </Form.Item>
 
                 <Form.Item
-                  name="Explanation"
+                  name="explanation"
                   label="Giải thích"
                 >
                   <TextArea
@@ -447,21 +648,104 @@ const ProblemForm = () => {
                   />
                 </Form.Item>
               </Card>
+
+              {/* Test Cases Section */}
+              <Card title="Test Cases" style={{ marginBottom: 16 }}>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                  Test cases dùng để chấm bài tự động với Judge0
+                </Text>
+
+                <Collapse defaultActiveKey={['visible']}>
+                  <Panel 
+                    header={
+                      <Space>
+                        <EyeOutlined />
+                        <span>Test Cases Hiển Thị ({testCasesVisible.length})</span>
+                        <Tag color="blue">User có thể xem</Tag>
+                      </Space>
+                    } 
+                    key="visible"
+                  >
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Button
+                        type="dashed"
+                        icon={<PlusOutlined />}
+                        onClick={() => showAddTestCaseModal('visible')}
+                        style={{ width: '100%' }}
+                      >
+                        Thêm Test Case Hiển Thị
+                      </Button>
+                      {testCasesVisible.length > 0 ? (
+                        <Table
+                          dataSource={testCasesVisible.map((testCase, index) => ({
+                            ...testCase,
+                            key: index
+                          }))}
+                          columns={testCaseColumns('visible')}
+                          pagination={false}
+                          size="small"
+                        />
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                          Chưa có test case hiển thị
+                        </div>
+                      )}
+                    </Space>
+                  </Panel>
+
+                  <Panel 
+                    header={
+                      <Space>
+                        <EyeInvisibleOutlined />
+                        <span>Test Cases Ẩn ({testCasesHidden.length})</span>
+                        <Tag color="red">Chỉ để chấm bài</Tag>
+                      </Space>
+                    } 
+                    key="hidden"
+                  >
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Button
+                        type="dashed"
+                        icon={<PlusOutlined />}
+                        onClick={() => showAddTestCaseModal('hidden')}
+                        style={{ width: '100%' }}
+                      >
+                        Thêm Test Case Ẩn
+                      </Button>
+                      {testCasesHidden.length > 0 ? (
+                        <Table
+                          dataSource={testCasesHidden.map((testCase, index) => ({
+                            ...testCase,
+                            key: index
+                          }))}
+                          columns={testCaseColumns('hidden')}
+                          pagination={false}
+                          size="small"
+                        />
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                          Chưa có test case ẩn
+                        </div>
+                      )}
+                    </Space>
+                  </Panel>
+                </Collapse>
+              </Card>
             </Col>
 
             <Col xs={24} md={8}>
               <Card title="Hình ảnh" style={{ marginBottom: 16 }}>
                 <Form.Item
-                  name="ImageURL"
+                  name="imageURL"
                   label="URL hình ảnh"
                 >
                   <Input placeholder="Nhập URL hình ảnh" />
                 </Form.Item>
 
-                {form.getFieldValue('ImageURL') && (
+                {form.getFieldValue('imageURL') && (
                   <div style={{ marginBottom: 16, textAlign: 'center' }}>
                     <img 
-                      src={form.getFieldValue('ImageURL')} 
+                      src={form.getFieldValue('imageURL')} 
                       alt="Preview" 
                       style={{ 
                         maxWidth: '100%', 
@@ -476,7 +760,7 @@ const ProblemForm = () => {
                       <Button 
                         size="small" 
                         danger
-                        onClick={() => form.setFieldsValue({ ImageURL: '' })}
+                        onClick={() => form.setFieldsValue({ imageURL: '' })}
                       >
                         Xóa ảnh
                       </Button>
@@ -491,17 +775,18 @@ const ProblemForm = () => {
 
               <Card title="Mã nguồn" style={{ marginBottom: 16 }}>
                 <Form.Item
-                  name="StarterCode"
+                  name="starterCode"
                   label="Mã khởi tạo"
                 >
                   <TextArea
                     placeholder="Nhập mã khởi tạo cho bài tập"
                     autoSize={{ minRows: 5, maxRows: 10 }}
+                    style={{ fontFamily: 'monospace' }}
                   />
                 </Form.Item>
 
                 <Form.Item
-                  name="Instructions"
+                  name="instructions"
                   label="Hướng dẫn"
                 >
                   <TextArea
@@ -518,4 +803,4 @@ const ProblemForm = () => {
   );
 };
 
-export default ProblemForm; 
+export default ProblemForm;

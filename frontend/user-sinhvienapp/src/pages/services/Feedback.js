@@ -41,7 +41,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { Send, Close } from '@mui/icons-material';
 import axios from 'axios';
-
+import { API_BASE_URL } from '../../config';
 // Sample feedback categories
 const feedbackCategories = [
   { id: 1, name: 'Cơ sở vật chất' },

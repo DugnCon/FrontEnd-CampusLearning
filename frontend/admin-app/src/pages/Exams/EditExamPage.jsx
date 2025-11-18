@@ -479,40 +479,40 @@ const EditExamPage = () => {
           
           {examData.questions?.length > 0 ? (
             examData.questions.map((question, index) => (
-              <Accordion key={question.QuestionID || index}>
+              <Accordion key={question.questionID || index}>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography>
-                    {index + 1}. {question.Type === 'essay' ? 'Tự luận' : 
-                        question.Type === 'coding' ? 'Lập trình' : 'Trắc nghiệm'} 
-                    ({question.Points} điểm)
+                    {index + 1}. {question.type === 'essay' ? 'Tự luận' : 
+                        question.type === 'coding' ? 'Lập trình' : 'Trắc nghiệm'} 
+                    ({question.points} điểm)
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography gutterBottom><strong>Nội dung:</strong> {question.Content}</Typography>
+                  <Typography gutterBottom><strong>Nội dung:</strong> {question.content}</Typography>
                   
                   {question.Explanation && (
-                    <Typography gutterBottom><strong>Giải thích:</strong> {question.Explanation}</Typography>
+                    <Typography gutterBottom><strong>Giải thích:</strong> {question.explanation}</Typography>
                   )}
                   
-                  {question.Type === 'multiple_choice' && question.Options && (
+                  {question.type === 'multiple_choice' && question.options && (
                     <Box mt={2}>
                       <Typography gutterBottom><strong>Các lựa chọn:</strong></Typography>
                       <ul>
-                        {JSON.parse(question.Options).map((option, i) => (
+                        {JSON.parse(question.options).map((option, i) => (
                           <li key={i}>{option}</li>
                         ))}
                       </ul>
-                      <Typography gutterBottom><strong>Đáp án:</strong> {question.CorrectAnswer}</Typography>
+                      <Typography gutterBottom><strong>Đáp án:</strong> {question.correctAnswer}</Typography>
                     </Box>
                   )}
                   
                   <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
-                    {question.Type === 'essay' && (
+                    {question.type === 'essay' && (
                       <Button
                         variant="outlined"
                         color="primary"
                         startIcon={<EditNote />}
-                        onClick={() => navigate(`/exams/${examId}/questions/${question.QuestionID}/essay-edit`)}
+                        onClick={() => navigate(`/exams/${examId}/questions/${question.questionID}/essay-edit`)}
                       >
                         Chỉnh sửa đáp án mẫu
                       </Button>
@@ -562,7 +562,7 @@ const EditExamPage = () => {
           <Button onClick={closeDeleteConfirm}>Hủy</Button>
           <Button 
             onClick={() => {
-              const questionId = examData.questions[confirmDelete.questionIndex]?.QuestionID;
+              const questionId = examData.questions[confirmDelete.questionIndex]?.questionID;
               if (questionId) {
                 handleDeleteQuestion(questionId);
               } else {

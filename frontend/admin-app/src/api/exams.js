@@ -1,11 +1,3 @@
-/*-----------------------------------------------------------------
-* File: exams.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import axios from 'axios';
 import adminApi from './config';
 
 const API_URL = '/exams';
@@ -186,6 +178,18 @@ export const uploadEssayFile = async (examId, questionId, formData) => {
   }
 };
 
+export const getEssayTemplates = async (examId, questionId) => {
+  try {
+    const response = await adminApi.get(
+      `${API_URL}/${examId}/questions/${questionId}/essay`
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('Error fetching essay templates:', error);
+    throw error;
+  }
+};
+
 // Add essay content/template for a question
 export const addEssayContent = async (examId, questionId, essayData) => {
   try {
@@ -197,12 +201,11 @@ export const addEssayContent = async (examId, questionId, essayData) => {
     }
     
     const payload = {
-      templateText: content, 
+      content: content || '',
       keywords: keywords || [],
-      scoringCriteria: JSON.stringify({
-        minimumMatchPercentage: minimumMatchPercentage || 60,
-        keywords: keywords || []
-      })
+      minimumMatchPercentage: minimumMatchPercentage !== undefined && minimumMatchPercentage !== null
+        ? Number(minimumMatchPercentage)
+        : 60.0
     };
     
     // Sử dụng request thay vì post để có thể chỉ định validateStatus
@@ -228,6 +231,34 @@ export const addEssayContent = async (examId, questionId, essayData) => {
     if (!error.message?.includes('API chưa hỗ trợ')) {
       console.error('Lỗi khi lưu mẫu câu hỏi:', error);
     }
+    throw error;
+  }
+};
+
+// Update essay content/template for a question
+export const updateEssayContent = async (examId, questionId, templateId, essayData) => {
+  try {
+    const { content, keywords, minimumMatchPercentage } = essayData;
+
+    if (!examId || !questionId || !templateId) {
+      throw new Error('Thiếu thông tin examId, questionId hoặc templateId');
+    }
+
+    const payload = {
+      content: content || '',
+      keywords: keywords || [],
+      minimumMatchPercentage: minimumMatchPercentage !== undefined && minimumMatchPercentage !== null
+        ? Number(minimumMatchPercentage)
+        : 60.0
+    };
+
+    const response = await adminApi.put(
+      `/exams/${examId}/questions/${questionId}/essay/${templateId}`,
+      payload
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Lỗi khi cập nhật mẫu câu hỏi tự luận:', error);
     throw error;
   }
 };
@@ -283,4 +314,4 @@ export const getExamParticipants = async (examId) => {
     console.error('Error fetching exam participants:', error);
     return { participants: [] };
   }
-}; 
+};

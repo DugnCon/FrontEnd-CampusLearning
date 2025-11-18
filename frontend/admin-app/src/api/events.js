@@ -27,20 +27,20 @@ export const getEventById = (id) => {
 export const createEvent = (data) => {
   // Đảm bảo dữ liệu khớp với schema của bảng Events
   const eventData = {
-    Title: data.title,
-    Description: data.description,
-    Category: data.category,
-    EventDate: data.eventDate,
-    EventTime: data.eventTime,
-    Location: data.location,
-    ImageUrl: data.imageUrl,
-    MaxAttendees: data.maxAttendees,
-    CurrentAttendees: 0, // Giá trị mặc định theo schema
-    Price: data.price || 0,
-    Organizer: data.organizer,
-    Difficulty: data.difficulty || 'intermediate',
-    Status: 'upcoming', // Giá trị mặc định theo schema
-    CreatedAt: new Date().toISOString()
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    eventDate: data.eventDate,
+    eventTime: data.eventTime,
+    location: data.location,
+    imageUrl: data.imageUrl,
+    maxAttendees: data.maxAttendees,
+    currentAttendees: 0, // Giá trị mặc định theo schema
+    price: data.price || 0,
+    organizer: data.organizer,
+    difficulty: data.difficulty || 'intermediate',
+    status: 'upcoming', // Giá trị mặc định theo schema
+    createdAt: new Date().toISOString()
   };
   return adminApi.post(API_URL, eventData);
 };
@@ -77,7 +77,7 @@ export const updateEventStatus = (id, status) => {
   if (!['upcoming', 'ongoing', 'completed', 'cancelled'].includes(status)) {
     throw new Error('Invalid status value');
   }
-  return adminApi.put(`${API_URL}/${id}/status`, { Status: status });
+  return adminApi.put(`${API_URL}/${id}/status`, { status: status });
 };
 
 /**
@@ -97,7 +97,7 @@ export const getEventLanguages = (eventId) => {
  */
 export const addEventLanguage = (eventId, data) => {
   return adminApi.post(`${API_URL}/${eventId}/languages`, {
-    Language: data.language
+    language: data.language
   });
 };
 
@@ -118,7 +118,7 @@ export const getEventTechnologies = (eventId) => {
  */
 export const addEventTechnology = (eventId, data) => {
   return adminApi.post(`${API_URL}/${eventId}/technologies`, {
-    Technology: data.technology
+    technology: data.technology
   });
 };
 
@@ -139,12 +139,12 @@ export const getEventSchedule = (eventId) => {
  */
 export const addEventSchedule = (eventId, data) => {
   return adminApi.post(`${API_URL}/${eventId}/schedule`, {
-    ActivityName: data.activityName,
-    StartTime: data.startTime,
-    EndTime: data.endTime,
-    Description: data.description,
-    Location: data.location,
-    Type: data.type || 'main_event'
+    activityName: data.activityName,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    description: data.description,
+    location: data.location,
+    type: data.type || 'main_event'
   });
 };
 
@@ -175,9 +175,9 @@ export const getEventPrizes = (eventId) => {
  */
 export const addEventPrize = (eventId, data) => {
   return adminApi.post(`${API_URL}/${eventId}/prizes`, {
-    Rank: data.rank,
-    PrizeAmount: data.amount,
-    Description: data.description
+    rank: data.rank,
+    prizeAmount: data.amount,
+    description: data.description
   });
 };
 

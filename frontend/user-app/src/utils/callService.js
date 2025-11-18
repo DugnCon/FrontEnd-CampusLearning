@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: callService.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the student application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import { chatApi } from '../api/chatApi';
 import * as webRTC from './webRTC';
 
@@ -119,9 +113,9 @@ export class CallService {
   async initiateCall(conversation, isVideoCall = false) {
     try {
       // Get the other participants from the conversation
-      const participantIds = conversation.Participants
-        .filter(p => p.UserID !== this.userId)
-        .map(p => p.UserID);
+      const participantIds = conversation.participants
+        .filter(p => p.userID !== this.userId)
+        .map(p => p.userID);
 
       if (participantIds.length === 0) {
         throw new Error('No participants to call');
@@ -129,8 +123,8 @@ export class CallService {
 
       // Create a call in the backend
       const callData = await chatApi.initiateCall({
-        conversationType: conversation.Type,
-        conversationId: conversation.ConversationID,
+        conversationType: conversation.type,
+        conversationId: conversation.conversationID,
         type: isVideoCall ? 'video' : 'audio',
         participantIds
       });
@@ -139,7 +133,7 @@ export class CallService {
         throw new Error('Failed to create call');
       }
 
-      this.currentCallId = callData.callId;
+      this.currentCallId = callData.callID;
       this.currentCall = callData;
       this.isInitiator = true;
 
@@ -151,14 +145,14 @@ export class CallService {
 
       // Send call initiated event
       this.socket.emit('call-initiated', {
-        callId: this.currentCallId,
+        callId: this.currentCallID,
         participantIds,
-        conversationId: conversation.ConversationID,
+        conversationId: conversation.conversationID,
         offer,
         isVideoCall,
         initiator: {
           id: this.userId,
-          name: conversation.Participants.find(p => p.UserID === this.userId)?.FullName || 'User'
+          name: conversation.participants.find(p => p.userID === this.userId)?.fullName || 'User'
         }
       });
 

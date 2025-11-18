@@ -214,18 +214,18 @@ const ProblemDetail = () => {
           <div>
             <Title level={2}>{problem.Title}</Title>
             <Space wrap style={{ marginBottom: 16 }}>
-              {getDifficultyTag(problem.Difficulty)}
-              <Tag icon={<TrophyOutlined />} color="gold">Điểm: {problem.Points}</Tag>
-              <Tag icon={<ClockCircleOutlined />}>Thời gian: {problem.TimeLimit} giây</Tag>
-              <Tag icon={<FileTextOutlined />}>Bộ nhớ: {problem.MemoryLimit} MB</Tag>
+              {getDifficultyTag(problem.difficulty)}
+              <Tag icon={<TrophyOutlined />} color="gold">Điểm: {problem.points}</Tag>
+              <Tag icon={<ClockCircleOutlined />}>Thời gian: {problem.timeLimit} giây</Tag>
+              <Tag icon={<FileTextOutlined />}>Bộ nhớ: {problem.memoryLimit} MB</Tag>
             </Space>
-            {renderTags(problem.Tags)}
+            {renderTags(problem.tags)}
           </div>
           
-          {problem.ImageURL && (
+          {problem.imageURL && (
             <img 
-              src={problem.ImageURL} 
-              alt={problem.Title}
+              src={problem.imageURL} 
+              alt={problem.title}
               style={{ 
                 maxWidth: '120px', 
                 maxHeight: '120px', 
@@ -238,22 +238,22 @@ const ProblemDetail = () => {
         
         <Divider orientation="left">Mô tả bài toán</Divider>
         <div className="markdown-content">
-          <ReactMarkdown>{problem.Description}</ReactMarkdown>
+          <ReactMarkdown>{problem.description}</ReactMarkdown>
         </div>
         
         <Divider orientation="left">Định dạng đầu vào</Divider>
         <div className="markdown-content">
-          <ReactMarkdown>{problem.InputFormat}</ReactMarkdown>
+          <ReactMarkdown>{problem.inputFormat}</ReactMarkdown>
         </div>
         
         <Divider orientation="left">Định dạng đầu ra</Divider>
         <div className="markdown-content">
-          <ReactMarkdown>{problem.OutputFormat}</ReactMarkdown>
+          <ReactMarkdown>{problem.outputFormat}</ReactMarkdown>
         </div>
         
         <Divider orientation="left">Ràng buộc</Divider>
         <div className="markdown-content">
-          <ReactMarkdown>{problem.Constraints}</ReactMarkdown>
+          <ReactMarkdown>{problem.constraints}</ReactMarkdown>
         </div>
         
         <Divider orientation="left">Ví dụ</Divider>
@@ -261,38 +261,38 @@ const ProblemDetail = () => {
           <Col span={12}>
             <Card title="Đầu vào mẫu" bordered>
               <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 4, overflow: 'auto' }}>
-                {problem.SampleInput}
+                {problem.sampleInput}
               </pre>
             </Card>
           </Col>
           <Col span={12}>
             <Card title="Đầu ra mẫu" bordered>
               <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 4, overflow: 'auto' }}>
-                {problem.SampleOutput}
+                {problem.sampleOutput}
               </pre>
             </Card>
           </Col>
         </Row>
         
-        {problem.Explanation && (
+        {problem.explanation && (
           <>
             <Divider orientation="left">Giải thích</Divider>
             <div className="markdown-content">
-              <ReactMarkdown>{problem.Explanation}</ReactMarkdown>
+              <ReactMarkdown>{problem.explanation}</ReactMarkdown>
             </div>
           </>
         )}
         
-        {problem.Instructions && (
+        {problem.instructions && (
           <>
             <Divider orientation="left">Hướng dẫn</Divider>
             <div className="markdown-content">
-              <ReactMarkdown>{problem.Instructions}</ReactMarkdown>
+              <ReactMarkdown>{problem.instructions}</ReactMarkdown>
             </div>
           </>
         )}
         
-        {problem.StarterCode && (
+        {problem.starterCode && (
           <>
             <Divider orientation="left">Mã khởi tạo</Divider>
             <pre 
@@ -306,7 +306,7 @@ const ProblemDetail = () => {
                 lineHeight: '1.5'
               }}
             >
-              {problem.StarterCode}
+              {problem.starterCode}
             </pre>
           </>
         )}

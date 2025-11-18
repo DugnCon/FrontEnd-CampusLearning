@@ -94,7 +94,7 @@ const ModuleEdit = () => {
         <Space>
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/courses/${id}/modules/${moduleId}`)}
+            onClick={() => navigate(`/courses/${id}`)}
           />
           Chỉnh sửa module
         </Space>

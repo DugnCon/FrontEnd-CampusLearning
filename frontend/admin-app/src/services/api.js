@@ -10,7 +10,7 @@ import axios from 'axios';
 // Lấy base URL từ biến môi trường hoặc sử dụng URL mặc định
 const BASE_URL = (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : null) || 
                 process.env.REACT_APP_API_URL || 
-                'http://localhost:8081/api';
+                'http://112.137.129.158:8889/api';
 
 // Tạo instance Axios với cấu hình mặc định
 const api = axios.create({

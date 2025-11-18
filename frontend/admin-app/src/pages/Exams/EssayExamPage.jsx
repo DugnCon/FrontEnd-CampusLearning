@@ -5,22 +5,42 @@
 * Description: This file is a component/module for the admin application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  Container, Typography, Box, Paper, Stepper, Step, StepLabel,
-  Button, TextField, MenuItem, FormControl, FormControlLabel,
-  Switch, Grid, Card, CardContent, CircularProgress, Divider,
-  Accordion, AccordionSummary, AccordionDetails, IconButton,
-  Tooltip, Alert, Chip
-} from '@mui/material';
-import {
-  Add, Delete, ArrowBack, ArrowForward, Save,
-  ExpandMore, Description, NoteAdd
+  Add,
+  ArrowBack, ArrowForward,
+  Delete,
+  Description,
+  ExpandMore,
+  NoteAdd,
+  Save
 } from '@mui/icons-material';
-import { createExam, addQuestionToExam, addEssayContent } from '../../api/exams';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  Button,
+  Card, CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  FormControlLabel,
+  Grid,
+  MenuItem,
+  Paper,
+  Step, StepLabel,
+  Stepper,
+  Switch,
+  TextField,
+  Typography
+} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import adminApi from '../../api/config';
 import { coursesAPI } from '../../api/courses';
-
+import { addEssayContent, addQuestionToExam, createExam } from '../../api/exams';
 // Steps for exam creation
 const steps = ['Thông tin bài thi', 'Câu hỏi', 'Xem lại'];
 
@@ -32,7 +52,7 @@ const EssayExamPage = () => {
   const [error, setError] = useState(null);
   const [createdExamId, setCreatedExamId] = useState(null);
   const [success, setSuccess] = useState(null);
-
+  const   apiUrl = adminApi.defaults.baseURL;
   // Form data
   const [examData, setExamData] = useState({
     title: '',
@@ -106,12 +126,34 @@ const EssayExamPage = () => {
       setError('Vui lòng nhập nội dung câu hỏi');
       return;
     }
-    
+    if (!currentQuestion.essayData.content || !currentQuestion.essayData.content.trim()) {
+      setError('Vui lòng nhập nội dung mẫu cho đáp án tự luận');
+      return;
+    }
+    if (
+      !Array.isArray(currentQuestion.essayData.keywords) ||
+      currentQuestion.essayData.keywords.length === 0 ||
+      currentQuestion.essayData.keywords.some(k => !k.trim())
+    ) {
+      setError('Vui lòng nhập ít nhất một từ khóa cho đáp án tự luận');
+      return;
+    }
+    if (
+      currentQuestion.essayData.minimumMatchPercentage === undefined ||
+      currentQuestion.essayData.minimumMatchPercentage === null ||
+      isNaN(currentQuestion.essayData.minimumMatchPercentage) ||
+      currentQuestion.essayData.minimumMatchPercentage < 0 ||
+      currentQuestion.essayData.minimumMatchPercentage > 100
+    ) {
+      setError('Vui lòng nhập tỷ lệ khớp tối thiểu hợp lệ (0-100)');
+      return;
+    }
+
     // Add question to the list
     setQuestions([...questions, { ...currentQuestion, id: Date.now() }]);
     setError(null);
     setSuccess('Đã thêm câu hỏi thành công');
-    
+
     // Reset current question
     setCurrentQuestion({
       type: 'essay',
@@ -124,7 +166,7 @@ const EssayExamPage = () => {
         minimumMatchPercentage: 60
       }
     });
-    
+
     // Clear success message after 3 seconds
     setTimeout(() => {
       setSuccess(null);
@@ -230,13 +272,8 @@ const EssayExamPage = () => {
       
       const response = await createExam(formattedExamData);
       console.log('Exam creation response:', response);
-      
-      if (response && response.examId) {
-        setCreatedExamId(response.examId);
-        setActiveStep(activeStep + 1);
-      } else {
-        setError('Không thể tạo bài thi. Vui lòng kiểm tra lại thông tin và thử lại.');
-      }
+      setCreatedExamId(response.examId);
+      setActiveStep(activeStep + 1);
     } catch (err) {
       console.error('Exam creation error:', err);
       
@@ -267,6 +304,10 @@ const EssayExamPage = () => {
     try {
       setLoading(true);
       setError(null);
+
+      console.log("==== RAW DATA GỬI LÊN ====");
+    console.log("ExamId:", createdExamId);
+    console.log("Questions:", questions);
       
       // Upload all questions
       for (const question of questions) {
@@ -287,7 +328,7 @@ const EssayExamPage = () => {
             await addEssayContent(createdExamId, questionId, {
               content: question.essayData.content,
               keywords: question.essayData.keywords || [],
-              minimumMatchPercentage: question.essayData.minimumMatchPercentage || 60
+              minimumMatchPercentage: parseFloat(question.essayData.minimumMatchPercentage) || 60.0
             });
           } catch (templateError) {
             console.error('Error adding essay template:', templateError);
@@ -857,4 +898,4 @@ const EssayExamPage = () => {
   );
 };
 
-export default EssayExamPage; 
+export default EssayExamPage;

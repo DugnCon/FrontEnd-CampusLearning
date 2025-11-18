@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: LessonDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -32,15 +25,40 @@ const LessonDetail = () => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    fetchLessonData();
-  }, [lessonId]);
+    const timer = setTimeout(() => {
+      fetchLessonData();
+    }, 100); // Debounce để tránh nhiều request
+    return () => clearTimeout(timer);
+  }, [id, moduleId, lessonId]);
   
   const fetchLessonData = async () => {
     setLoading(true);
     try {
       const lessonData = await coursesAPI.getLesson(id, moduleId, lessonId);
-      setLesson(lessonData);
+      console.log('Lesson API response:', JSON.stringify(lessonData, null, 2));
+      if (!lessonData) {
+        console.error('lessonData is empty:', lessonData);
+        message.error('Không tìm thấy bài học');
+        navigate(`/courses/${id}/modules/${moduleId}`);
+        return;
+      }
+      // Chuẩn hóa dữ liệu để khớp với trường viết hoa
+      const normalizedLesson = {
+        Title: lessonData.title || lessonData.Title,
+        Description: lessonData.description || lessonData.Description,
+        Type: lessonData.type || lessonData.Type,
+        Duration: lessonData.duration || lessonData.Duration,
+        OrderIndex: lessonData.orderIndex || lessonData.OrderIndex,
+        VideoUrl: lessonData.videoUrl || lessonData.VideoUrl,
+        Content: lessonData.content || lessonData.Content,
+        CreatedAt: lessonData.createdAt || lessonData.CreatedAt,
+        UpdatedAt: lessonData.updatedAt || lessonData.UpdatedAt,
+        IsPreview: lessonData.preview || lessonData.IsPreview,
+        LessonID: lessonData.lessonID || lessonData.LessonID
+      };
+      setLesson(normalizedLesson);
     } catch (error) {
+      console.error('Error fetching lesson data:', error);
       message.error('Không thể tải thông tin bài học');
       navigate(`/courses/${id}/modules/${moduleId}`);
     } finally {
@@ -74,7 +92,6 @@ const LessonDetail = () => {
       'Text': { color: 'green', icon: <FileTextOutlined /> },
       'Quiz': { color: 'orange', icon: <QuestionCircleOutlined /> },
     };
-    
     return (
       <Tag color={typeMap[type]?.color || 'default'} icon={typeMap[type]?.icon}>
         {type}
@@ -219,4 +236,4 @@ const LessonDetail = () => {
   );
 };
 
-export default LessonDetail; 
+export default LessonDetail;

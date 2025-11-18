@@ -5,10 +5,9 @@
 * Description: This file is a component/module for the admin application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React from 'react';
-import PropTypes from 'prop-types';
-import { Box, Typography, useTheme } from '@mui/material';
 import { InboxOutlined } from '@mui/icons-material';
+import { Box, Typography, useTheme } from '@mui/material';
+import PropTypes from 'prop-types';
 
 const NoDataMessage = ({ message, subMessage, icon, height }) => {
   const theme = useTheme();

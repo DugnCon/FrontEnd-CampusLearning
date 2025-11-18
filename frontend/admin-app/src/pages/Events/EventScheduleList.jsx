@@ -100,14 +100,14 @@ const EventScheduleList = ({ eventId, refresh }) => {
   const columns = [
     {
       title: 'Hoạt động',
-      dataIndex: 'ActivityName',
+      dataIndex: 'activityName',
       key: 'activityName',
       render: (text, record) => (
         <Space direction="vertical" size={0}>
           <Text strong>{text}</Text>
-          {record.Description && (
+          {record.description && (
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.Description}
+              {record.description}
             </Text>
           )}
         </Space>
@@ -115,7 +115,7 @@ const EventScheduleList = ({ eventId, refresh }) => {
     },
     {
       title: 'Loại',
-      dataIndex: 'Type',
+      dataIndex: 'type',
       key: 'type',
       render: (type) => (
         <Tag color={typeColors[type] || 'default'}>
@@ -130,18 +130,18 @@ const EventScheduleList = ({ eventId, refresh }) => {
         <Space direction="vertical" size={0}>
           <Space>
             <ClockCircleOutlined />
-            <Text>Bắt đầu: {formatDateTime(record.StartTime)}</Text>
+            <Text>Bắt đầu: {formatDateTime(record.startTime)}</Text>
           </Space>
           <Space>
             <ClockCircleOutlined />
-            <Text>Kết thúc: {formatDateTime(record.EndTime)}</Text>
+            <Text>Kết thúc: {formatDateTime(record.endTime)}</Text>
           </Space>
         </Space>
       ),
     },
     {
       title: 'Địa điểm',
-      dataIndex: 'Location',
+      dataIndex: 'location',
       key: 'location',
       render: (location) => (
         <Space>
@@ -157,7 +157,7 @@ const EventScheduleList = ({ eventId, refresh }) => {
         <Space size="middle">
           <Popconfirm
             title="Bạn có chắc chắn muốn xóa lịch trình này?"
-            onConfirm={() => handleDelete(record.ScheduleID)}
+            onConfirm={() => handleDelete(record.scheduleID)}
             okText="Xóa"
             cancelText="Hủy"
           >

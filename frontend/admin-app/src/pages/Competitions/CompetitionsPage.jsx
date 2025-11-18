@@ -54,8 +54,8 @@ const CompetitionsPage = () => {
   const handleSearch = (value) => {
     const filtered = competitions.filter(
       (competition) =>
-        competition.Title.toLowerCase().includes(value.toLowerCase()) ||
-        competition.Description.toLowerCase().includes(value.toLowerCase())
+        competition.title.toLowerCase().includes(value.toLowerCase()) ||
+        competition.description.toLowerCase().includes(value.toLowerCase())
     );
     setFilteredCompetitions(filtered);
   };
@@ -155,7 +155,7 @@ const CompetitionsPage = () => {
           label: 'Cập nhật trạng thái',
           icon: <FilterOutlined />,
           children: statusOptions
-            .filter(option => option.key !== competition.Status)
+            .filter(option => option.key !== competition.status)
             .map(option => ({
               key: `status_${option.key}`,
               label: option.label,
@@ -168,10 +168,10 @@ const CompetitionsPage = () => {
         } else if (key === 'edit') {
           // Navigate to edit
         } else if (key === 'delete') {
-          showDeleteConfirm(competition.CompetitionID, competition.Title);
+          showDeleteConfirm(competition.competitionID, competition.title);
         } else if (key.startsWith('status_')) {
           const newStatus = key.replace('status_', '');
-          handleUpdateStatus(competition.CompetitionID, newStatus);
+          handleUpdateStatus(competition.competitionID, newStatus);
         }
       },
     };
@@ -180,29 +180,29 @@ const CompetitionsPage = () => {
   const columns = [
     {
       title: 'Tiêu đề',
-      dataIndex: 'Title',
+      dataIndex: 'title',
       key: 'title',
       render: (text, record) => (
-        <Link to={`/competitions/${record.CompetitionID}`}>
+        <Link to={`/competitions/${record.competitionID}`}>
           <Text strong>{text}</Text>
         </Link>
       ),
     },
     {
       title: 'Thời gian bắt đầu',
-      dataIndex: 'StartTime',
+      dataIndex: 'startTime',
       key: 'startTime',
       render: (text) => new Date(text).toLocaleString('vi-VN'),
     },
     {
       title: 'Thời gian kết thúc',
-      dataIndex: 'EndTime',
+      dataIndex: 'endTime',
       key: 'endTime',
       render: (text) => new Date(text).toLocaleString('vi-VN'),
     },
     {
       title: 'Độ khó',
-      dataIndex: 'Difficulty',
+      dataIndex: 'difficulty',
       key: 'difficulty',
       render: (text) => getDifficultyTag(text),
     },
@@ -210,14 +210,14 @@ const CompetitionsPage = () => {
       title: 'Số lượng',
       key: 'participants',
       render: (_, record) => (
-        <Tooltip title={`${record.CurrentParticipants}/${record.MaxParticipants} người tham gia`}>
-          <Text>{record.CurrentParticipants}/{record.MaxParticipants}</Text>
+        <Tooltip title={`${record.currentParticipants}/${record.maxParticipants} người tham gia`}>
+          <Text>{record.currentParticipants}/{record.maxParticipants}</Text>
         </Tooltip>
       ),
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'Status',
+      dataIndex: 'status',
       key: 'status',
       render: (text) => getStatusTag(text),
     },
@@ -226,10 +226,10 @@ const CompetitionsPage = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Link to={`/competitions/${record.CompetitionID}`}>
+          <Link to={`/competitions/${record.competitionID}`}>
             <Button icon={<EyeOutlined />} size="small" />
           </Link>
-          <Link to={`/competitions/edit/${record.CompetitionID}`}>
+          <Link to={`/competitions/edit/${record.competitionID}`}>
             <Button icon={<EditOutlined />} size="small" />
           </Link>
           <Dropdown menu={getActionMenu(record)}>
@@ -261,7 +261,7 @@ const CompetitionsPage = () => {
         <Table
           columns={columns}
           dataSource={filteredCompetitions}
-          rowKey="CompetitionID"
+          rowKey="competitionID"
           loading={loading}
           pagination={{
             pageSize: 10,

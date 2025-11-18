@@ -62,25 +62,26 @@ const ExamsPage = () => {
     setLoading(true);
     try {
       const response = await getAllExams();
+      console.log('API Response:', response.exams); // Debug dữ liệu
       
       if (response && response.exams) {
         const formattedExams = response.exams.map(exam => ({
-          ExamID: exam.ExamID,
-          Title: exam.Title,
-          Description: exam.Description,
-          Type: exam.Type?.toLowerCase() || 'multiple_choice',
-          Duration: exam.Duration,
-          TotalPoints: exam.TotalPoints || 100,
-          PassingScore: exam.PassingScore || 60,
-          StartTime: exam.StartTime ? new Date(exam.StartTime) : null,
-          EndTime: exam.EndTime ? new Date(exam.EndTime) : null,
-          Instructions: exam.Instructions,
-          Status: exam.Status?.toLowerCase() || 'upcoming',
-          CourseID: exam.CourseID,
-          CourseTitle: exam.CourseTitle || 'Chưa gán khóa học',
-          QuestionCount: exam.QuestionCount || 0,
-          CreatorName: exam.CreatorName,
-          Difficulty: exam.Difficulty || 'intermediate'
+          examID: exam.ExamID || exam.examID, 
+          title: exam.Title || exam.title ||'Không có tiêu đề', // Giá trị mặc định
+          description: exam.Description || '', // Giá trị mặc định
+          type: exam.type?.toLowerCase() || 'multiple_choice',
+          duration: exam.Duration || exam.duration,
+          totalPoints: exam.TotalPoints || 100,
+          passingScore: exam.PassingScore || 60,
+          startTime: exam.startTime ? new Date(exam.startTime) : null,
+          endTime: exam.endTime ? new Date(exam.endTime) : null,
+          instructions: exam.Instructions || '',
+          status: exam.status?.toLowerCase() || 'upcoming',
+          courseID: exam.CourseID,
+          courseTitle: exam.CourseTitle || 'Chưa gán khóa học',
+          questionCount: exam.QuestionCount || 0,
+          creatorName: exam.CreatorName || 'Không xác định',
+          difficulty: exam.difficulty || 'intermediate'
         }));
         
         setExams(formattedExams);
@@ -102,37 +103,48 @@ const ExamsPage = () => {
 
     const newStats = {
       total: exams.length,
-      multipleChoice: exams.filter(exam => exam.Type === 'multiple_choice').length,
-      essay: exams.filter(exam => exam.Type === 'essay').length,
-      coding: exams.filter(exam => exam.Type === 'coding').length,
-      upcoming: exams.filter(exam => exam.Status === 'upcoming').length,
-      ongoing: exams.filter(exam => exam.Status === 'ongoing').length,
-      completed: exams.filter(exam => exam.Status === 'completed').length
+      multipleChoice: exams.filter(exam => exam.type === 'multiple_choice').length,
+      essay: exams.filter(exam => exam.type === 'essay').length,
+      coding: exams.filter(exam => exam.type === 'coding').length,
+      upcoming: exams.filter(exam => exam.status === 'upcoming').length,
+      ongoing: exams.filter(exam => exam.status === 'ongoing').length,
+      completed: exams.filter(exam => exam.status === 'completed').length
     };
     
     setStats(newStats);
   };
 
   const applyFilters = () => {
+    if (!exams || !Array.isArray(exams)) {
+      setFilteredExams([]);
+      return;
+    }
+    
     const filtered = exams.filter(exam => {
       // Search text filter
       const matchesSearch = 
-        exam.Title.toLowerCase().includes(searchText.toLowerCase()) ||
-        (exam.Description && exam.Description.toLowerCase().includes(searchText.toLowerCase())) ||
-        (exam.CourseTitle && exam.CourseTitle.toLowerCase().includes(searchText.toLowerCase()));
+        (exam.title && typeof exam.title === 'string' 
+          ? exam.title.toLowerCase().includes((searchText || '').toLowerCase()) 
+          : false) ||
+        (exam.description && typeof exam.description === 'string' 
+          ? exam.description.toLowerCase().includes((searchText || '').toLowerCase()) 
+          : false) ||
+        (exam.courseTitle && typeof exam.courseTitle === 'string' 
+          ? exam.courseTitle.toLowerCase().includes((searchText || '').toLowerCase()) 
+          : false);
       
       // Type filter
-      const matchesType = typeFilter === 'all' || exam.Type === typeFilter;
+      const matchesType = typeFilter === 'all' || exam.type === typeFilter;
       
       // Status filter
-      const matchesStatus = statusFilter === 'all' || exam.Status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || exam.status === statusFilter;
       
       // Date range filter
       let matchesDateRange = true;
-      if (dateRange && dateRange[0] && dateRange[1] && exam.StartTime) {
+      if (dateRange && dateRange[0] && dateRange[1] && exam.startTime) {
         const startDate = dateRange[0].startOf('day').toDate();
         const endDate = dateRange[1].endOf('day').toDate();
-        matchesDateRange = exam.StartTime >= startDate && exam.StartTime <= endDate;
+        matchesDateRange = exam.startTime >= startDate && exam.startTime <= endDate;
       }
       
       return matchesSearch && matchesType && matchesStatus && matchesDateRange;
@@ -235,13 +247,13 @@ const ExamsPage = () => {
       { key: 'cancelled', label: 'Đã hủy' },
     ];
     
-    let examDetailUrl = `/exams/${exam.ExamID}`;
-    if (exam.Type === 'multiple_choice') {
-      examDetailUrl = `/exams/multiple-choice/${exam.ExamID}`;
-    } else if (exam.Type === 'essay') {
-      examDetailUrl = `/exams/essay/${exam.ExamID}`;
-    } else if (exam.Type === 'coding') {
-      examDetailUrl = `/exams/coding/${exam.ExamID}`;
+    let examDetailUrl = `/exams/${exam.examID}`;
+    if (exam.type === 'multiple_choice') {
+      examDetailUrl = `/exams/multiple-choice/${exam.examID}`;
+    } else if (exam.type === 'essay') {
+      examDetailUrl = `/exams/essay/${exam.examID}`;
+    } else if (exam.type === 'coding') {
+      examDetailUrl = `/exams/coding/${exam.examID}`;
     }
     
     return {
@@ -270,7 +282,7 @@ const ExamsPage = () => {
           label: 'Cập nhật trạng thái',
           icon: <FilterOutlined />,
           children: statusOptions
-            .filter(option => option.key !== exam.Status)
+            .filter(option => option.key !== exam.status)
             .map(option => ({
               key: `status_${option.key}`,
               label: option.label,
@@ -281,12 +293,12 @@ const ExamsPage = () => {
         if (key === 'view') {
           navigate(examDetailUrl);
         } else if (key === 'edit') {
-          navigate(`/exams/edit/${exam.ExamID}`);
+          navigate(`/exams/edit/${exam.examID}`);
         } else if (key === 'delete') {
-          showDeleteConfirm(exam.ExamID, exam.Title);
+          showDeleteConfirm(exam.examID, exam.title);
         } else if (key.startsWith('status_')) {
           const newStatus = key.replace('status_', '');
-          handleUpdateStatus(exam.ExamID, newStatus);
+          handleUpdateStatus(exam.examID, newStatus);
         }
       },
     };
@@ -295,26 +307,26 @@ const ExamsPage = () => {
   const columns = [
     {
       title: 'Tiêu đề',
-      dataIndex: 'Title',
+      dataIndex: 'title',
       key: 'title',
       render: (text, record) => {
-        let examDetailUrl = `/exams/${record.ExamID}`;
-        if (record.Type === 'multiple_choice') {
-          examDetailUrl = `/exams/multiple-choice/${record.ExamID}`;
-        } else if (record.Type === 'essay') {
-          examDetailUrl = `/exams/essay/${record.ExamID}`;
-        } else if (record.Type === 'coding') {
-          examDetailUrl = `/exams/coding/${record.ExamID}`;
+        let examDetailUrl = `/exams/${record.examID}`;
+        if (record.type === 'multiple_choice') {
+          examDetailUrl = `/exams/multiple-choice/${record.examID}`;
+        } else if (record.type === 'essay') {
+          examDetailUrl = `/exams/essay/${record.examID}`;
+        } else if (record.type === 'coding') {
+          examDetailUrl = `/exams/coding/${record.examID}`;
         }
         
         return (
           <Link to={examDetailUrl}>
             <Text strong>{text}</Text>
-            {record.Description && (
+            {record.description && (
               <Text type="secondary" style={{ display: 'block' }}>
-                {record.Description.length > 50 
-                  ? `${record.Description.substring(0, 50)}...` 
-                  : record.Description}
+                {record.description.length > 50 
+                  ? `${record.description.substring(0, 50)}...` 
+                  : record.description}
               </Text>
             )}
           </Link>
@@ -323,7 +335,7 @@ const ExamsPage = () => {
     },
     {
       title: 'Loại bài thi',
-      dataIndex: 'Type',
+      dataIndex: 'type',
       key: 'type',
       render: (text) => getTypeTag(text),
       filters: [
@@ -332,11 +344,11 @@ const ExamsPage = () => {
         { text: 'Lập trình', value: 'coding' },
         { text: 'Hỗn hợp', value: 'mixed' },
       ],
-      onFilter: (value, record) => record.Type === value,
+      onFilter: (value, record) => record.type === value,
     },
     {
       title: 'Độ khó',
-      dataIndex: 'Difficulty',
+      dataIndex: 'difficulty',
       key: 'difficulty',
       render: (text) => getDifficultyTag(text),
       filters: [
@@ -345,11 +357,11 @@ const ExamsPage = () => {
         { text: 'Nâng cao', value: 'advanced' },
         { text: 'Chuyên gia', value: 'expert' },
       ],
-      onFilter: (value, record) => record.Difficulty === value,
+      onFilter: (value, record) => record.difficulty === value,
     },
     {
       title: 'Thời gian làm bài',
-      dataIndex: 'Duration',
+      dataIndex: 'duration',
       key: 'duration',
       render: (text) => (
         <Space>
@@ -357,17 +369,17 @@ const ExamsPage = () => {
           {text} phút
         </Space>
       ),
-      sorter: (a, b) => a.Duration - b.Duration,
+      sorter: (a, b) => a.duration - b.duration,
     },
     {
       title: 'Thời gian bắt đầu',
       key: 'startTime',
-      render: (_, record) => formatDateTime(record.StartTime),
-      sorter: (a, b) => new Date(a.StartTime) - new Date(b.StartTime),
+      render: (_, record) => formatDateTime(record.startTime),
+      sorter: (a, b) => new Date(a.startTime) - new Date(b.startTime),
     },
     {
       title: 'Số câu hỏi',
-      dataIndex: 'QuestionCount',
+      dataIndex: 'questionCount',
       key: 'questionCount',
       render: (text) => (
         <Space>
@@ -375,11 +387,11 @@ const ExamsPage = () => {
           {text || 0}
         </Space>
       ),
-      sorter: (a, b) => (a.QuestionCount || 0) - (b.QuestionCount || 0),
+      sorter: (a, b) => (a.questionCount || 0) - (b.questionCount || 0),
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'Status',
+      dataIndex: 'status',
       key: 'status',
       render: (text) => getStatusTag(text),
       filters: [
@@ -388,7 +400,7 @@ const ExamsPage = () => {
         { text: 'Đã kết thúc', value: 'completed' },
         { text: 'Đã hủy', value: 'cancelled' },
       ],
-      onFilter: (value, record) => record.Status === value,
+      onFilter: (value, record) => record.status === value,
     },
     {
       title: 'Hành động',
@@ -518,7 +530,7 @@ const ExamsPage = () => {
           <Table
             columns={columns}
             dataSource={filteredExams}
-            rowKey="ExamID"
+            rowKey="examID"
             loading={loading}
             pagination={{
               position: ['bottomRight'],
@@ -533,4 +545,4 @@ const ExamsPage = () => {
   );
 };
 
-export default ExamsPage; 
+export default ExamsPage;

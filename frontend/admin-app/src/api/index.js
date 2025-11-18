@@ -19,7 +19,7 @@ const getEnvVar = (key, fallback) => {
 
 // Tạo instance axios với config mặc định
 const API = axios.create({
-  baseURL: getEnvVar('VITE_API_URL', 'http://localhost:8081/api'), // Safe access with fallback
+  baseURL: getEnvVar('VITE_API_URL', 'http://112.137.129.158:8889/api'), // Safe access with fallback
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -153,7 +153,7 @@ API.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => API.post('/auth/login', {
     ...credentials,
-    role: 'ADMIN' // Thêm role vào request
+    role: 'ADMIN' || 'TEACHER'// Thêm role vào request
   }),
   refreshToken: () => API.post('/auth/refresh', {
     refreshToken: localStorage.getItem('admin_refresh_token')

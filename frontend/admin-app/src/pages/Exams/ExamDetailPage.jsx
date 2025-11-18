@@ -207,20 +207,20 @@ const ExamDetailPage = () => {
     },
     {
       title: 'Câu hỏi',
-      dataIndex: 'QuestionText',
+      dataIndex: 'content',
       key: 'content',
       render: (text, record) => text || record.Content
     },
     {
       title: 'Loại',
-      dataIndex: 'Type',
+      dataIndex: 'type',
       key: 'type',
       width: '15%',
       render: (text) => getExamTypeTag(text)
     },
     {
       title: 'Điểm',
-      dataIndex: 'Points',
+      dataIndex: 'points',
       key: 'points',
       width: '10%',
       align: 'center',
@@ -268,14 +268,14 @@ const ExamDetailPage = () => {
     },
     {
       title: 'Bắt đầu',
-      dataIndex: 'StartedAt',
+      dataIndex: 'startedAt',
       key: 'startedAt',
       width: '15%',
       render: (date) => date ? formatDateTime(date) : 'Chưa bắt đầu'
     },
     {
       title: 'Hoàn thành',
-      dataIndex: 'CompletedAt',
+      dataIndex: 'completedAt',
       key: 'completedAt',
       width: '15%',
       render: (date) => date ? formatDateTime(date) : 'Chưa hoàn thành'
@@ -380,12 +380,12 @@ const ExamDetailPage = () => {
         <Col xs={24} md={16}>
           <Card>
             <div style={{ marginBottom: 16 }}>
-              <Title level={3}>{exam.Title}</Title>
+              <Title level={3}>{exam.title}</Title>
               <Space wrap>
-                {getStatusTag(exam.Status)}
-                {getExamTypeTag(exam.Type)}
-                {getDifficultyTag(exam.Difficulty)}
-                <Tag icon={<ClockCircleOutlined />}>{exam.Duration} phút</Tag>
+                {getStatusTag(exam.status)}
+                {getExamTypeTag(exam.type)}
+                {getDifficultyTag(exam.difficulty)}
+                <Tag icon={<ClockCircleOutlined />}>{exam.duration} phút</Tag>
               </Space>
             </div>
             
@@ -398,16 +398,16 @@ const ExamDetailPage = () => {
             <Divider />
             
             <Descriptions title="Thông tin chi tiết" column={{ xs: 1, sm: 2, md: 3 }} bordered>
-              <Descriptions.Item label="Loại bài thi">{getExamTypeTag(exam.Type)}</Descriptions.Item>
-              <Descriptions.Item label="Thời gian làm bài">{exam.Duration} phút</Descriptions.Item>
+              <Descriptions.Item label="Loại bài thi">{getExamTypeTag(exam.type)}</Descriptions.Item>
+              <Descriptions.Item label="Thời gian làm bài">{exam.duration} phút</Descriptions.Item>
               <Descriptions.Item label="Tổng điểm">{exam.TotalPoints || 100}</Descriptions.Item>
               <Descriptions.Item label="Điểm đạt">{exam.PassingScore || 60}</Descriptions.Item>
               <Descriptions.Item label="Số câu hỏi">{questions.length || exam.QuestionCount || 0}</Descriptions.Item>
-              <Descriptions.Item label="Độ khó">{getDifficultyTag(exam.Difficulty)}</Descriptions.Item>
-              <Descriptions.Item label="Khóa học">{exam.CourseTitle || 'Chưa gán khóa học'}</Descriptions.Item>
-              <Descriptions.Item label="Trạng thái">{getStatusTag(exam.Status)}</Descriptions.Item>
-              <Descriptions.Item label="Bắt đầu">{formatDateTime(exam.StartTime)}</Descriptions.Item>
-              <Descriptions.Item label="Kết thúc">{formatDateTime(exam.EndTime)}</Descriptions.Item>
+              <Descriptions.Item label="Độ khó">{getDifficultyTag(exam.difficulty)}</Descriptions.Item>
+              <Descriptions.Item label="Khóa học">{exam.courseTitle || 'Chưa gán khóa học'}</Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">{getStatusTag(exam.status)}</Descriptions.Item>
+              <Descriptions.Item label="Bắt đầu">{formatDateTime(exam.startTime)}</Descriptions.Item>
+              <Descriptions.Item label="Kết thúc">{formatDateTime(exam.endTime)}</Descriptions.Item>
               <Descriptions.Item label="Người tạo">{exam.CreatorName || 'N/A'}</Descriptions.Item>
             </Descriptions>
           </Card>

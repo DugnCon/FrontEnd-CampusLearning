@@ -12,15 +12,16 @@ import {
   Button, TextField, MenuItem, FormControl, FormControlLabel,
   Switch, Grid, Card, CardContent, CircularProgress, Divider,
   Accordion, AccordionSummary, AccordionDetails, IconButton,
-  Tooltip, Alert, Chip
+  Chip, Alert
 } from '@mui/material';
 import {
   Add, Delete, ArrowBack, ArrowForward, Save,
-  ExpandMore, Code, Download, Done, DoneAll
+  ExpandMore, Code
 } from '@mui/icons-material';
 import { createExam, addQuestionToExam, addCodingExercise } from '../../api/exams';
+import axios from 'axios';
+import adminApi from '../../api/config';
 
-// Steps for exam creation
 const steps = ['Thông tin bài thi', 'Câu hỏi', 'Xem lại'];
 
 const CodingExamPage = () => {
@@ -28,11 +29,13 @@ const CodingExamPage = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [lessons, setLessons] = useState([]);
   const [error, setError] = useState(null);
   const [createdExamId, setCreatedExamId] = useState(null);
   const [success, setSuccess] = useState(null);
+  const apiUrl = adminApi.defaults.baseURL;
 
-  // Form data
   const [examData, setExamData] = useState({
     title: '',
     description: '',
@@ -46,13 +49,12 @@ const CodingExamPage = () => {
     allowReview: true,
     shuffleQuestions: false,
     courseId: '',
+    moduleId: '',
+    lessonId: '',
     status: 'ACTIVE'
   });
 
-  // Questions array
   const [questions, setQuestions] = useState([]);
-
-  // Current question being edited
   const [currentQuestion, setCurrentQuestion] = useState({
     type: 'coding',
     content: '',
@@ -69,20 +71,88 @@ const CodingExamPage = () => {
     }
   });
 
-  // Fetch courses for dropdown
+  // Fetch courses
   useEffect(() => {
-    // This would typically fetch courses from an API
-    // For now we're setting dummy data
-    setCourses([
-      { CourseID: 1, Title: 'Introduction to Programming' },
-      { CourseID: 2, Title: 'Data Structures and Algorithms' },
-      { CourseID: 3, Title: 'Web Development Fundamentals' }
-    ]);
-  }, []);
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${apiUrl}/courses`);
+        console.log('Courses response:', response.data);
+        const coursesData = (response.data.courses || response.data).map(course => ({
+          CourseID: course.CourseID,
+          Title: course.Title
+        }));
+        setCourses(coursesData);
+      } catch (err) {
+        setError('Không thể tải danh sách khóa học. Vui lòng thử lại sau.');
+        console.error('Lỗi fetch courses:', err.response ? err.response.data : err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, [apiUrl]);
+
+  // Fetch modules when courseId changes
+  useEffect(() => {
+    if (examData.courseId) {
+      const fetchModules = async () => {
+        try {
+          setLoading(true);
+          const response = await axios.get(`${apiUrl}/courses/${examData.courseId}/modules`);
+          console.log('Modules response:', response.data);
+          const modulesData = response.data.modules.map(module => ({
+            moduleId: module.ModuleID,
+            title: module.Title
+          }));
+          setModules(modulesData);
+          setExamData(prev => ({ ...prev, moduleId: modulesData.length > 0 ? modulesData[0].moduleId : '' }));
+        } catch (err) {
+          setError('Không thể tải danh sách module. Vui lòng thử lại sau.');
+          console.error('Lỗi fetch modules:', err.response ? err.response.data : err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchModules();
+    } else {
+      setModules([]);
+      setExamData(prev => ({ ...prev, moduleId: '', lessonId: '' }));
+    }
+  }, [examData.courseId, apiUrl]);
+
+  // Fetch lessons when moduleId changes
+  useEffect(() => {
+    if (examData.moduleId) {
+      const fetchLessons = async () => {
+        try {
+          setLoading(true);
+          const response = await axios.get(`${apiUrl}/modules/${examData.moduleId}/lessons`);
+          console.log('Lessons response:', response.data);
+          const lessonsData = response.data.lessons.map(lesson => ({
+            lessonId: lesson.LessonID,
+            title: lesson.Title
+          }));
+          setLessons(lessonsData);
+          setExamData(prev => ({ ...prev, lessonId: lessonsData.length > 0 ? lessonsData[0].lessonId : '' }));
+        } catch (err) {
+          setError('Không thể tải danh sách lesson. Vui lòng thử lại sau.');
+          console.error('Lỗi fetch lessons:', err.response ? err.response.data : err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchLessons();
+    } else {
+      setLessons([]);
+      setExamData(prev => ({ ...prev, lessonId: '' }));
+    }
+  }, [examData.moduleId, apiUrl]);
 
   const handleExamDataChange = (e) => {
     const { name, value, checked } = e.target;
     const newValue = e.target.type === 'checkbox' ? checked : value;
+    console.log('Changing examData:', name, value); // Debug
     setExamData({ ...examData, [name]: newValue });
   };
 
@@ -107,17 +177,15 @@ const CodingExamPage = () => {
       ...updatedTestCases[index],
       [field]: value
     };
-    
     handleCodingExerciseChange('testCases', updatedTestCases);
   };
 
   const addTestCase = () => {
-    const updatedTestCases = [...currentQuestion.codingExercise.testCases, { 
-      input: '', 
-      output: '', 
-      description: '' 
+    const updatedTestCases = [...currentQuestion.codingExercise.testCases, {
+      input: '',
+      output: '',
+      description: ''
     }];
-    
     handleCodingExerciseChange('testCases', updatedTestCases);
   };
 
@@ -126,36 +194,27 @@ const CodingExamPage = () => {
       setError('Cần có ít nhất một test case');
       return;
     }
-    
     const updatedTestCases = [...currentQuestion.codingExercise.testCases];
     updatedTestCases.splice(index, 1);
-    
     handleCodingExerciseChange('testCases', updatedTestCases);
   };
 
   const addQuestion = () => {
-    // Validate question data
     if (!currentQuestion.content) {
       setError('Vui lòng nhập nội dung câu hỏi');
       return;
     }
-    
     if (!currentQuestion.codingExercise.solutionCode) {
       setError('Vui lòng nhập mã giải pháp');
       return;
     }
-    
     if (!currentQuestion.codingExercise.testCases.some(tc => tc.input && tc.output)) {
       setError('Vui lòng nhập ít nhất một test case đầy đủ');
       return;
     }
-    
-    // Add question to the list
     setQuestions([...questions, { ...currentQuestion, id: Date.now() }]);
     setError(null);
     setSuccess('Đã thêm câu hỏi thành công');
-    
-    // Reset current question
     setCurrentQuestion({
       type: 'coding',
       content: '',
@@ -171,8 +230,6 @@ const CodingExamPage = () => {
         difficulty: 'medium'
       }
     });
-    
-    // Clear success message after 3 seconds
     setTimeout(() => {
       setSuccess(null);
     }, 3000);
@@ -185,37 +242,30 @@ const CodingExamPage = () => {
   };
 
   const handleNext = () => {
+    console.log('Active Step:', activeStep);
     if (activeStep === 0) {
-      // Validate exam data
       if (!examData.title) {
         setError('Vui lòng nhập tiêu đề bài thi');
         return;
       }
-      
       if (!examData.duration || examData.duration <= 0) {
         setError('Vui lòng nhập thời gian làm bài hợp lệ');
         return;
       }
-      
       if (!examData.startTime || !examData.endTime) {
         setError('Vui lòng nhập thời gian bắt đầu và kết thúc');
         return;
       }
-      
-      // Create exam
       handleCreateExam();
     } else if (activeStep === 1) {
-      // Validate questions
+      console.log('Questions length:', questions.length);
       if (questions.length === 0) {
         setError('Vui lòng thêm ít nhất một câu hỏi');
         return;
       }
-      
-      // Move to review step
       setActiveStep(activeStep + 1);
       setError(null);
     } else if (activeStep === 2) {
-      // Finish and save
       handleFinish();
     }
   };
@@ -229,65 +279,57 @@ const CodingExamPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Kiểm tra lại dữ liệu đầu vào
+      console.log('Creating exam with data:', examData);
+
       if (!examData.title.trim()) {
         setError('Tiêu đề bài thi không được để trống');
         setLoading(false);
         return;
       }
-      
+
       if (!examData.duration || examData.duration <= 0) {
         setError('Thời gian làm bài phải lớn hơn 0');
         setLoading(false);
         return;
       }
-      
-      // Kiểm tra thời gian bắt đầu và kết thúc
+
       const start = new Date(examData.startTime);
       const end = new Date(examData.endTime);
-      
+
       if (isNaN(start.getTime())) {
         setError('Thời gian bắt đầu không hợp lệ');
         setLoading(false);
         return;
       }
-      
+
       if (isNaN(end.getTime())) {
         setError('Thời gian kết thúc không hợp lệ');
         setLoading(false);
         return;
       }
-      
+
       if (start >= end) {
         setError('Thời gian kết thúc phải sau thời gian bắt đầu');
         setLoading(false);
         return;
       }
-      
-      // Format dates
+
       const formattedExamData = {
         ...examData,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        courseId: examData.courseId || null
+        courseId: examData.courseId || null,
+        moduleId: examData.moduleId || null,
+        lessonId: examData.lessonId || null
       };
-      
+
       console.log('Sending exam data:', formattedExamData);
-      
       const response = await createExam(formattedExamData);
       console.log('Exam creation response:', response);
-      
-      if (response && response.examId) {
-        setCreatedExamId(response.examId);
-        setActiveStep(activeStep + 1);
-      } else {
-        setError('Không thể tạo bài thi. Vui lòng kiểm tra lại thông tin và thử lại.');
-      }
+      setCreatedExamId(response.examId);
+      setActiveStep(activeStep + 1);
     } catch (err) {
       console.error('Exam creation error:', err);
-      
-      // Kiểm tra lỗi từ API để hiển thị thông báo cụ thể
       if (err.response) {
         if (err.response.status === 400) {
           setError('Dữ liệu không hợp lệ: ' + (err.response.data.message || 'Vui lòng kiểm tra các trường thông tin'));
@@ -314,31 +356,33 @@ const CodingExamPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Upload all questions
+
       for (const question of questions) {
-        // Add the question first
         const questionData = {
           type: question.type,
           content: question.content,
           points: question.points,
-          orderIndex: question.orderIndex
+          orderIndex: question.orderIndex,
+          lessonId: examData.lessonId
         };
-        
+
         const questionResponse = await addQuestionToExam(createdExamId, questionData);
         const questionId = questionResponse.questionId;
-        
-        // Then add coding exercise
+
         if (question.codingExercise) {
-          await addCodingExercise(createdExamId, questionId, question.codingExercise);
+        const exerciseData = {
+          ...question.codingExercise,
+          lessonId: questionResponse.lessonId || examData.lessonId // Fallback nếu response không có lessonId
+        };
+        console.log('Sending exercise data:', exerciseData); // Debug
+        await addCodingExercise(createdExamId, questionId, exerciseData);
         }
       }
-      
-      // Navigate to exams list
-      navigate('/exams', { 
-        state: { 
+
+      navigate('/exams', {
+        state: {
           success: 'Bài thi lập trình đã được tạo thành công'
-        } 
+        }
       });
     } catch (err) {
       setError('Lỗi khi lưu câu hỏi. Vui lòng thử lại.');
@@ -351,7 +395,7 @@ const CodingExamPage = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ my: 4 }}>
-        <Box display="flex" alignItems="center" mb={3}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => navigate('/exams/create')}
@@ -363,7 +407,7 @@ const CodingExamPage = () => {
             Tạo bài thi lập trình
           </Typography>
         </Box>
-        
+
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
           {steps.map((label) => (
             <Step key={label}>
@@ -371,27 +415,26 @@ const CodingExamPage = () => {
             </Step>
           ))}
         </Stepper>
-        
+
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
-        
+
         {success && (
           <Alert severity="success" sx={{ mb: 3 }}>
             {success}
           </Alert>
         )}
-        
+
         <Paper elevation={3} sx={{ p: 3 }}>
-          {/* Step 0: Thông tin bài thi */}
           {activeStep === 0 && (
             <Box>
               <Typography variant="h6" gutterBottom>
                 Thông tin bài thi
               </Typography>
-              
+
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
                   <TextField
@@ -404,7 +447,7 @@ const CodingExamPage = () => {
                     margin="normal"
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
@@ -425,7 +468,7 @@ const CodingExamPage = () => {
                     <MenuItem value="INREVIEW">Đang xét duyệt</MenuItem>
                   </TextField>
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
@@ -437,7 +480,7 @@ const CodingExamPage = () => {
                     }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     select
@@ -447,6 +490,7 @@ const CodingExamPage = () => {
                     value={examData.courseId}
                     onChange={handleExamDataChange}
                     margin="normal"
+                    disabled={loading || courses.length === 0}
                   >
                     <MenuItem value="">Không thuộc khóa học</MenuItem>
                     {courses.map((course) => (
@@ -456,7 +500,49 @@ const CodingExamPage = () => {
                     ))}
                   </TextField>
                 </Grid>
-                
+
+                {examData.courseId && (
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Module"
+                      name="moduleId"
+                      value={examData.moduleId}
+                      onChange={handleExamDataChange}
+                      margin="normal"
+                      disabled={loading || modules.length === 0}
+                    >
+                      {modules.map((module) => (
+                        <MenuItem key={module.moduleId} value={module.moduleId}>
+                          {module.title}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                )}
+
+                {examData.moduleId && (
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Lesson"
+                      name="lessonId"
+                      value={examData.lessonId}
+                      onChange={handleExamDataChange}
+                      margin="normal"
+                      disabled={loading || lessons.length === 0}
+                    >
+                      {lessons.map((lesson) => (
+                        <MenuItem key={lesson.lessonId} value={lesson.lessonId}>
+                          {lesson.title}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                )}
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -470,7 +556,7 @@ const CodingExamPage = () => {
                     InputProps={{ inputProps: { min: 1 } }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -484,7 +570,7 @@ const CodingExamPage = () => {
                     InputProps={{ inputProps: { min: 1 } }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -498,7 +584,7 @@ const CodingExamPage = () => {
                     InputProps={{ inputProps: { min: 0, max: examData.totalPoints } }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -512,7 +598,7 @@ const CodingExamPage = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <TextField
                     required
@@ -526,7 +612,7 @@ const CodingExamPage = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
@@ -539,7 +625,7 @@ const CodingExamPage = () => {
                     margin="normal"
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <FormControlLabel
                     control={
@@ -553,7 +639,7 @@ const CodingExamPage = () => {
                     label="Cho phép xem lại bài làm"
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} sm={6}>
                   <FormControlLabel
                     control={
@@ -567,7 +653,7 @@ const CodingExamPage = () => {
                     label="Xáo trộn câu hỏi"
                   />
                 </Grid>
-                
+
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
@@ -583,17 +669,16 @@ const CodingExamPage = () => {
               </Grid>
             </Box>
           )}
-          
-          {/* Step 1: Câu hỏi */}
+
           {activeStep === 1 && (
             <Box>
+              {console.log('Rendering activeStep 1')}
               <Typography variant="h6" gutterBottom>
                 Thêm câu hỏi lập trình
               </Typography>
-              
-              {/* Danh sách câu hỏi đã thêm */}
+
               {questions.length > 0 && (
-                <Box mb={4}>
+                <Box sx={{ mb: 4 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Câu hỏi đã thêm: {questions.length}
                   </Typography>
@@ -606,11 +691,11 @@ const CodingExamPage = () => {
                       </AccordionSummary>
                       <AccordionDetails>
                         <Typography gutterBottom><strong>Nội dung:</strong> {question.content}</Typography>
-                        
+
                         <Typography gutterBottom sx={{ mt: 2 }}>
                           <strong>Ngôn ngữ lập trình:</strong> {question.codingExercise.programmingLanguage}
                         </Typography>
-                        
+
                         <Typography gutterBottom>
                           <strong>Độ khó:</strong> {
                             question.codingExercise.difficulty === 'easy' ? 'Dễ' :
@@ -618,12 +703,12 @@ const CodingExamPage = () => {
                             question.codingExercise.difficulty === 'hard' ? 'Khó' : question.codingExercise.difficulty
                           }
                         </Typography>
-                        
+
                         <Typography gutterBottom>
                           <strong>Số lượng test cases:</strong> {question.codingExercise.testCases.length}
                         </Typography>
-                        
-                        <Box mt={2} display="flex" justifyContent="flex-end">
+
+                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                           <Button
                             variant="outlined"
                             color="error"
@@ -638,13 +723,12 @@ const CodingExamPage = () => {
                   ))}
                 </Box>
               )}
-              
-              {/* Form thêm câu hỏi mới */}
+
               <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Thêm bài tập lập trình mới
                 </Typography>
-                
+
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
                     <TextField
@@ -659,7 +743,7 @@ const CodingExamPage = () => {
                       InputProps={{ inputProps: { min: 1 } }}
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12} sm={6}>
                     <TextField
                       select
@@ -675,7 +759,7 @@ const CodingExamPage = () => {
                       <MenuItem value="cpp">C++</MenuItem>
                     </TextField>
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       required
@@ -691,12 +775,13 @@ const CodingExamPage = () => {
                     />
                   </Grid>
                 </Grid>
-                
-                <Box mt={3}>
-                  <Divider sx={{ mb: 3 }}>
+
+                <Box sx={{ mt: 3 }}>
+                  {console.log('Rendering Chip')}
+                  <Divider sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                     <Chip icon={<Code />} label="Mã và kiểm thử" />
                   </Divider>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <TextField
@@ -712,7 +797,7 @@ const CodingExamPage = () => {
                         <MenuItem value="hard">Khó</MenuItem>
                       </TextField>
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
@@ -724,7 +809,7 @@ const CodingExamPage = () => {
                         InputProps={{ inputProps: { min: 100 } }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
@@ -736,7 +821,7 @@ const CodingExamPage = () => {
                         InputProps={{ inputProps: { min: 16 } }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
@@ -750,7 +835,7 @@ const CodingExamPage = () => {
                         helperText="Mã này sẽ được hiển thị cho học viên khi bắt đầu làm bài"
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12}>
                       <TextField
                         required
@@ -766,27 +851,27 @@ const CodingExamPage = () => {
                       />
                     </Grid>
                   </Grid>
-                  
-                  <Box mt={3}>
+
+                  <Box sx={{ mt: 3 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       Test Cases
                     </Typography>
-                    
+
                     {currentQuestion.codingExercise.testCases.map((testCase, index) => (
                       <Paper key={index} variant="outlined" sx={{ p: 2, mb: 2 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="subtitle2">
                             Test Case #{index + 1}
                           </Typography>
-                          <IconButton 
-                            color="error" 
+                          <IconButton
+                            color="error"
                             onClick={() => removeTestCase(index)}
                             disabled={currentQuestion.codingExercise.testCases.length <= 1}
                           >
                             <Delete />
                           </IconButton>
                         </Box>
-                        
+
                         <Grid container spacing={2}>
                           <Grid item xs={12}>
                             <TextField
@@ -798,7 +883,7 @@ const CodingExamPage = () => {
                               placeholder="Ví dụ: Kiểm tra với mảng rỗng"
                             />
                           </Grid>
-                          
+
                           <Grid item xs={12} md={6}>
                             <TextField
                               fullWidth
@@ -812,7 +897,7 @@ const CodingExamPage = () => {
                               placeholder="Nhập dữ liệu đầu vào"
                             />
                           </Grid>
-                          
+
                           <Grid item xs={12} md={6}>
                             <TextField
                               fullWidth
@@ -829,8 +914,8 @@ const CodingExamPage = () => {
                         </Grid>
                       </Paper>
                     ))}
-                    
-                    <Box display="flex" justifyContent="center" mt={2}>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                       <Button
                         variant="outlined"
                         startIcon={<Add />}
@@ -841,8 +926,8 @@ const CodingExamPage = () => {
                     </Box>
                   </Box>
                 </Box>
-                
-                <Box mt={3} display="flex" justifyContent="flex-end">
+
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     variant="contained"
                     color="primary"
@@ -856,14 +941,14 @@ const CodingExamPage = () => {
               </Paper>
             </Box>
           )}
-          
-          {/* Step 2: Xem lại */}
+
           {activeStep === 2 && (
             <Box>
+              {console.log('Rendering activeStep 2')}
               <Typography variant="h6" gutterBottom>
                 Xem lại và xác nhận
               </Typography>
-              
+
               <Card variant="outlined" sx={{ mb: 3 }}>
                 <CardContent>
                   <Typography variant="h6">Thông tin bài thi</Typography>
@@ -900,23 +985,41 @@ const CodingExamPage = () => {
                     <Grid item xs={12} sm={6}>
                       <Typography variant="body2">
                         <strong>Khóa học:</strong> {
-                          examData.courseId ? 
-                          courses.find(c => c.CourseID.toString() === examData.courseId.toString())?.Title || 'Không xác định' : 
+                          examData.courseId ?
+                          courses.find(c => c.CourseID.toString() === examData.courseId.toString())?.Title || 'Không xác định' :
                           'Không thuộc khóa học'
                         }
                       </Typography>
                     </Grid>
+                    {examData.moduleId && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2">
+                          <strong>Module:</strong> {
+                            modules.find(m => m.moduleId.toString() === examData.moduleId.toString())?.title || 'Không xác định'
+                          }
+                        </Typography>
+                      </Grid>
+                    )}
+                    {examData.lessonId && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2">
+                          <strong>Lesson:</strong> {
+                            lessons.find(l => l.lessonId.toString() === examData.lessonId.toString())?.title || 'Không xác định'
+                          }
+                        </Typography>
+                      </Grid>
+                    )}
                     <Grid item xs={12}>
                       <Typography variant="body2"><strong>Mô tả:</strong> {examData.description || 'Không có mô tả'}</Typography>
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
-              
+
               <Typography variant="h6" gutterBottom>
                 Bài tập lập trình ({questions.length})
               </Typography>
-              
+
               {questions.map((question, index) => (
                 <Card key={index} variant="outlined" sx={{ mb: 2 }}>
                   <CardContent>
@@ -926,15 +1029,15 @@ const CodingExamPage = () => {
                     <Typography variant="body2" sx={{ mt: 1 }}>
                       <strong>Nội dung:</strong> {question.content}
                     </Typography>
-                    
-                    <Box mt={2}>
+
+                    <Box sx={{ mt: 2 }}>
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
                           <Typography variant="body2">
                             <strong>Ngôn ngữ:</strong> {question.codingExercise.programmingLanguage}
                           </Typography>
                         </Grid>
-                        
+
                         <Grid item xs={12} sm={4}>
                           <Typography variant="body2">
                             <strong>Độ khó:</strong> {
@@ -944,26 +1047,26 @@ const CodingExamPage = () => {
                             }
                           </Typography>
                         </Grid>
-                        
+
                         <Grid item xs={12} sm={4}>
                           <Typography variant="body2">
                             <strong>Test cases:</strong> {question.codingExercise.testCases.length}
                           </Typography>
                         </Grid>
-                        
+
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2">
                             <strong>Thời gian chạy tối đa:</strong> {question.codingExercise.timeLimit} ms
                           </Typography>
                         </Grid>
-                        
+
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2">
                             <strong>Giới hạn bộ nhớ:</strong> {question.codingExercise.memoryLimit} MB
                           </Typography>
                         </Grid>
                       </Grid>
-                      
+
                       <Accordion sx={{ mt: 2 }}>
                         <AccordionSummary expandIcon={<ExpandMore />}>
                           <Typography variant="body2">
@@ -998,8 +1101,7 @@ const CodingExamPage = () => {
               ))}
             </Box>
           )}
-          
-          {/* Navigation buttons */}
+
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
             <Button
               variant="outlined"
@@ -1009,7 +1111,7 @@ const CodingExamPage = () => {
             >
               Quay lại
             </Button>
-            
+
             <Button
               variant="contained"
               color="primary"
@@ -1030,4 +1132,4 @@ const CodingExamPage = () => {
   );
 };
 
-export default CodingExamPage; 
+export default CodingExamPage;

@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CreatePrizeForm.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -26,16 +20,19 @@ const CreatePrizeForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // Hàm xử lý khi submit form
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      await addEventPrize(id, {
+      const payload = {
         rank: values.rank,
-        amount: values.amount,
+        amount: values.amount != null ? Number(values.amount) : null,
         description: values.description
-      });
-      
+      };
+
+      console.log('SUBMIT PAYLOAD:', payload); // debug
+
+      await addEventPrize(id, payload);
+
       message.success('Thêm giải thưởng thành công');
       navigate(`/events/${id}`);
     } catch (error) {
@@ -95,10 +92,14 @@ const CreatePrizeForm = () => {
           >
             <InputNumber
               style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value.replace(/\s?|(,*)/g, '')}
               min={0}
               step={100000}
+              formatter={(value) =>
+                value ? value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') : ''
+              }
+              parser={(value) =>
+                value ? value.toString().replace(/,/g, '') : ''
+              }
             />
           </Form.Item>
 
@@ -123,9 +124,7 @@ const CreatePrizeForm = () => {
               >
                 Lưu giải thưởng
               </Button>
-              <Button
-                onClick={() => navigate(`/events/${id}`)}
-              >
+              <Button onClick={() => navigate(`/events/${id}`)}>
                 Hủy
               </Button>
             </Space>
@@ -136,4 +135,4 @@ const CreatePrizeForm = () => {
   );
 };
 
-export default CreatePrizeForm; 
+export default CreatePrizeForm;

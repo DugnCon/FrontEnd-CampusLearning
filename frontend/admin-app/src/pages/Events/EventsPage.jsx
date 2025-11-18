@@ -5,20 +5,31 @@
 * Description: This file is a component/module for the admin application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Card, Table, Space, Button, Dropdown, Modal, 
-  Tag, Typography, Input, message, Tooltip, Divider
-} from 'antd';
-import { 
-  PlusOutlined, EditOutlined, DeleteOutlined, 
-  EyeOutlined, MoreOutlined, SearchOutlined,
-  FilterOutlined, ExclamationCircleOutlined,
-  CalendarOutlined, EnvironmentOutlined, UserOutlined
+import {
+  DeleteOutlined,
+  EditOutlined,
+  EnvironmentOutlined,
+  ExclamationCircleOutlined,
+  EyeOutlined,
+  FilterOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
+import {
+  Button, Dropdown,
+  Input, message,
+  Modal,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography
+} from 'antd';
 import { format } from 'date-fns';
-import { getAllEvents, deleteEvent, updateEventStatus } from '../../api/events';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { deleteEvent, getAllEvents, updateEventStatus } from '../../api/events';
 import MainCard from '../../components/MainCard';
 
 const { Title, Text } = Typography;
@@ -304,7 +315,7 @@ const EventsPage = () => {
           <Link to={`/events/${record.EventID}`}>
             <Button icon={<EyeOutlined />} size="small" />
           </Link>
-          <Link to={`/events/edit/${record.EventID}`}>
+          <Link to={`/events/${record.EventID}/edit`}>
             <Button icon={<EditOutlined />} size="small" />
           </Link>
           <Dropdown menu={getActionMenu(record)}>

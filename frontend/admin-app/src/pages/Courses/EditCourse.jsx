@@ -645,16 +645,26 @@ const EditCourse = () => {
                 {courseData.imageUrl ? (
                   <div style={{ marginTop: 8, marginBottom: 16 }}>
                     <Image
-                      src={courseData.imageUrl}
+                      src={`http://localhost:8081${courseData.imageUrl}`}
                       alt={courseData.title}
                       style={{ maxWidth: '100%', borderRadius: 8 }}
                     />
                   </div>
                 ) : (
-                  <div style={{ marginTop: 8, marginBottom: 16, textAlign: 'center', padding: '20px', background: '#f5f5f5', borderRadius: 4 }}>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      marginBottom: 16,
+                      textAlign: 'center',
+                      padding: '20px',
+                      background: '#f5f5f5',
+                      borderRadius: 4,
+                    }}
+                  >
                     <Text type="secondary">Chưa có hình ảnh</Text>
                   </div>
                 )}
+
                 
                 <Space.Compact style={{ width: '100%' }}>
                   <Input 
@@ -675,22 +685,47 @@ const EditCourse = () => {
               <Col xs={24} style={{ marginTop: 16 }}>
                 <Text>Video giới thiệu:</Text>
                 {courseData.videoUrl ? (
-                  <div style={{ marginTop: 8, marginBottom: 16 }}>
+                <div style={{ marginTop: 8, marginBottom: 16 }}>
+                  {courseData.videoUrl.endsWith('.mp4') ? (
+                    <video
+                      src={`http://localhost:8081${courseData.videoUrl}`}
+                      controls
+                      style={{ width: '100%', borderRadius: 8 }}
+                    />
+                  ) : (
                     <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
                       <iframe
                         src={getEmbedUrl(courseData.videoUrl)}
                         title={courseData.title}
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', borderRadius: 8 }}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          borderRadius: 8
+                        }}
                         frameBorder="0"
                         allowFullScreen
                       />
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 8, marginBottom: 16, textAlign: 'center', padding: '20px', background: '#f5f5f5', borderRadius: 4 }}>
-                    <Text type="secondary">Chưa có video</Text>
-                  </div>
-                )}
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    marginTop: 8,
+                    marginBottom: 16,
+                    textAlign: 'center',
+                    padding: '20px',
+                    background: '#f5f5f5',
+                    borderRadius: 4,
+                  }}
+                >
+                  <Text type="secondary">Chưa có video</Text>
+                </div>
+              )}
+
                 
                 <Space.Compact style={{ width: '100%' }}>
                   <Input 

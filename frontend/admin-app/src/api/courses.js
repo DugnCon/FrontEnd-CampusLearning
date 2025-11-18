@@ -15,19 +15,25 @@ export const coursesAPI = {
 
   // Get a single course by ID
   getCourse: async (id) => {
-    try {
-      const response = await adminApi.get(`/courses/${id}`);
-      const moduleResponse = await adminApi.get(`/courses/${id}/modules`);
-      
-      return {
-        course: response.data,
-        modules: moduleResponse.data
-      };
-    } catch (error) {
-      console.error(`Error fetching course with ID ${id}:`, error);
-      throw error;
-    }
-  },
+  try {
+    const response = await adminApi.get(`/courses/${id}`);
+    const moduleResponse = await adminApi.get(`/courses/${id}/modules`);
+    console.log('Module response:', moduleResponse.data); // Debug
+
+    // Kiểm tra moduleResponse.data.modules
+    const modules = Array.isArray(moduleResponse.data.modules)
+      ? moduleResponse.data.modules
+      : [];
+    
+    return {
+      course: response.data,
+      modules
+    };
+  } catch (error) {
+    console.error(`Error fetching course with ID ${id}:`, error);
+    throw error;
+  }
+},
 
   // Get all enrolled students for a course 
   getEnrolledStudents: async (courseId, page = 1, limit = 10) => {
@@ -114,21 +120,21 @@ export const coursesAPI = {
     }
   },
 
-  // Get a single module by ID
   getModule: async (courseId, moduleId) => {
-    try {
-      const moduleResponse = await adminApi.get(`/courses/${courseId}/modules/${moduleId}`);
-      const lessonsResponse = await adminApi.get(`/courses/${courseId}/modules/${moduleId}/lessons`);
-      
-      return {
-        module: moduleResponse.data,
-        lessons: lessonsResponse.data || []
-      };
-    } catch (error) {
-      console.error(`Error fetching module with ID ${moduleId}:`, error);
-      throw error;
-    }
-  },
+  try {
+    const moduleResponse = await adminApi.get(`/courses/${courseId}/modules/${moduleId}`);
+    const lessonsResponse = await adminApi.get(`/courses/${courseId}/modules/${moduleId}/lessons`);
+    console.log('Lessons response:', JSON.stringify(lessonsResponse.data, null, 2));
+
+    return {
+      module: moduleResponse.data,
+      lessons: Array.isArray(lessonsResponse.data.lessons) ? lessonsResponse.data.lessons : []
+    };
+  } catch (error) {
+    console.error(`Error fetching module with ID ${moduleId}:`, error);
+    throw error;
+  }
+},
 
   // Get a single lesson by ID
   getLesson: async (courseId, moduleId, lessonId) => {

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "PORT=5006 react-scripts start",
-    "dev": "PORT=5006 react-scripts start",
+    "dev": "cross-env PORT=5006 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.15",
+    "cross-env": "^10.0.0",
     "postcss": "^8.5.6",
     "react-scripts": "5.0.1"
   },

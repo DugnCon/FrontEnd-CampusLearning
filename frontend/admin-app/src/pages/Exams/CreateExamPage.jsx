@@ -1,10 +1,3 @@
-/*-----------------------------------------------------------------
-* File: CreateExamPage.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,7 +14,8 @@ import {
 import { createExam, addQuestionToExam, addAnswerTemplate, addCodingExercise, uploadEssayFile } from '../../api/exams';
 import CodingExerciseForm from '../../components/exams/CodingExerciseForm';
 import EssayQuestionForm from '../../components/exams/EssayQuestionForm';
-
+import axios from 'axios'; // Thêm axios hoặc sử dụng fetch
+import adminApi from '../../api/config';
 // Steps for exam creation
 const steps = ['Chọn loại bài thi', 'Thông tin bài thi', 'Câu hỏi', 'Xem lại'];
 
@@ -32,7 +26,7 @@ const CreateExamPage = () => {
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState(null);
   const [createdExamId, setCreatedExamId] = useState(null);
-
+  const apiUrl = adminApi.defaults.baseURL;
   // Form data
   const [examData, setExamData] = useState({
     title: '',
@@ -47,6 +41,8 @@ const CreateExamPage = () => {
     allowReview: true,
     shuffleQuestions: false,
     courseId: '', // This can be empty
+    moduleId:'',
+    lessonId:'',
     status: 'upcoming'
   });
 
@@ -86,16 +82,27 @@ const CreateExamPage = () => {
   // Thêm state để lưu loại bài thi
   const [examType, setExamType] = useState('');
 
-  // Fetch courses for dropdown
   useEffect(() => {
-    // This would typically fetch courses from an API
-    // For now we're setting dummy data
-    setCourses([
-      { CourseID: 1, Title: 'Introduction to Programming' },
-      { CourseID: 2, Title: 'Data Structures and Algorithms' },
-      { CourseID: 3, Title: 'Web Development Fundamentals' }
-    ]);
-  }, []);
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${apiUrl}/courses`); // Giả sử URL đúng
+      console.log('API Response:', response.data); // Giữ để debug
+      // Sửa: Truy cập response.data.courses thay vì response.data trực tiếp
+      const coursesData = response.data.courses.map(course => ({
+        CourseID: course.CourseID || course.id, // Hỗ trợ tên trường khác nếu cần
+        Title: course.Title || course.title
+      }));
+      setCourses(coursesData);
+    } catch (err) {
+      setError('Không thể tải danh sách khóa học. Vui lòng thử lại sau.');
+      console.error('Lỗi chi tiết:', err.response ? err.response.data : err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchCourses();
+}, []);
 
   const handleExamDataChange = (e) => {
     const { name, value, checked } = e.target;
@@ -412,4 +419,4 @@ const CreateExamPage = () => {
   );
 };
 
-export default CreateExamPage; 
+export default CreateExamPage;

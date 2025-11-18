@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: CreateModule.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -41,7 +35,7 @@ const CreateModule = () => {
         
         // Set default order index to be after the last module
         const nextOrderIndex = response.modules.length > 0 
-          ? Math.max(...response.modules.map(m => m.OrderIndex || 0)) + 1 
+          ? Math.max(...response.modules.map(m => m.orderIndex || 0)) + 1 
           : 0;
           
         form.setFieldsValue({
@@ -62,10 +56,10 @@ const CreateModule = () => {
       setSaving(true);
       
       const moduleData = {
-        Title: values.title,
-        Description: values.description,
-        OrderIndex: values.orderIndex,
-        Duration: values.duration,
+        title: values.title,
+        description: values.description,
+        orderIndex: values.orderIndex,
+        duration: values.duration,
       };
       
       const response = await coursesAPI.createModule(id, moduleData);

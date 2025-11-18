@@ -1,24 +1,40 @@
-/*-----------------------------------------------------------------
-* File: CourseDetail.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+
 import {
-  Row, Col, Card, Typography, Tag, Button, Tabs, Table, Image,
-  Descriptions, Avatar, Space, Divider, Statistic, Modal, message,
-  List, Tooltip, Empty, Badge
-} from 'antd';
-import {
-  ArrowLeftOutlined, EditOutlined, DeleteOutlined, 
-  UserOutlined, EyeOutlined, BookOutlined, ExclamationCircleOutlined,
-  ClockCircleOutlined, FileTextOutlined, LineChartOutlined,
-  TeamOutlined, CalendarOutlined, CheckCircleOutlined, 
-  MailOutlined, PhoneOutlined, SearchOutlined
+  ArrowLeftOutlined,
+  BookOutlined,
+  ClockCircleOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  ExclamationCircleOutlined,
+  EyeOutlined,
+  FileTextOutlined, LineChartOutlined,
+  MailOutlined, PhoneOutlined, SearchOutlined,
+  TeamOutlined,
+  UserOutlined
 } from '@ant-design/icons';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Divider,
+  Empty,
+  Image,
+  Modal,
+  Row,
+  Space,
+  Statistic,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  Typography,
+  message
+} from 'antd';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { coursesAPI } from '../../api/courses';
 import MainCard from '../../components/MainCard';
 
@@ -56,9 +72,17 @@ const CourseDetail = () => {
     setLoading(true);
     try {
       const response = await coursesAPI.getCourse(id);
+      console.log('API response:', response);
       setCourse(response.course);
-      setModules(response.modules || []);
+
+      if (!Array.isArray(response.modules)) {
+        console.error('response.modules is not an array:', response.modules);
+        setModules([]); // Gán mảng rỗng nếu không phải mảng
+      } else {
+        setModules(response.modules);
+      }
     } catch (error) {
+      console.error('Error fetching course data:', error);
       message.error('Không thể tải thông tin khóa học');
       navigate('/courses');
     } finally {
@@ -132,9 +156,9 @@ const CourseDetail = () => {
   
   const getLevelTag = (level) => {
     const levelMap = {
-      'Beginner': { color: 'success', text: 'Cơ bản' },
-      'Intermediate': { color: 'warning', text: 'Trung cấp' },
-      'Advanced': { color: 'error', text: 'Nâng cao' },
+      'beginner': { color: 'success', text: 'Cơ bản' },
+      'intermediate': { color: 'warning', text: 'Trung cấp' },
+      'advanced': { color: 'error', text: 'Nâng cao' },
     };
     
     return (
@@ -223,7 +247,7 @@ const CourseDetail = () => {
     confirm({
       title: 'Bạn có chắc chắn muốn xóa module này?',
       icon: <ExclamationCircleOutlined />,
-      content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+      content: 'Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục được nữa !.',
       okText: 'Xóa',
       okType: 'danger',
       cancelText: 'Hủy',
@@ -388,10 +412,11 @@ const CourseDetail = () => {
               <div>
                 <Image
                   width={180}
-                  src={course.ImageUrl || 'https://via.placeholder.com/300x180?text=No+Image'}
+                  src={`http://localhost:8081${course.ImageUrl || '/uploads/default.png'}`}
                   fallback="https://via.placeholder.com/300x180?text=Image+Not+Found"
                   style={{ borderRadius: 8 }}
                 />
+
               </div>
             </div>
             
@@ -457,8 +482,8 @@ const CourseDetail = () => {
               <Card>
                 <Statistic
                   title="Tổng thời lượng"
-                  value={modules.reduce((total, module) => total + (module.Duration || 0), 0)}
-                  suffix="phút"
+                  value={Array.isArray(modules) ? modules.reduce((total, module) => total + (module.Duration || 0), 0) : 0}
+                  suffix={Array.isArray(modules) && modules.some(module => module.Duration) ? 'phút' : ''}
                   prefix={<ClockCircleOutlined />}
                 />
               </Card>
@@ -503,7 +528,7 @@ const CourseDetail = () => {
                       
                       <Table
                         columns={moduleColumns}
-                        dataSource={modules}
+                        dataSource={Array.isArray(modules) ? modules : []}
                         rowKey="ModuleID"
                         pagination={false}
                       />

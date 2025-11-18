@@ -5,19 +5,32 @@
 * Description: This file is a component/module for the admin application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Form, Input, Button, Select, InputNumber, DatePicker, TimePicker,
-  Typography, Space, message, Upload, Divider, Row, Col, Tag, Spin
-} from 'antd';
-import {
-  ArrowLeftOutlined, SaveOutlined, PlusOutlined, UploadOutlined,
-  CalendarOutlined, EnvironmentOutlined
+  ArrowLeftOutlined,
+  EnvironmentOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
-import { getEventById, updateEvent, getEventLanguages, getEventTechnologies } from '../../api/events';
-import MainCard from '../../components/MainCard';
+import {
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Divider,
+  Form, Input,
+  InputNumber,
+  message,
+  Row,
+  Select,
+  Space,
+  Spin,
+  TimePicker,
+  Typography
+} from 'antd';
 import dayjs from 'dayjs';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getEventById, getEventLanguages, getEventTechnologies, updateEvent } from '../../api/events';
+import MainCard from '../../components/MainCard';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -162,18 +175,18 @@ const EditEventForm = () => {
     try {
       // Chuẩn bị dữ liệu cơ bản với EventDate hợp lệ cho SQL Server
       const eventData = {
-        Title: values.title,
-        Description: values.description,
-        Category: values.category,
-        Location: values.location,
-        ImageUrl: values.imageUrl || '',
-        MaxAttendees: values.maxAttendees ? parseInt(values.maxAttendees) : 0,
-        Price: values.price ? parseFloat(values.price) : 0,
-        Organizer: values.organizer || '',
-        Difficulty: values.difficulty,
-        Status: values.status,
+        title: values.title,
+        description: values.description,
+        category: values.category,
+        location: values.location,
+        imageUrl: values.imageUrl || '',
+        maxAttendees: values.maxAttendees ? parseInt(values.maxAttendees) : 0,
+        price: values.price ? parseFloat(values.price) : 0,
+        organizer: values.organizer || '',
+        difficulty: values.difficulty,
+        status: values.status,
         // Thêm trường EventDate với giá trị hợp lệ cho SQL Server (YYYY-MM-DD)
-        EventDate: '2023-01-01' // Giá trị ngày cố định hợp lệ cho SQL Server
+        eventDate: '2023-01-01' // Giá trị ngày cố định hợp lệ cho SQL Server
       };
 
       // Thêm EventTime nếu có
@@ -189,7 +202,7 @@ const EditEventForm = () => {
       const response = await updateEvent(id, eventData);
       console.log('Server response:', response);
       message.success('Cập nhật sự kiện thành công');
-      navigate(`/events/${id}`);
+      navigate(`/events`);
     } catch (error) {
       console.error('Error updating event:', error.response || error);
       let errorMsg = 'Không thể cập nhật sự kiện.';
@@ -218,7 +231,7 @@ const EditEventForm = () => {
         <Space>
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/events/${id}`)}
+            onClick={() => navigate(`/events/`)}
           />
           <span>Chỉnh sửa sự kiện</span>
         </Space>
@@ -420,7 +433,7 @@ const EditEventForm = () => {
                 Lưu thay đổi
               </Button>
               <Button
-                onClick={() => navigate(`/events/${id}`)}
+                onClick={() => navigate(`/events`)}
               >
                 Hủy
               </Button>

@@ -282,7 +282,7 @@ const EventDetailPage = () => {
                     Description
                   </Typography>
                   <Typography variant="body1" paragraph>
-                    {event.Description || 'No description provided.'}
+                    {event.description || 'No description provided.'}
                   </Typography>
                 </Paper>
 
@@ -300,7 +300,7 @@ const EventDetailPage = () => {
                       languages.map((lang, index) => (
                         <Chip 
                           key={index} 
-                          label={lang.Language} 
+                          label={lang.language} 
                           variant="outlined" 
                           size="small"
                           sx={{ mr: 1, mb: 1 }}
@@ -321,7 +321,7 @@ const EventDetailPage = () => {
                       technologies.map((tech, index) => (
                         <Chip 
                           key={index} 
-                          label={tech.Technology} 
+                          label={tech.technology} 
                           variant="outlined" 
                           size="small"
                           sx={{ mr: 1, mb: 1 }}
@@ -350,7 +350,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {event.Category || 'N/A'}
+                        {event.category || 'N/A'}
                       </Typography>
                     </Grid>
 
@@ -361,7 +361,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {getDifficultyLabel(event.Difficulty) || 'N/A'}
+                        {getDifficultyLabel(event.difficulty) || 'N/A'}
                       </Typography>
                     </Grid>
 
@@ -372,7 +372,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {event.Organizer || 'N/A'}
+                        {event.organizer || 'N/A'}
                       </Typography>
                     </Grid>
 
@@ -383,7 +383,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                        {event.ImageUrl || 'N/A'}
+                        {event.imageUrl || 'N/A'}
                       </Typography>
                     </Grid>
 
@@ -397,7 +397,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {event.CurrentAttendees || 0}/{event.MaxAttendees || 'Unlimited'}
+                        {event.currentAttendees || 0}/{event.maxAttendees || 'Unlimited'}
                       </Typography>
                     </Grid>
 
@@ -411,7 +411,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {event.Price > 0 ? `$${event.Price}` : 'Free'}
+                        {event.price > 0 ? `$${event.price}` : 'Free'}
                       </Typography>
                     </Grid>
 
@@ -422,7 +422,7 @@ const EventDetailPage = () => {
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="body2">
-                        {event.CreatedAt ? format(new Date(event.CreatedAt), 'MMM dd, yyyy') : 'N/A'}
+                        {event.createdAt ? format(new Date(event.createdAt), 'MMM dd, yyyy') : 'N/A'}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -446,7 +446,7 @@ const EventDetailPage = () => {
                     <React.Fragment key={item.ScheduleID || index}>
                       <ListItem alignItems="flex-start">
                         <ListItemText
-                          primary={item.ActivityName}
+                          primary={item.activityName}
                           secondary={
                             <React.Fragment>
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -456,13 +456,13 @@ const EventDetailPage = () => {
                                   variant="body2"
                                   color="text.primary"
                                 >
-                                  {formatScheduleTime(item.StartTime)} - {formatScheduleTime(item.EndTime)}
+                                  {formatScheduleTime(item.startTime)} - {formatScheduleTime(item.endTime)}
                                 </Typography>
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                 <LocationOn fontSize="small" sx={{ mr: 0.5 }} />
                                 <Typography component="span" variant="body2">
-                                  {item.Location || event.Location || 'N/A'}
+                                  {item.location || event.location || 'N/A'}
                                 </Typography>
                               </Box>
                               {item.Speaker && (
@@ -505,16 +505,16 @@ const EventDetailPage = () => {
                       <Card sx={{ height: '100%' }}>
                         <CardContent>
                           <Typography variant="h5" component="div" color="primary" gutterBottom>
-                            {prize.Rank === 1 ? '🥇 1st Place' : 
-                             prize.Rank === 2 ? '🥈 2nd Place' : 
-                             prize.Rank === 3 ? '🥉 3rd Place' : 
-                             `${prize.Rank}th Place`}
+                            {prize.rank === 1 ? '🥇 1st Place' : 
+                             prize.rank === 2 ? '🥈 2nd Place' : 
+                             prize.rank === 3 ? '🥉 3rd Place' : 
+                             `${prize.rank}th Place`}
                           </Typography>
                           <Typography variant="h6" color="text.secondary" gutterBottom>
-                            {prize.Name || (prize.PrizeAmount > 0 ? `$${prize.PrizeAmount}` : 'Recognition Prize')}
+                            {prize.name || (prize.amount > 0 ? `$${prize.amount}` : 'Recognition Prize')}
                           </Typography>
                           <Typography variant="body2">
-                            {prize.Description || 'No description provided.'}
+                            {prize.description || 'No description provided.'}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -546,7 +546,7 @@ const EventDetailPage = () => {
                   languages.map((lang, index) => (
                     <Chip 
                       key={index} 
-                      label={lang.Language} 
+                      label={lang.language} 
                       color="primary"
                       variant="outlined" 
                       size="medium"
@@ -568,7 +568,7 @@ const EventDetailPage = () => {
                   technologies.map((tech, index) => (
                     <Chip 
                       key={index} 
-                      label={tech.Technology} 
+                      label={tech.technology} 
                       color="secondary"
                       variant="outlined" 
                       size="medium"

@@ -1,24 +1,40 @@
-/*-----------------------------------------------------------------
-* File: MultipleChoiceExamPage.jsx
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import {
-  Container, Typography, Box, Paper, Stepper, Step, StepLabel,
-  Button, TextField, MenuItem, FormControl, FormControlLabel,
-  Switch, Grid, Card, CardContent, CircularProgress, Divider,
-  Accordion, AccordionSummary, AccordionDetails, IconButton,
-  Tooltip, Alert, Chip
-} from '@mui/material';
-import {
-  Add, Delete, ArrowBack, ArrowForward, Save,
-  ExpandMore, CheckCircle
+  Add,
+  ArrowBack, ArrowForward,
+  CheckCircle,
+  Delete,
+  ExpandMore,
+  Save
 } from '@mui/icons-material';
-import { createExam, addQuestionToExam } from '../../api/exams';
+import axios from 'axios';
+
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  Button,
+  Card, CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  FormControlLabel,
+  Grid,
+  MenuItem,
+  Paper,
+  Step, StepLabel,
+  Stepper,
+  Switch,
+  TextField,
+  Typography
+} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import adminApi from '../../api/config';
+import { addQuestionToExam, createExam } from '../../api/exams';
 
 // Steps for exam creation
 const steps = ['Thông tin bài thi', 'Câu hỏi', 'Xem lại'];
@@ -31,7 +47,7 @@ const MultipleChoiceExamPage = () => {
   const [error, setError] = useState(null);
   const [createdExamId, setCreatedExamId] = useState(null);
   const [success, setSuccess] = useState(null);
-
+  const apiUrl = adminApi.defaults.baseURL;
   // Form data
   const [examData, setExamData] = useState({
     title: '',
@@ -46,7 +62,7 @@ const MultipleChoiceExamPage = () => {
     allowReview: true,
     shuffleQuestions: false,
     courseId: '',
-    status: 'draft'
+    status: 'UPCOMING'
   });
 
   // Questions array
@@ -65,14 +81,26 @@ const MultipleChoiceExamPage = () => {
 
   // Fetch courses for dropdown
   useEffect(() => {
-    // This would typically fetch courses from an API
-    // For now we're setting dummy data
-    setCourses([
-      { CourseID: 1, Title: 'Introduction to Programming' },
-      { CourseID: 2, Title: 'Data Structures and Algorithms' },
-      { CourseID: 3, Title: 'Web Development Fundamentals' }
-    ]);
-  }, []);
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${apiUrl}/courses`); // Giả sử URL đúng
+      console.log('API Response:', response.data); // Giữ để debug
+      // Sửa: Truy cập response.data.courses thay vì response.data trực tiếp
+      const coursesData = response.data.courses.map(course => ({
+        CourseID: course.CourseID || course.id, // Hỗ trợ tên trường khác nếu cần
+        Title: course.Title || course.title
+      }));
+      setCourses(coursesData);
+    } catch (err) {
+      setError('Không thể tải danh sách khóa học. Vui lòng thử lại sau.');
+      console.error('Lỗi chi tiết:', err.response ? err.response.data : err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchCourses();
+}, []);
 
   const handleExamDataChange = (e) => {
     const { name, value, checked } = e.target;
@@ -301,11 +329,17 @@ const MultipleChoiceExamPage = () => {
                     onChange={handleExamDataChange}
                     margin="normal"
                   >
-                    <MenuItem value="draft">Bản nháp</MenuItem>
-                    <MenuItem value="published">Đã xuất bản</MenuItem>
-                    <MenuItem value="upcoming">Sắp diễn ra</MenuItem>
+                    <MenuItem value="DRAFT">Bản nháp</MenuItem>
+                    <MenuItem value="PUBLISHED">Đã xuất bản</MenuItem>
+                    <MenuItem value="UPCOMING">Sắp diễn ra</MenuItem>
+                    <MenuItem value="ACTIVE">Hoạt động</MenuItem>
+                    <MenuItem value="INACTIVE">Không hoạt động</MenuItem>
+                    <MenuItem value="COMPLETED">Hoàn thành</MenuItem>
+                    <MenuItem value="CANCELED">Đã hủy</MenuItem>
+                    <MenuItem value="INREVIEW">Đang xét duyệt</MenuItem>
                   </TextField>
-                </Grid>
+              </Grid>
+
                 
                 <Grid item xs={12} sm={6}>
                   <TextField

@@ -1,28 +1,28 @@
 // components/Chat/Chat.js
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { 
-  PaperAirplaneIcon, 
-  PhoneIcon,
-  VideoCameraIcon,
-  UserGroupIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  PaperClipIcon,
-  FaceSmileIcon,
-  XMarkIcon,
+import {
   ChevronLeftIcon,
+  FaceSmileIcon,
+  MagnifyingGlassIcon,
+  PaperAirplaneIcon,
+  PaperClipIcon,
+  PencilIcon,
+  PhoneIcon,
+  PlusIcon,
   TrashIcon,
-  PencilIcon
+  UserGroupIcon,
+  VideoCameraIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { chatApi } from '../../api/chatApi';
-import { callApi } from '../../api/callApi';
-import { useSocket } from '../../contexts/SocketContext';
-import { useAuth } from '../../contexts/AuthContext';
-import Avatar from '../../components/common/Avatar';
 import CallInterface from '../../components/Call/CallInterface';
+import Avatar from '../../components/common/Avatar';
 import { API_URL } from '../../config';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCall } from '../../contexts/CallContext';
+import { useSocket } from '../../contexts/SocketContext';
 
 const Chat = () => {
   // === STATE ===
@@ -55,6 +55,16 @@ const Chat = () => {
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
+
+  const { 
+  initiateCall, 
+  answerCall, 
+  endCall, 
+  rejectCall,
+  isMakingCall,
+  isReceivingCall,
+  callStatus
+  } = useCall();
   
   // === STATE MỚI CHO EDIT MESSAGE ===
   const [editingMessage, setEditingMessage] = useState(null);
@@ -760,22 +770,7 @@ const sendFileMessage = async (files) => {
     if (!currentConversation) return;
     try {
       setIsWaitingForResponse(true);
-      const response = await callApi.initiateCall({
-        conversationID: currentConversation.conversationID,
-        type: 'audio'
-      });
-      if (response.success) {
-        setCurrentCall(response.data); 
-        setInCall(true);
-        
-        sendMessage('/call.initiate', {
-          conversationID: currentConversation.conversationID,
-          type: 'audio',
-          callId: response.data.callID
-        });
-        
-        toast.info('Đang gọi...');
-      }
+      await initiateCall(currentConversation, 'audio');
     } catch (error) {
       toast.error('Không thể gọi');
     } finally {
@@ -787,71 +782,11 @@ const sendFileMessage = async (files) => {
     if (!currentConversation) return;
     try {
       setIsWaitingForResponse(true);
-      const response = await callApi.initiateCall({
-        conversationID: currentConversation.conversationID,
-        type: 'video'
-      });
-      if (response.success) {
-        setCurrentCall(response.data); 
-        setInCall(true);
-        
-        sendMessage('/call.initiate', {
-          conversationID: currentConversation.conversationID,
-          type: 'video',
-          callId: response.data.callID
-        });
-        
-        toast.info('Đang gọi video...');
-      }
+      await initiateCall(currentConversation, 'video');
     } catch (error) {
       toast.error('Không thể gọi video');
     } finally {
       setIsWaitingForResponse(false);
-    }
-  };
-
-  const answerCall = async () => {
-    if (!incomingCall) return;
-    try {
-      const response = await callApi.answerCall({ callId: incomingCall.callID });
-      if (response.success) {
-        setCurrentCall(response.data); 
-        setInCall(true); 
-        setIncomingCall(null);
-        
-        sendMessage('/call.answer', {
-          callId: incomingCall.callID
-        });
-      }
-    } catch (error) {
-      toast.error('Không thể trả lời');
-    }
-  };
-
-  const rejectCall = async () => {
-    if (!incomingCall) return;
-    try {
-      await callApi.rejectCall({ callId: incomingCall.callID });
-      setIncomingCall(null);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const endCall = async () => {
-    if (!currentCall) return;
-    try {
-      await callApi.endCall({ callId: currentCall.callID });
-      
-      sendMessage('/call.end', {
-        callId: currentCall.callID
-      });
-      
-      setInCall(false); 
-      setCurrentCall(null); 
-      setIsWaitingForResponse(false);
-    } catch (error) {
-      console.error(error);
     }
   };
 

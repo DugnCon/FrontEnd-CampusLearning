@@ -113,9 +113,15 @@ export class CallService {
   async initiateCall(conversation, isVideoCall = false) {
   try {
     // Get the other participants from the conversation
+    console.log('🎯 [CALL SERVICE] initiateCall started');
+    console.log('🎯 Conversation:', conversation);
+    console.log('🎯 isVideoCall:', isVideoCall);
+
     const participantIds = conversation.participants
       .filter(p => p.userID !== this.userId)
       .map(p => p.userID);
+
+    console.log('🎯 Participant IDs:', participantIds);
 
     if (participantIds.length === 0) {
       throw new Error('No participants to call');

@@ -442,10 +442,21 @@ export const CallProvider = ({ children }) => {
 
       console.log('📞 Initiating call via service:', conversation, type);
       
-      // 🟢 CHUYỂN type string thành boolean
+      
       const isVideoCall = type === 'video';
+
+      console.log('📞 [2] Calling service with:', {
+        conversation: conversation,
+        isVideoCall: isVideoCall
+      });
+
       const response = await callService.initiateCall(conversation, isVideoCall);
+
+      console.log('📞 [3] Service response:', response);
+
       const callData = response.call || response;
+
+      console.log('📞 [4] Call data:', callData);
       
       setCall(callData);
       setCallStatus('ringing');

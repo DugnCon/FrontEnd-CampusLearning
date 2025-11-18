@@ -439,6 +439,8 @@ export const CallProvider = ({ children }) => {
 
       setIsMakingCall(true);
       setCallType(type);
+
+      console.log('📞 Initiating call via service:', conversations, type);
       
       const response = await callService.initiateCall(conversations, type);
       const callData = response.call || response;

@@ -1,6 +1,13 @@
-import { callApi } from '../api/callApi';
+/*-----------------------------------------------------------------
+* File: callService.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import { chatApi } from '../api/chatApi';
 import * as webRTC from './webRTC';
+import { callApi } from '../api/callApi'
 
 export class CallService {
   constructor(socket, userId) {
@@ -15,6 +22,20 @@ export class CallService {
     this.onRemoteStreamReceived = null;
     this.currentCallId = null;
     this.listeners = [];
+  }
+
+  /**
+   * Send message via STOMP
+   */
+  sendViaStomp(destination, body) {
+    if (this.socket && this.socket.connected) {
+      console.log('🟢 Sending via STOMP:', destination, body);
+      this.socket.send(destination, {}, JSON.stringify(body));
+      return true;
+    } else {
+      console.error('🔴 STOMP not connected, cannot send:', destination);
+      return false;
+    }
   }
 
   /**
@@ -112,55 +133,51 @@ export class CallService {
    */
   async initiateCall(conversation, isVideoCall = false) {
     try {
-  
-    console.log('🎯 Conversation:', conversation);
-    console.log('🎯 isVideoCall:', isVideoCall);
-
-    const participantIds = conversation.participants
-      .filter(p => p.userID !== this.userId)
-      .map(p => p.userID);
-
-    if (participantIds.length === 0) {
-      throw new Error('No participants to call');
-    }
-    
-    const callData = await callApi.initiateCall({
-      conversationType: conversation.type,
-      conversationID: conversation.conversationID,
-      type: isVideoCall ? 'video' : 'audio',
-      participantIds
-    });
-
-    if (!callData) {
-      throw new Error('Failed to create call');
-    }
-
-    this.currentCallId = callData.callID;
-    this.currentCall = callData;
-    this.isInitiator = true;
-
-    // Set up WebRTC
-    await this.setupWebRTC(isVideoCall);
-
-    // Create offer
-    const offer = await webRTC.createOffer(this.peerConnection);
-
-    // Send call initiated event
-    this.socket.emit('call-initiated', {
-      callId: this.currentCallID, 
-      participantIds,
-      conversationId: conversation.conversationID,
-      offer,
-      isVideoCall,
-      initiator: {
-        id: this.userId,
-        name: conversation.participants.find(p => p.userID === this.userId)?.fullName || 'User'
+      // LẤY NGƯỜI NHẬN ĐẦU TIÊN (1-1 CALL)
+      const otherParticipant = conversation.participants
+        .find(p => p.userID !== this.userId);
+      
+      if (!otherParticipant) {
+        throw new Error('No participant to call');
       }
-    });
 
-    if (this.onCallStatusChange) {
-      this.onCallStatusChange('calling');
-    }
+      // TẠO CALL TRONG BACKEND
+      const callData = await callApi.initiateCall({
+        conversationType: conversation.type,
+        conversationID: conversation.conversationID,
+        type: isVideoCall ? 'video' : 'audio',
+        participantIds: [otherParticipant.userID] // ← CHỈ 1 USER
+      });
+
+      if (!callData) {
+        throw new Error('Failed to create call');
+      }
+
+      this.currentCallId = callData.callId;
+      this.currentCall = callData;
+      this.isInitiator = true;
+
+      // SETUP WEBRTC
+      await this.setupWebRTC(isVideoCall);
+
+      // CREATE OFFER
+      const offer = await webRTC.createOffer(this.peerConnection);
+
+      // GỬI CALL INITIATE VIA STOMP - CHỈ 1 RECEIVER
+      this.sendViaStomp('/app/call.initiate', {
+        callID: this.currentCallId,
+        receiverID: otherParticipant.userID, // ← CHỈ 1 RECEIVER
+        type: isVideoCall ? 'video' : 'audio',
+        offer, // WebRTC offer
+        initiator: {
+          id: this.userId,
+          name: conversation.participants.find(p => p.userID === this.userId)?.fullName || 'User'
+        }
+      });
+
+      if (this.onCallStatusChange) {
+        this.onCallStatusChange('calling');
+      }
 
       return this.currentCallId;
     } catch (error) {
@@ -168,6 +185,7 @@ export class CallService {
       throw error;
     }
   }
+
   /**
    * Answer an incoming call
    * @returns {Promise<void>}
@@ -184,11 +202,11 @@ export class CallService {
       // Create answer
       const answer = await webRTC.createAnswer(this.peerConnection);
 
-      // Send call answered event
-      this.socket.emit('call-answered', {
-        callId: this.currentCallId,
-        answer,
-        userId: this.userId
+      // Send call answered event via STOMP
+      this.sendViaStomp('/app/call.answer', {
+        callID: this.currentCallId,
+        initiatorID: this.currentCall.initiatorID,
+        accepted: true
       });
 
       if (this.onCallStatusChange) {
@@ -212,11 +230,13 @@ export class CallService {
     // Set up event handlers
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        // Send ICE candidate to remote peer
-        this.socket.emit('ice-candidate', {
-          callId: this.currentCallId,
-          candidate: event.candidate,
-          userId: this.userId
+        // Send ICE candidate to remote peer via STOMP
+        this.sendViaStomp('/app/call.signal', {
+          callID: this.currentCallId,
+          signal: {
+            type: 'candidate',
+            candidate: event.candidate
+          }
         });
       }
     };
@@ -237,7 +257,7 @@ export class CallService {
     };
 
     // Get user media (audio/video)
-    this.localStream = await webRTC.getUserMedia(true, withVideo);
+    this.localStream = await webRTC.getLocalStream(true, withVideo);
 
     // Add tracks to the connection
     webRTC.addTracksToConnection(this.peerConnection, this.localStream);
@@ -251,10 +271,10 @@ export class CallService {
    */
   endCall(emitEvent = true) {
     if (emitEvent && this.currentCallId) {
-      // Send call ended event to server
-      this.socket.emit('call-ended', {
-        callId: this.currentCallId,
-        userId: this.userId
+      // Send call ended event via STOMP
+      this.sendViaStomp('/app/call.end', {
+        callID: this.currentCallId,
+        reason: 'User ended call'
       });
     }
 
@@ -287,10 +307,10 @@ export class CallService {
   rejectCall() {
     if (!this.currentCallId) return;
 
-    // Send call rejected event
-    this.socket.emit('call-rejected', {
-      callId: this.currentCallId,
-      userId: this.userId
+    // Send call rejected event via STOMP
+    this.sendViaStomp('/app/call.reject', {
+      callID: this.currentCallId,
+      initiatorID: this.currentCall.initiatorID
     });
 
     // Reset call state
@@ -376,4 +396,3 @@ export class CallService {
 }
 
 export default CallService;
-

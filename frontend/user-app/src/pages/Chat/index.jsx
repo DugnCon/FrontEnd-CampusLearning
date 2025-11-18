@@ -63,8 +63,30 @@ const Chat = () => {
   rejectCall,
   isMakingCall,
   isReceivingCall,
-  callStatus
+  callStatus,
+  call,           
+  callType        
   } = useCall();
+
+  // XỬ LÝ KHI CÓ CUỘC GỌI ĐẾN
+  useEffect(() => {
+    if (isReceivingCall && call) {
+      setIncomingCall(call);
+      toast.success(`Cuộc gọi ${call.type === 'video' ? 'video' : 'thoại'} từ ${call.initiatorName || 'Ai đó'}`, {
+        duration: 15000,
+        icon: 'Ringing',
+      });
+    }
+  }, [isReceivingCall, call]);
+
+  // TỰ ĐỘNG TẮT MODAL KHI CÚP MÁY HOẶC TỪ CHỐI
+  useEffect(() => {
+    if (callStatus === 'ended' || callStatus === 'idle') {
+      setIncomingCall(null);
+      setIsWaitingForResponse(false);
+    }
+  }, [callStatus]);
+
   
   // === STATE MỚI CHO EDIT MESSAGE ===
   const [editingMessage, setEditingMessage] = useState(null);
@@ -98,7 +120,7 @@ const Chat = () => {
   }, [messages]);
 
   // Thêm debug chi tiết
-useEffect(() => {
+    useEffect(() => {
     console.log('🔄 MESSAGES STATE ANALYSIS:');
     
     // Phân tích state
@@ -767,23 +789,51 @@ const sendFileMessage = async (files) => {
 
   // === CALL FUNCTIONS ===
   const startAudioCall = async () => {
-    if (!currentConversation) return;
+    if (!currentConversation || isMakingCall || isWaitingForResponse) return;
+
     try {
       setIsWaitingForResponse(true);
-      await initiateCall(currentConversation, 'audio');
-    } catch (error) {
-      toast.error('Không thể gọi');
+
+      const otherParticipant = currentConversation.participants.find(
+        p => String(p.userID) !== String(user?.userID)
+      );
+
+      if (!otherParticipant) {
+        toast.error('Không tìm thấy người nhận');
+        return;
+      }
+
+      const receiverId = String(otherParticipant.userID); // ← CHUẨN
+
+      await initiateCall(receiverId, currentConversation.conversationID,'audio');
+      toast.success('Đang gọi...');
+    } catch (err) {
+      toast.error('Không thể thực hiện cuộc gọi');
     } finally {
       setIsWaitingForResponse(false);
     }
   };
 
   const startVideoCall = async () => {
-    if (!currentConversation) return;
+    if (!currentConversation || isMakingCall || isWaitingForResponse) return;
+
     try {
       setIsWaitingForResponse(true);
-      await initiateCall(currentConversation, 'video');
-    } catch (error) {
+
+      const otherParticipant = currentConversation.participants.find(
+        p => String(p.userID) !== String(user?.userID)
+      );
+
+      if (!otherParticipant) {
+        toast.error('Không tìm thấy người nhận');
+        return;
+      }
+
+      const receiverId = String(otherParticipant.userID);
+
+      await initiateCall(receiverId, currentConversation.conversationID,'video'); // ← ĐÃ SỬA 'video' ở đây!
+      toast.success('Đang gọi video...');
+    } catch (err) {
       toast.error('Không thể gọi video');
     } finally {
       setIsWaitingForResponse(false);

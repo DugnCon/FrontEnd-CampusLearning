@@ -236,6 +236,15 @@ export const CallProvider = ({ children }) => {
       setCall(callData);
       setCallStatus('ringing');
 
+      if (stompClient && isConnected) {
+        stompClient.send('/app/call.initiate', {}, JSON.stringify({
+          receiverId: Number(receiverId),
+          callID: Number(callData.callId),
+          type: type,
+          conversationID: Number(conversationID)
+        }));
+      }
+
       await setupWebRTC({
         isCaller: true,
         targetUserId: receiverId,

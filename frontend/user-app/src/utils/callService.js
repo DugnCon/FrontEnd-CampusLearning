@@ -111,9 +111,8 @@ export class CallService {
    * @returns {Promise<void>}
    */
   async initiateCall(conversation, isVideoCall = false) {
-  try {
-    // Get the other participants from the conversation
-    console.log('🎯 [CALL SERVICE] initiateCall started');
+    try {
+  
     console.log('🎯 Conversation:', conversation);
     console.log('🎯 isVideoCall:', isVideoCall);
 
@@ -121,13 +120,10 @@ export class CallService {
       .filter(p => p.userID !== this.userId)
       .map(p => p.userID);
 
-    console.log('🎯 Participant IDs:', participantIds);
-
     if (participantIds.length === 0) {
       throw new Error('No participants to call');
     }
-
-    // Create a call in the backend
+    
     const callData = await callApi.initiateCall({
       conversationType: conversation.type,
       conversationID: conversation.conversationID,

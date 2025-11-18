@@ -767,11 +767,34 @@ const sendFileMessage = async (files) => {
 
   // === CALL FUNCTIONS ===
   const startAudioCall = async () => {
-    if (!currentConversation) return;
+    console.log('🎯 [CHAT] startAudioCall CLICKED');
+    console.log('🎯 Current conversation:', currentConversation);
+    
+    if (!currentConversation) {
+      console.log('🎯 ❌ No current conversation');
+      return;
+    }
+    
     try {
+      console.log('🎯 [1] Before calling initiateCall from useCall()');
+      
+      // 🟢 THÊM DEBUG: Kiểm tra initiateCall có tồn tại không
+      console.log('🎯 initiateCall function:', initiateCall);
+      console.log('🎯 useCall() result:', useCall());
+      
       setIsWaitingForResponse(true);
+      
+      console.log('🎯 [2] Calling initiateCall with:', {
+        conversation: currentConversation,
+        type: 'audio'
+      });
+      
       await initiateCall(currentConversation, 'audio');
+      
+      console.log('🎯 [3] After initiateCall - SUCCESS');
+      
     } catch (error) {
+      console.log('🎯 [❌ CHAT ERROR]', error);
       toast.error('Không thể gọi');
     } finally {
       setIsWaitingForResponse(false);
@@ -779,11 +802,28 @@ const sendFileMessage = async (files) => {
   };
 
   const startVideoCall = async () => {
+    console.log('🎯 [CHAT] startVideoCall CLICKED');
+    console.log('🎯 Current conversation:', currentConversation);
+    
     if (!currentConversation) return;
+    
     try {
+      console.log('🎯 [1] Before calling initiateCall for video');
+      console.log('🎯 initiateCall function:', initiateCall);
+      
       setIsWaitingForResponse(true);
+      
+      console.log('🎯 [2] Calling initiateCall with:', {
+        conversation: currentConversation,
+        type: 'video'
+      });
+      
       await initiateCall(currentConversation, 'video');
+      
+      console.log('🎯 [3] After initiateCall - SUCCESS');
+      
     } catch (error) {
+      console.log('🎯 [❌ CHAT VIDEO ERROR]', error);
       toast.error('Không thể gọi video');
     } finally {
       setIsWaitingForResponse(false);

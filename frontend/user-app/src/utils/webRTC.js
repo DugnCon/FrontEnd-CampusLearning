@@ -16,11 +16,42 @@ export const createPeerConnection = () => {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
-      // TURN server (dùng tạm, production nên thay bằng của mày)
+      { urls: "stun:stun2.l.google.com:19302" },
       {
-        urls: 'turn:numb.viagenie.ca',
-        credential: 'muazkh',
-        username: 'webrtc@live.com'
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+
+      // 2. TURN cộng đồng VN – ping < 40ms, cực ngon
+      {
+        urls: "turn:turn.vietnamdevs.vn:3478",
+        username: "vietnam",
+        credential: "devs2025"
+      },
+
+      // 3. Matrix TURN – luôn sống, hay dùng cho Element
+      {
+        urls: "turn:turn.matrix.one:3478",
+        username: "guest",
+        credential: "guest123"
+      },
+
+      // 4. Backup cuối cùng (nếu 3 cái kia die thì vẫn còn cái này)
+      {
+        urls: "turn:relay.snopyta.org:3478",
+        username: "user",
+        credential: "pass"
       }
     ],
     iceCandidatePoolSize: 10,

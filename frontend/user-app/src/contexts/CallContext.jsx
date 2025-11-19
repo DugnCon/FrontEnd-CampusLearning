@@ -101,22 +101,38 @@ export const CallProvider = ({ children }) => {
   // Setup WebRTC
   const setupWebRTC = async ({ isCaller = false, targetUserId, callId }) => {
     try {
+      console.log("🎥 Setting up WebRTC, callType:", callType);
+      
       const stream = await getLocalStream(true, callType === 'video');
+      console.log("📹 Local stream obtained:", stream?.getTracks().length, "tracks");
+      
       setLocalStream(stream);
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        console.log("🎬 Local video ref set");
+      }
 
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
       addTracksToConnection(pc, stream);
 
       pc.ontrack = (e) => {
+        console.log("📡 Received remote track");
         const remote = e.streams[0];
         setRemoteStream(remote);
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remote;
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remote;
+          console.log("🎬 Remote video ref set");
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("❄️ ICE connection state:", pc.iceConnectionState);
       };
 
       pc.onicecandidate = (e) => {
         if (e.candidate) {
+          console.log("❄️ Sending ICE candidate");
           sendSignal(targetUserId, callId, {
             type: 'candidate',
             candidate: e.candidate.toJSON()
@@ -124,14 +140,25 @@ export const CallProvider = ({ children }) => {
         }
       };
 
+      // ĐỢI stream ready trước khi tạo offer
       if (isCaller) {
+        // Đảm bảo stream đã ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log("📞 Creating offer...");
         const offer = await createOffer(pc);
-        sendSignal(targetUserId, callId, { type: 'offer', sdp: offer.sdp });
+        console.log("📞 Offer created, sending signal...");
+        
+        sendSignal(targetUserId, callId, { 
+          type: 'offer', 
+          sdp: offer.sdp 
+        });
       }
 
       return pc;
     } catch (err) {
-      toast.error('Không thể truy cập mic/camera');
+      console.error("❌ WebRTC setup error:", err);
+      toast.error('Không thể truy cập mic/camera: ' + err.message);
       cleanup();
       throw err;
     }

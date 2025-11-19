@@ -52,12 +52,29 @@ export const createPeerConnection = () => {
 };
 
 // === CÁC HÀM KHÁC GIỮ NGUYÊN ===
+// utils/webRTC.js
+
 export const getLocalStream = async (audio = true, video = false) => {
-  const constraints = {
-    audio,
-    video: video ? { width: 640, height: 480, facingMode: "user" } : false,
-  };
-  return await navigator.mediaDevices.getUserMedia(constraints);
+  try {
+    console.log("🎤 Requesting media: audio=", audio, "video=", video);
+    
+    const constraints = {
+      audio: audio,
+      video: video ? {
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } : false
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log("✅ Media obtained:", stream.getAudioTracks().length, "audio,", 
+                stream.getVideoTracks().length, "video tracks");
+    
+    return stream;
+  } catch (err) {
+    console.error("❌ getLocalStream error:", err.name, err.message);
+    throw new Error(`Cannot access microphone/camera: ${err.message}`);
+  }
 };
 
 export const addTracksToConnection = (peerConnection, stream) => {

@@ -263,11 +263,11 @@ export const CallProvider = ({ children }) => {
   }, [stompClient, isConnected]);
 
   // ===== API CHO COMPONENT =====
-  const initiateCall = async (receiverID, conversationID, type = 'video') => {
+    const initiateCall = async (receiverID, conversationID, type = 'video') => {
     try {
       setIsMakingCall(true);
       setCallType(type);
-      console.log(receiverID, conversationID, type );
+
       const res = await callService.initiateCall(receiverID, conversationID, type);
       const callData = res.call || res;
 
@@ -283,6 +283,7 @@ export const CallProvider = ({ children }) => {
         }));
       }
 
+      // Chỉ setup WebRTC nếu API thành công
       await setupWebRTC({
         isCaller: true,
         targetUserId: receiverID,
@@ -290,10 +291,16 @@ export const CallProvider = ({ children }) => {
       });
 
       return callData;
+
     } catch (err) {
-      toast.error('Không thể gọi');
-      setIsMakingCall(false);
-      throw err;
+      console.error("Lỗi khởi tạo cuộc gọi:", err);
+
+      // QUAN TRỌNG: CLEANUP LUÔN KHI LỖI
+      toast.error('Không thể thực hiện cuộc gọi');
+      cleanup();                    // ← THÊM DÒNG NÀY
+      setIsMakingCall(false);       // ← vẫn giữ
+
+      return null; // hoặc throw err nếu muốn
     }
   };
 

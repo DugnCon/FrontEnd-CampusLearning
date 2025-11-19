@@ -175,16 +175,16 @@ const CallInterface = ({ call: propCall, onEndCall: propOnEndCall, isVideoCall =
 
   const getParticipantName = () => {
     if (call?.participants && call.participants.length > 0) {
-      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
-      return otherParticipant?.FullName || otherParticipant?.Username || 'Unknown';
+      const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
+      return otherParticipant?.fullName || otherParticipant?.username || 'Unknown';
     }
     return 'Unknown';
   };
 
   const getParticipantAvatar = () => {
     if (call?.participants && call.participants.length > 0) {
-      const otherParticipant = call.participants.find(p => p.UserID !== call.initiatorId);
-      return otherParticipant?.ProfilePicture;
+      const otherParticipant = call.participants.find(p => p.userID !== call.initiatorID);
+      return otherParticipant?.profilePicture;
     }
     return null;
   };

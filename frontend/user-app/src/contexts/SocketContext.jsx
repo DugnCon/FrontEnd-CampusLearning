@@ -1,4 +1,4 @@
-// contexts/SocketContext.js - OPTIMIZED VERSION (KEEP ALL EXISTING CODE)
+
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -124,7 +124,6 @@ export const SocketProvider = ({ children }) => {
     setIsConnected(false);
   }, []);
 
-  // 🔥 CONNECT FUNCTION - TỐI ƯU HOÁ
   const connect = useCallback(() => {
     const token = localStorage.getItem('token');
     if (!token) {

@@ -42,7 +42,7 @@ const callService = {
     try {
         const response = await api.post(`/calls/initiate`, {
           receiverId: Number(receiverId),       
-          conversationID: Number(conversationID), 
+          conversationId: Number(conversationID), 
           type: type
         });
         return response.data;

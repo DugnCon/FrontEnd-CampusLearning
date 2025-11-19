@@ -26,8 +26,8 @@ export const SocketProvider = ({ children }) => {
   // 🔥 XÁC ĐỊNH URL DỰA TRÊN MÔI TRƯỜNG
   const getSocketUrl = useCallback(() => {
     const LOCAL_URL = import.meta.env.VITE_SOCKET_URL;
-    const localUrl = `https://api.campuslearning.site/ws`;
-    //const localUrl = `http://localhost:8080/ws`;
+    //const localUrl = `https://api.campuslearning.site/ws`;
+    const localUrl = `http://localhost:8080/ws`;
     console.log('Using Local HTTP SockJS URL:', localUrl);
     return localUrl;
   }, []);

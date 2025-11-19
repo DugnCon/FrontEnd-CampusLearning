@@ -41,8 +41,8 @@ const callService = {
   initiateCall: async (receiverId, conversationID,type) => {
     try {
         const response = await api.post(`/calls/initiate`, {
-          receiverId: Number(receiverId),        // 👈 Convert to Number
-          conversationID: Number(conversationID), // 👈 Convert to Number  
+          receiverId: Number(receiverId),       
+          conversationID: Number(conversationID), 
           type: type
         });
         return response.data;
@@ -62,7 +62,7 @@ const callService = {
    */
   answerCall: async (callId) => {
     try {
-      const response = await api.post(`/calls/answer`, { callId });
+      const response = await api.post(`/calls/answer`, { callID });
       return response.data;
     } catch (error) {
       // Log only in development
@@ -80,7 +80,7 @@ const callService = {
    */
   endCall: async (callId) => {
     try {
-      const response = await api.post(`/calls/end`, { callId });
+      const response = await api.post(`/calls/end`, { callID });
       return response.data;
     } catch (error) {
       // Log only in development
@@ -98,7 +98,7 @@ const callService = {
    */
   rejectCall: async (callId) => {
     try {
-      const response = await api.post(`/calls/reject`, { callId });
+      const response = await api.post(`/calls/reject`, { callID });
       return response.data;
     } catch (error) {
       // Log only in development

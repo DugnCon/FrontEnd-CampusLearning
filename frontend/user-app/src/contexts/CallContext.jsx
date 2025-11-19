@@ -140,9 +140,7 @@ export const CallProvider = ({ children }) => {
         }
       };
 
-      // ĐỢI stream ready trước khi tạo offer
       if (isCaller) {
-        // Đảm bảo stream đã ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
         console.log("📞 Creating offer...");
@@ -164,7 +162,6 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // Xử lý signal từ STOMP
   const handleSignal = async (data) => {
     const { signal, fromUserID: senderId, callID: callId } = data;
     
@@ -180,24 +177,24 @@ export const CallProvider = ({ children }) => {
       if (signal.type === 'offer') {
         await setRemoteDescription(pc, { 
           type: 'offer', 
-          sdp: signal.sdp  // 👈 Lấy từ field sdp
+          sdp: signal.sdp 
         });
         const answer = await createAnswer(pc);
         sendSignal(senderId, callId, { 
           type: 'answer', 
-          sdp: answer.sdp   // 👈 Gửi trong field sdp
+          sdp: answer.sdp  
         });
       }
       else if (signal.type === 'answer') {
         await setRemoteDescription(pc, { 
           type: 'answer', 
-          sdp: signal.sdp   // 👈 Lấy từ field sdp
+          sdp: signal.sdp  
         });
         setCallStatus('ongoing');
         startTimer();
       }
       else if (signal.type === 'candidate') {
-        await addIceCandidate(pc, signal.candidate); // 👈 Lấy từ field candidate
+        await addIceCandidate(pc, signal.candidate); 
       }
     } catch (err) {
       console.error('Signal handling error:', err);
@@ -304,7 +301,7 @@ export const CallProvider = ({ children }) => {
 
   const endCall = async () => {
     if (!call) return;
-    await callService.endCall(call.callId);
+    await callService.endCall(call.callID);
     cleanup();
   };
 
@@ -315,7 +312,7 @@ export const CallProvider = ({ children }) => {
   
   if (stompClient && isConnected) {
     stompClient.send('/app/call.reject', {}, JSON.stringify({
-      callID: call.callId,
+      callID: call.callID,
       initiatorID: call.initiatorId,
     }));
   }

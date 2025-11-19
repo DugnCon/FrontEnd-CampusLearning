@@ -803,9 +803,10 @@ const sendFileMessage = async (files) => {
         return;
       }
 
-      const receiverId = String(otherParticipant.userID); // ← CHUẨN
+      const receiverId = Number(otherParticipant.userID);
+      const conversationId = Number(currentConversation.conversationID);
 
-      await initiateCall(receiverId, currentConversation.conversationID, 'audio');
+      await initiateCall(receiverId, conversationId, 'audio');
       toast.success('Đang gọi...');
     } catch (err) {
       toast.error('Không thể thực hiện cuộc gọi');
@@ -829,9 +830,10 @@ const sendFileMessage = async (files) => {
         return;
       }
 
-      const receiverId = String(otherParticipant.userID);
+      const receiverId = Number(otherParticipant.userID);
+      const conversationId = Number(currentConversation.conversationID);
 
-      await initiateCall(receiverId, currentConversation.conversationID, 'video'); // ← ĐÃ SỬA 'video' ở đây!
+      await initiateCall(receiverId, conversationId, 'video');
       toast.success('Đang gọi video...');
     } catch (err) {
       toast.error('Không thể gọi video');

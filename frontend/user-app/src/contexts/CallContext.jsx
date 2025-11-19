@@ -1,7 +1,4 @@
-/*=================================================================
-  CallContext.jsx – PHIÊN BẢN HOÀN CHỈNH, KHỚP 100% VỚI callService.js
-  Dùng REST + STOMP + WebRTC – Chuẩn production 2025
-=================================================================*/
+
 
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
 import { useSocket } from './SocketContext';
@@ -40,12 +37,12 @@ export const CallProvider = ({ children }) => {
   const subscriptionsRef = useRef([]);
 
   // Gửi STOMP
-  const sendSignal = (toUserId, callId, signal) => {
+  const sendSignal = (toUserId, callID, signal) => {
   if (!stompClient || !isConnected) return false;
   
   const message = {
     toUserID: toUserId.toString(),
-    callID: callId.toString(),
+    callID: Number(callID),
     signal: {
       type: signal.type
     }
@@ -99,7 +96,7 @@ export const CallProvider = ({ children }) => {
   };
 
   // Setup WebRTC
-  const setupWebRTC = async ({ isCaller = false, targetUserId, callId }) => {
+  const setupWebRTC = async ({ isCaller = false, targetUserId, callID }) => {
     try {
       console.log("🎥 Setting up WebRTC, callType:", callType);
       
@@ -133,7 +130,7 @@ export const CallProvider = ({ children }) => {
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           console.log("❄️ Sending ICE candidate");
-          sendSignal(targetUserId, callId, {
+          sendSignal(targetUserId, callID, {
             type: 'candidate',
             candidate: e.candidate.toJSON()
           });
@@ -147,7 +144,7 @@ export const CallProvider = ({ children }) => {
         const offer = await createOffer(pc);
         console.log("📞 Offer created, sending signal...");
         
-        sendSignal(targetUserId, callId, { 
+        sendSignal(targetUserId, callID, { 
           type: 'offer', 
           sdp: offer.sdp 
         });
@@ -163,13 +160,13 @@ export const CallProvider = ({ children }) => {
   };
 
   const handleSignal = async (data) => {
-    const { signal, fromUserID: senderId, callID: callId } = data;
+    const { signal, fromUserID: senderId, callID: callID } = data;
     
     console.log("📡 Nhận signal:", signal.type, "từ:", senderId);
     
     let pc = peerConnectionRef.current;
     if (!pc) {
-      await setupWebRTC({ isCaller: false, targetUserId: senderId, callId });
+      await setupWebRTC({ isCaller: false, targetUserId: senderId, callID });
       pc = peerConnectionRef.current;
     }
 
@@ -180,7 +177,7 @@ export const CallProvider = ({ children }) => {
           sdp: signal.sdp 
         });
         const answer = await createAnswer(pc);
-        sendSignal(senderId, callId, { 
+        sendSignal(senderId, callID, { 
           type: 'answer', 
           sdp: answer.sdp  
         });
@@ -263,7 +260,7 @@ export const CallProvider = ({ children }) => {
       if (stompClient && isConnected) {
         stompClient.send('/app/call.initiate', {}, JSON.stringify({
           receiverId: Number(receiverId),
-          callID: Number(callData.callId),
+          callID: Number(callData.callID),
           type: type,
           conversationID: Number(conversationID)
         }));
@@ -272,7 +269,7 @@ export const CallProvider = ({ children }) => {
       await setupWebRTC({
         isCaller: true,
         targetUserId: receiverId,
-        callId: callData.callId
+        callID: callData.callID
       });
 
       return callData;
@@ -287,13 +284,13 @@ export const CallProvider = ({ children }) => {
   if (!call) return;
   
     // Gửi initiatorID trong message
-    await callService.answerCall(call.callId);
+    await callService.answerCall(call.callID);
     
     // Gửi STOMP message với initiatorID
     if (stompClient && isConnected) {
       stompClient.send('/app/call.answer', {}, JSON.stringify({
-        callID: call.callId,
-        initiatorID: call.initiatorId, // 👈 QUAN TRỌNG
+        callID: call.callID,
+        initiatorID: call.initiatorId,
         accepted: true
       }));
     }
@@ -308,7 +305,7 @@ export const CallProvider = ({ children }) => {
   const rejectCall = async () => {
   if (!call) return;
   
-  await callService.rejectCall(call.callId);
+  await callService.rejectCall(call.callID);
   
   if (stompClient && isConnected) {
     stompClient.send('/app/call.reject', {}, JSON.stringify({

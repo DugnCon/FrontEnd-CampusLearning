@@ -43,7 +43,7 @@ export const CallProvider = ({ children }) => {
     
     const message = {
         toUserID: toUserId.toString(),
-        fromUserID: user?.id,
+        fromUserID: user?.id || user?.userID || user?.userId,
         callID: Number(callID),
         signal: {
           type: signal.type
@@ -232,7 +232,6 @@ export const CallProvider = ({ children }) => {
         cleanup();
       }),
 
-      // QUAN TRỌNG NHẤT – SIGNAL WEBRTC
       subscribe('/user/queue/call.signal', (data) => {
         console.log('NHẬN ĐƯỢC SIGNAL WEBRTC:', data);
         handleSignal(data);

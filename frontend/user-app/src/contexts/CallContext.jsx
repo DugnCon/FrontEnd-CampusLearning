@@ -232,6 +232,23 @@ export const CallProvider = ({ children }) => {
         const data = JSON.parse(msg.body);
         handleSignal(data);
       }},
+
+      { topic: '/user/topic/call.error', handler: (msg) => {
+        const data = JSON.parse(msg.body);
+        console.error("CALL ERROR từ server:", data);
+        
+        let message = 'Không thể thực hiện cuộc gọi';
+        if (data.message) {
+          message += `: ${data.message}`;
+        }
+        
+        toast.error(message);
+        
+        if (isMakingCall || callStatus === 'ringing') {
+          cleanup();
+          setIsMakingCall(false);
+        }
+      }}
     ];
 
     subs.forEach(s => {

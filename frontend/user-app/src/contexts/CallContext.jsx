@@ -38,26 +38,26 @@ export const CallProvider = ({ children }) => {
 
   // Gửi STOMP
   const sendSignal = (toUserId, callID, signal) => {
-  if (!stompClient || !isConnected) return false;
-  
-  const message = {
-    toUserID: toUserId.toString(),
-    callID: Number(callID),
-    signal: {
-      type: signal.type
-    }
+    if (!stompClient || !isConnected) return false;
+    
+    const message = {
+        toUserID: toUserId.toString(),
+        callID: Number(callID),
+        signal: {
+          type: signal.type
+        }
+      };
+      
+      // Thêm sdp hoặc candidate tùy loại signal
+      if (signal.type === 'offer' || signal.type === 'answer') {
+        message.signal.sdp = signal.sdp;
+      } else if (signal.type === 'candidate') {
+        message.signal.candidate = signal.candidate;
+      }
+      
+      sendMessage('/app/call.signal', {}, JSON.stringify(message));
+      return true;
   };
-  
-  // Thêm sdp hoặc candidate tùy loại signal
-  if (signal.type === 'offer' || signal.type === 'answer') {
-    message.signal.sdp = signal.sdp;
-  } else if (signal.type === 'candidate') {
-    message.signal.candidate = signal.candidate;
-  }
-  
-  stompClient.send('/app/call.signal', {}, JSON.stringify(message));
-  return true;
-};
 
   // Format thời gian
   const formatDuration = (sec) => {

@@ -147,7 +147,7 @@ export const CallProvider = ({ children }) => {
         
         console.log("📞 Creating offer...");
         const offer = await createOffer(pc);
-        console.log("📞 Offer created, sending signal...");
+        console.log("📞 Offer created, sending signal..." + " " + offer);
         
         sendSignal(targetUserId, callID, { 
           type: 'offer', 

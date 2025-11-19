@@ -263,7 +263,7 @@ export const CallProvider = ({ children }) => {
   }, [stompClient, isConnected]);
 
   // ===== API CHO COMPONENT =====
-    const initiateCall = async (receiverID, conversationID, type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, type = 'video') => {
     try {
       setIsMakingCall(true);
       setCallType(type);
@@ -274,16 +274,14 @@ export const CallProvider = ({ children }) => {
       setCall(callData);
       setCallStatus('ringing');
 
-      if (stompClient && isConnected) {
-        stompClient.send('/app/call.initiate', {}, JSON.stringify({
-          receiverID: Number(receiverID),
-          callID: Number(callData.callID),
-          type: type,
-          conversationID: Number(conversationID)
-        }));
-      }
+      // DÙNG sendMessage TỪ SOCKET CONTEXT (ĐÃ ĐƯỢC FIX HOÀN HẢO)
+      sendMessage('/call.initiate', {
+        receiverID: Number(receiverID),
+        callID: Number(callData.callID),
+        type: type,
+        conversationID: Number(conversationID)
+      });
 
-      // Chỉ setup WebRTC nếu API thành công
       await setupWebRTC({
         isCaller: true,
         targetUserId: receiverID,
@@ -294,30 +292,23 @@ export const CallProvider = ({ children }) => {
 
     } catch (err) {
       console.error("Lỗi khởi tạo cuộc gọi:", err);
-
-      // QUAN TRỌNG: CLEANUP LUÔN KHI LỖI
       toast.error('Không thể thực hiện cuộc gọi');
-      cleanup();                    // ← THÊM DÒNG NÀY
-      setIsMakingCall(false);       // ← vẫn giữ
-
-      return null; // hoặc throw err nếu muốn
+      cleanup(); // Đảm bảo tắt camera + dọn dẹp
+      setIsMakingCall(false);
+      return null;
     }
   };
 
   const answerCall = async () => {
-  if (!call) return;
-  
-    // Gửi initiatorID trong message
+    if (!call) return;
+
     await callService.answerCall(call.callID);
-    
-    // Gửi STOMP message với initiatorID
-    if (stompClient && isConnected) {
-      stompClient.send('/app/call.answer', {}, JSON.stringify({
-        callID: call.callID,
-        initiatorID: call.initiatorID,
-        accepted: true
-      }));
-    }
+
+    sendMessage('/call.answer', {
+      callID: call.callID,
+      initiatorID: call.initiatorID,
+      accepted: true
+    });
   };
 
   const endCall = async () => {
@@ -327,17 +318,15 @@ export const CallProvider = ({ children }) => {
   };
 
   const rejectCall = async () => {
-  if (!call) return;
-  
-  await callService.rejectCall(call.callID);
-  
-  if (stompClient && isConnected) {
-    stompClient.send('/app/call.reject', {}, JSON.stringify({
+    if (!call) return;
+
+    await callService.rejectCall(call.callID);
+
+    sendMessage('/call.reject', {
       callID: call.callID,
       initiatorID: call.initiatorID,
-    }));
-  }
-};
+    });
+  };
 
   const value = {
     call, callStatus, callType,

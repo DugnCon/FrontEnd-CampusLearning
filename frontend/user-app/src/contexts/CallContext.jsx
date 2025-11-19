@@ -19,7 +19,7 @@ import {
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
-  const { stompClient, isConnected, user } = useSocket();
+  const { stompClient, isConnected, user , sendMessage} = useSocket();
 
   const [call, setCall] = useState(null);
   const [callStatus, setCallStatus] = useState(null); // 'idle' | 'ringing' | 'ongoing' | 'ended'

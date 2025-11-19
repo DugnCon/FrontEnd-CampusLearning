@@ -246,12 +246,12 @@ export const CallProvider = ({ children }) => {
   }, [stompClient, isConnected]);
 
   // ===== API CHO COMPONENT =====
-  const initiateCall = async (receiverId, conversationID, type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, type = 'video') => {
     try {
       setIsMakingCall(true);
       setCallType(type);
-      console.log(receiverId, conversationID, type );
-      const res = await callService.initiateCall(receiverId, conversationID, type);
+      console.log(receiverID, conversationID, type );
+      const res = await callService.initiateCall(receiverID, conversationID, type);
       const callData = res.call || res;
 
       setCall(callData);
@@ -259,7 +259,7 @@ export const CallProvider = ({ children }) => {
 
       if (stompClient && isConnected) {
         stompClient.send('/app/call.initiate', {}, JSON.stringify({
-          receiverId: Number(receiverId),
+          receiverID: Number(receiverID),
           callID: Number(callData.callID),
           type: type,
           conversationID: Number(conversationID)
@@ -268,7 +268,7 @@ export const CallProvider = ({ children }) => {
 
       await setupWebRTC({
         isCaller: true,
-        targetUserId: receiverId,
+        targetUserId: receiverID,
         callID: callData.callID
       });
 
@@ -290,7 +290,7 @@ export const CallProvider = ({ children }) => {
     if (stompClient && isConnected) {
       stompClient.send('/app/call.answer', {}, JSON.stringify({
         callID: call.callID,
-        initiatorID: call.initiatorId,
+        initiatorID: call.initiatorID,
         accepted: true
       }));
     }
@@ -310,7 +310,7 @@ export const CallProvider = ({ children }) => {
   if (stompClient && isConnected) {
     stompClient.send('/app/call.reject', {}, JSON.stringify({
       callID: call.callID,
-      initiatorID: call.initiatorId,
+      initiatorID: call.initiatorID,
     }));
   }
 };

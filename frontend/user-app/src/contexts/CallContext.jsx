@@ -208,7 +208,7 @@ export const CallProvider = ({ children }) => {
     if (!stompClient || !isConnected) return;
 
     const subs = [
-      { topic: '/user/topic/call.incoming', handler: (msg) => {
+      { topic: '/user/queue/call.incoming', handler: (msg) => {
         const data = JSON.parse(msg.body);
         setCall(data);
         setCallType(data.type || 'video');
@@ -217,28 +217,28 @@ export const CallProvider = ({ children }) => {
         toast(`Cuộc gọi từ ${data.initiatorName || 'Ai đó'}`, { duration: 10000 });
       }},
 
-      { topic: '/user/topic/call.answered', handler: () => {
+      { topic: '/user/queue/call.answered', handler: () => {
         setCallStatus('ongoing');
         setIsReceivingCall(false);
         startTimer();
       }},
 
-      { topic: '/user/topic/call.ended', handler: () => {
+      { topic: '/user/queue/call.ended', handler: () => {
         toast.success(`Cuộc gọi kết thúc • ${formatDuration(callDuration)}`);
         cleanup();
       }},
 
-      { topic: '/user/topic/call.rejected', handler: () => {
+      { topic: '/user/queue/call.rejected', handler: () => {
         toast.error('Cuộc gọi bị từ chối');
         cleanup();
       }},
 
-      { topic: '/user/topic/call.signal', handler: (msg) => {
+      { topic: '/user/queue/call.signal', handler: (msg) => {
         const data = JSON.parse(msg.body);
         handleSignal(data);
       }},
 
-      { topic: '/user/topic/call.error', handler: (msg) => {
+      { topic: '/user/queue/call.error', handler: (msg) => {
         const data = JSON.parse(msg.body);
         console.error("CALL ERROR từ server:", data);
         

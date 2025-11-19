@@ -252,12 +252,12 @@ export const CallProvider = ({ children }) => {
   }, [stompClient, isConnected]);
 
   // ===== API CHO COMPONENT =====
-  const initiateCall = async (receiverId, conversationID,type) => {
+  const initiateCall = async (receiverId, conversationID, type = 'video') => {
     try {
       setIsMakingCall(true);
       setCallType(type);
       console.log(receiverId, conversationID, type );
-      const res = await callService.initiateCall(receiverId, conversationID,type);
+      const res = await callService.initiateCall(receiverId, conversationID, type);
       const callData = res.call || res;
 
       setCall(callData);

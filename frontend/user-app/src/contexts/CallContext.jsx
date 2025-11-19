@@ -54,6 +54,8 @@ export const CallProvider = ({ children }) => {
       } else if (signal.type === 'candidate') {
         message.signal.candidate = signal.candidate;
       }
+
+      console.log("Gửi signal:", message);
       
       sendMessage('/call.signal', {}, JSON.stringify(message));
       return true;

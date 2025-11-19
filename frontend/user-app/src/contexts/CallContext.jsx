@@ -55,7 +55,7 @@ export const CallProvider = ({ children }) => {
         message.signal.candidate = signal.candidate;
       }
       
-      sendMessage('/app/call.signal', {}, JSON.stringify(message));
+      sendMessage('/call.signal', {}, JSON.stringify(message));
       return true;
   };
 
@@ -274,7 +274,6 @@ export const CallProvider = ({ children }) => {
       setCall(callData);
       setCallStatus('ringing');
 
-      // DÙNG sendMessage TỪ SOCKET CONTEXT (ĐÃ ĐƯỢC FIX HOÀN HẢO)
       sendMessage('/call.initiate', {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),

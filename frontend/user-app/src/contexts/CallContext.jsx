@@ -57,7 +57,7 @@ export const CallProvider = ({ children }) => {
 
       console.log("Gửi signal:", message);
       
-      sendMessage('/call.signal', {}, JSON.stringify(message));
+      sendMessage('/call.signal', message);
       return true;
   };
 

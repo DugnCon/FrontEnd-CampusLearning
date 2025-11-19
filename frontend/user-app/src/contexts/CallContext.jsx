@@ -100,7 +100,7 @@ export const CallProvider = ({ children }) => {
   };
 
   // Setup WebRTC
-  const setupWebRTC = async ({ isCaller = false, targetUserId, callID }) => {
+  const setupWebRTC = async ({ isCaller = false, targetUserId, callID, callType }) => {
     try {
       console.log("🎥 Setting up WebRTC, callType:", callType);
       
@@ -271,7 +271,8 @@ export const CallProvider = ({ children }) => {
       await setupWebRTC({
         isCaller: true,
         targetUserId: receiverID,
-        callID: callData.callID
+        callID: callData.callID,
+        callType: type
       });
 
       return callData;

@@ -20,7 +20,7 @@ import {
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
-  const { stompClient, isConnected, user , sendMessage} = useSocket();
+  const { stompClient, isConnected, user , sendMessage, subscribe} = useSocket();
 
   const [call, setCall] = useState(null);
   const [callStatus, setCallStatus] = useState(null); // 'idle' | 'ringing' | 'ongoing' | 'ended'
@@ -205,67 +205,50 @@ export const CallProvider = ({ children }) => {
 
   // STOMP Subscriptions
   useEffect(() => {
-    if (!stompClient || !isConnected) return;
+    if (!isConnected || !subscribe) return;
 
-    const subs = [
-      { topic: '/user/queue/call.incoming', handler: (msg) => {
-        const data = JSON.parse(msg.body);
+    const unsubs = [
+      subscribe('/user/queue/call.incoming', (data) => {
         setCall(data);
-        setCallType(data.type || 'video');
+        setCallType(data.callType || 'video');
         setCallStatus('ringing');
         setIsReceivingCall(true);
         toast(`Cuộc gọi từ ${data.initiatorName || 'Ai đó'}`, { duration: 10000 });
-      }},
+      }),
 
-      { topic: '/user/queue/call.answered', handler: () => {
+      subscribe('/user/queue/call.answered', () => {
         setCallStatus('ongoing');
         setIsReceivingCall(false);
         startTimer();
-      }},
+      }),
 
-      { topic: '/user/queue/call.ended', handler: () => {
+      subscribe('/user/queue/call.ended', () => {
         toast.success(`Cuộc gọi kết thúc • ${formatDuration(callDuration)}`);
         cleanup();
-      }},
+      }),
 
-      { topic: '/user/queue/call.rejected', handler: () => {
+      subscribe('/user/queue/call.rejected', () => {
         toast.error('Cuộc gọi bị từ chối');
         cleanup();
-      }},
+      }),
 
-      { topic: '/user/queue/call.signal', handler: (msg) => {
-        const data = JSON.parse(msg.body);
+      // QUAN TRỌNG NHẤT – SIGNAL WEBRTC
+      subscribe('/user/queue/call.signal', (data) => {
+        console.log('NHẬN ĐƯỢC SIGNAL WEBRTC:', data);
         handleSignal(data);
-      }},
+      }),
 
-      { topic: '/user/queue/call.error', handler: (msg) => {
-        const data = JSON.parse(msg.body);
+      subscribe('/user/queue/call.error', (data) => {
         console.error("CALL ERROR từ server:", data);
-        
-        let message = 'Không thể thực hiện cuộc gọi';
-        if (data.message) {
-          message += `: ${data.message}`;
-        }
-        
-        toast.error(message);
-        
-        if (isMakingCall || callStatus === 'ringing') {
-          cleanup();
-          setIsMakingCall(false);
-        }
-      }}
+        toast.error(data.message || 'Lỗi cuộc gọi');
+        cleanup();
+      })
     ];
 
-    subs.forEach(s => {
-      const sub = stompClient.subscribe(s.topic, s.handler);
-      subscriptionsRef.current.push(sub);
-    });
-
     return () => {
-      subscriptionsRef.current.forEach(s => s.unsubscribe());
-      subscriptionsRef.current = [];
+      unsubs.forEach(unsub => unsub?.unsubscribe?.());
     };
-  }, [stompClient, isConnected]);
+  }, [isConnected, subscribe]);
 
   // ===== API CHO COMPONENT =====
   const initiateCall = async (receiverID, conversationID, type = 'video') => {

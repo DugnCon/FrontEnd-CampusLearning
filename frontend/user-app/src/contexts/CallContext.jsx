@@ -42,6 +42,7 @@ export const CallProvider = ({ children }) => {
     
     const message = {
         toUserID: toUserId.toString(),
+        fromUserID: user?.id,
         callID: Number(callID),
         signal: {
           type: signal.type
@@ -111,6 +112,7 @@ export const CallProvider = ({ children }) => {
         console.log("🎬 Local video ref set");
       }
 
+      setSignalCallback((signal) => sendSignal(targetUserId, callID, signal));
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
       addTracksToConnection(pc, stream);

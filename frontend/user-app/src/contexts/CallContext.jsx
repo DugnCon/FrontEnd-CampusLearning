@@ -86,7 +86,7 @@ export const CallProvider = ({ children }) => {
       signal: { type: signal.type }
     };
 
-    console.log("MESSAGE" + " " + JSON.stringfy(message));
+    console.log("MESSAGE" + " " + JSON.stringify(message));
 
     if (signal.sdp) message.signal.sdp = signal.sdp;
     if (signal.candidate) message.signal.candidate = signal.candidate;

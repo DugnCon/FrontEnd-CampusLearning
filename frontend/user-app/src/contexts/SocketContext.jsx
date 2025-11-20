@@ -71,8 +71,12 @@ export const SocketProvider = ({ children }) => {
     if (!stompClient || !isConnected) return false;
 
     try {
+      const finalDestination = destination.startsWith('/app') 
+      ? destination 
+      : `/app${destination}`;
+      console.log("Gửi đích thực tế:", finalDestination);
       stompClient.publish({
-        destination: `/app${destination}`,
+        destination: finalDestination,
         body: JSON.stringify(body)
       });
       return true;

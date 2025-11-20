@@ -1,143 +1,71 @@
-// src/utils/webrtc.js (hoặc tên file mày đang dùng)
-let currentSendSignal = null;
+// src/utils/webRTC.js  ← ĐÚNG TÊN, ĐÚNG CHỖ
 
-/**
- * Set callback để gửi signaling (offer/answer/candidate) qua Socket
- */
-export const setSignalCallback = (callback) => {
-  currentSendSignal = callback;
-};
+const iceServers = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  // TURN VN cực ngon (ping <40ms)
+  { urls: "turn:turn.vietnamdevs.vn:3478", username: "vietnam", credential: "devs2025" },
+  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:turn.matrix.one:3478", username: "guest", credential: "guest123" },
+];
 
-/**
- * Tạo PeerConnection và gắn sự kiện onicecandidate
- */
-export const createPeerConnection = () => {
-  const iceConfig = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-      {
-        urls: "turn:openrelay.metered.ca:80",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
-      {
-        urls: "turn:openrelay.metered.ca:443",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
-      {
-        urls: "turn:openrelay.metered.ca:443?transport=tcp",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
+export const createPeerConnection = (onIceCandidate, onTrack) => {
+  const pc = new RTCPeerConnection({ iceServers });
 
-      // 2. TURN cộng đồng VN – ping < 40ms, cực ngon
-      {
-        urls: "turn:turn.vietnamdevs.vn:3478",
-        username: "vietnam",
-        credential: "devs2025"
-      },
-
-      // 3. Matrix TURN – luôn sống, hay dùng cho Element
-      {
-        urls: "turn:turn.matrix.one:3478",
-        username: "guest",
-        credential: "guest123"
-      },
-
-      // 4. Backup cuối cùng (nếu 3 cái kia die thì vẫn còn cái này)
-      {
-        urls: "turn:relay.snopyta.org:3478",
-        username: "user",
-        credential: "pass"
-      }
-    ],
-    iceCandidatePoolSize: 10,
-  };
-
-  const peerConnection = new RTCPeerConnection(iceConfig);
-
-  // ĐÂY LÀ CHỖ QUAN TRỌNG NHẤT – GẮN SỰ KIỆN TRONG HÀM TẠO
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate && currentSendSignal) {
-      currentSendSignal({
-        type: 'candidate',
-        candidate: event.candidate
-      });
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      onIceCandidate(event.candidate);
     }
   };
 
-  // (Tùy chọn) Log trạng thái kết nối
-  peerConnection.onconnectionstatechange = () => {
-    console.log('Connection state:', peerConnection.connectionState);
+  pc.ontrack = (event) => {
+    onTrack(event.streams[0]);
   };
 
-  peerConnection.ontrack = (event) => {
-    console.log('Received remote stream');
-    // CallContext sẽ xử lý event này
+  pc.onconnectionstatechange = () => {
+    console.log("WebRTC state:", pc.connectionState);
+    if (pc.connectionState === "failed") {
+      console.error("WebRTC kết nối thất bại!");
+    }
   };
 
-  return peerConnection;
+  return pc;
 };
 
 export const getLocalStream = async (audio = true, video = false) => {
-  try {
-    console.log("🎤 Requesting media: audio=", audio, "video=", video);
-    
-    const constraints = {
-      audio: audio,
-      video: video ? {
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      } : false
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    console.log("✅ Media obtained:", stream.getAudioTracks().length, "audio,", 
-                stream.getVideoTracks().length, "video tracks");
-    
-    return stream;
-  } catch (err) {
-    console.error("❌ getLocalStream error:", err.name, err.message);
-    throw new Error(`Cannot access microphone/camera: ${err.message}`);
-  }
-};
-
-export const addTracksToConnection = (peerConnection, stream) => {
-  if (!peerConnection || !stream) return;
-  stream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, stream);
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio,
+    video: video ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
   });
+  return stream;
 };
 
-export const createOffer = async (peerConnection) => {
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+export const addTracksToConnection = (pc, stream) => {
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+};
+
+export const createOffer = async (pc) => {
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
   return offer;
 };
 
-export const createAnswer = async (peerConnection) => {
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
+export const createAnswer = async (pc) => {
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
   return answer;
 };
 
-export const setRemoteDescription = async (peerConnection, description) => {
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
+export const setRemoteDescription = async (pc, desc) => {
+  await pc.setRemoteDescription(new RTCSessionDescription(desc));
 };
 
-export const addIceCandidate = async (peerConnection, candidate) => {
-  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+export const addIceCandidate = async (pc, candidate) => {
+  await pc.addIceCandidate(new RTCIceCandidate(candidate));
 };
 
-export const endCallCleanup = (peerConnection, localStream) => {
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
-  }
-  if (peerConnection) {
-    peerConnection.close();
-    // Không cần gán null các event handler – close() là đủ
-  }
+export const cleanupConnection = (pc, stream) => {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (pc) pc.close();
 };

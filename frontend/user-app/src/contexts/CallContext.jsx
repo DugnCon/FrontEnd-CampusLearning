@@ -90,7 +90,7 @@ export const CallProvider = ({ children }) => {
     if (signal.candidate) message.signal.candidate = signal.candidate;
 
     console.log('Sending signal:', signal.type, message);
-    sendMessage('/app/call.signal', message);
+    sendMessage('/call.signal', message);
   };
 
   const setupWebRTC = async ({ isCaller, targetUserId, callID, type }) => {
@@ -199,7 +199,7 @@ export const CallProvider = ({ children }) => {
       subscribe('/user/queue/call.incoming', (data) => {
         console.log('Incoming call:', data);
         if (callStatus !== 'idle') {
-          sendMessage('/app/call.reject', { callID: Number(data.callID) });
+          sendMessage('/call.reject', { callID: Number(data.callID) });
           return;
         }
         setCall(data);
@@ -277,7 +277,7 @@ export const CallProvider = ({ children }) => {
       targetUserIDRef.current = receiverID;
       fromUserIDRef.current = callData.initiatorID;
 
-      sendMessage('/app/call.initiate', {
+      sendMessage('/call.initiate', {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         type: validatedType,
@@ -311,7 +311,7 @@ export const CallProvider = ({ children }) => {
     setIsReceivingCall(false);
 
     try {
-      sendMessage('/app/call.answer', {
+      sendMessage('/call.answer', {
         callID: Number(call.callID),
         initiatorID: Number(call.initiatorID),
         accepted: true
@@ -338,7 +338,7 @@ export const CallProvider = ({ children }) => {
     console.log('Ending call:', call.callID);
     try {
       await callService.endCall(call.callID);
-      sendMessage('/app/call.end', { callID: Number(call.callID) });
+      sendMessage('/call.end', { callID: Number(call.callID) });
     } catch (err) {
       console.error('End call error:', err);
     } finally {
@@ -351,7 +351,7 @@ export const CallProvider = ({ children }) => {
     console.log('Rejecting call:', call.callID);
     try {
       await callService.rejectCall(call.callID);
-      sendMessage('/app/call.reject', { callID: Number(call.callID) });
+      sendMessage('/call.reject', { callID: Number(call.callID) });
     } catch (err) {
       console.error('Reject call error:', err);
     } finally {

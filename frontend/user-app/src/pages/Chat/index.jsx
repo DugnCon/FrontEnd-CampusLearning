@@ -805,8 +805,9 @@ const sendFileMessage = async (files) => {
 
       const receiverId = Number(otherParticipant.userID);
       const conversationId = Number(currentConversation.conversationID);
+      const fromUserID = Number(currentConversation.createdBy);
 
-      await initiateCall(receiverId, conversationId, 'audio');
+      await initiateCall(receiverId, conversationId, fromUserID,'audio');
       toast.success('Đang gọi...');
     } catch (err) {
       toast.error('Không thể thực hiện cuộc gọi');
@@ -832,8 +833,9 @@ const sendFileMessage = async (files) => {
 
       const receiverId = Number(otherParticipant.userID);
       const conversationId = Number(currentConversation.conversationID);
+      const fromUserID = Number(currentConversation.createdBy);
 
-      await initiateCall(receiverId, conversationId, 'video');
+      await initiateCall(receiverId, conversationId, fromUserID,'video');
       toast.success('Đang gọi video...');
     } catch (err) {
       toast.error('Không thể gọi video');

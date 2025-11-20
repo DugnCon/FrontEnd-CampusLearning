@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
 import { useSocket } from './SocketContext';
 import callService from '../services/callService';
@@ -37,13 +35,19 @@ export const CallProvider = ({ children }) => {
   const timerRef = useRef(null);
   const subscriptionsRef = useRef([]);
 
-  // Gửi STOMP
+  // 🚨 THÊM: Ref để lưu fromUserID
+  const fromUserIDRef = useRef(null);
+
+  // Gửi STOMP - CALL SOCKET ONLY
   const sendSignal = (toUserId, callID, signal) => {
-    if (!stompClient || !isConnected) return false;
+    if (!stompClient || !isConnected) {
+      console.log("🚨 [CALL SOCKET] NOT CONNECTED - Cannot send signal");
+      return false;
+    }
     
     const message = {
         toUserID: toUserId.toString(),
-        fromUserID: user?.id || user?.userID || user?.userId,
+        fromUserID: fromUserIDRef.current || user?.id || user?.userID || user?.userId,
         callID: Number(callID),
         signal: {
           type: signal.type
@@ -53,11 +57,18 @@ export const CallProvider = ({ children }) => {
       // Thêm sdp hoặc candidate tùy loại signal
       if (signal.type === 'offer' || signal.type === 'answer') {
         message.signal.sdp = signal.sdp;
+        console.log(`📤 [CALL SOCKET] SENDING ${signal.type.toUpperCase()} to user: ${toUserId}, call: ${callID}`);
       } else if (signal.type === 'candidate') {
         message.signal.candidate = signal.candidate;
+        console.log("📤 [CALL SOCKET] SENDING ICE CANDIDATE");
       }
 
-      console.log("Gửi signal:", message);
+      console.log("🎯 [CALL SOCKET] Signal details:", {
+        toUserID: message.toUserID,
+        fromUserID: message.fromUserID, 
+        callID: message.callID,
+        signalType: message.signal.type
+      });
       
       sendMessage('/call.signal', message);
       return true;
@@ -78,6 +89,7 @@ export const CallProvider = ({ children }) => {
 
   // Dọn dẹp
   const cleanup = () => {
+    console.log("🧹 [CALL] Cleaning up call...");
     setCall(null);
     setCallStatus('idle');
     setCallType(null);
@@ -102,15 +114,15 @@ export const CallProvider = ({ children }) => {
   // Setup WebRTC
   const setupWebRTC = async ({ isCaller = false, targetUserId, callID, callType }) => {
     try {
-      console.log("🎥 Setting up WebRTC, callType:", callType);
+      console.log("🎥 [CALL] Setting up WebRTC, callType:", callType, "isCaller:", isCaller);
       
       const stream = await getLocalStream(true, callType === 'video');
-      console.log("📹 Local stream obtained:", stream?.getTracks().length, "tracks");
+      console.log("📹 [CALL] Local stream obtained:", stream?.getTracks().length, "tracks");
       
       setLocalStream(stream);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        console.log("🎬 Local video ref set");
+        console.log("🎬 [CALL] Local video ref set");
       }
 
       setSignalCallback((signal) => sendSignal(targetUserId, callID, signal));
@@ -119,22 +131,22 @@ export const CallProvider = ({ children }) => {
       addTracksToConnection(pc, stream);
 
       pc.ontrack = (e) => {
-        console.log("📡 Received remote track");
+        console.log("📡 [CALL] Received remote track - streams:", e.streams.length);
         const remote = e.streams[0];
         setRemoteStream(remote);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remote;
-          console.log("🎬 Remote video ref set");
+          console.log("🎬 [CALL] Remote video ref set");
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log("❄️ ICE connection state:", pc.iceConnectionState);
+        console.log("❄️ [CALL] ICE connection state:", pc.iceConnectionState);
       };
 
       pc.onicecandidate = (e) => {
         if (e.candidate) {
-          console.log("❄️ Sending ICE candidate");
+          console.log("❄️ [CALL] Sending ICE candidate");
           sendSignal(targetUserId, callID, {
             type: 'candidate',
             candidate: e.candidate.toJSON()
@@ -145,9 +157,9 @@ export const CallProvider = ({ children }) => {
       if (isCaller) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        console.log("📞 Creating offer...");
+        console.log("📞 [CALL] Creating offer...");
         const offer = await createOffer(pc);
-        console.log("📞 Offer created, sending signal...", JSON.stringify(offer, null, 2));
+        console.log("📞 [CALL] Offer created, type:", offer.type, "sdp length:", offer.sdp?.length);
         
         sendSignal(targetUserId, callID, { 
           type: 'offer', 
@@ -157,7 +169,7 @@ export const CallProvider = ({ children }) => {
 
       return pc;
     } catch (err) {
-      console.error("❌ WebRTC setup error:", err);
+      console.error("❌ [CALL] WebRTC setup error:", err);
       toast.error('Không thể truy cập mic/camera: ' + err.message);
       cleanup();
       throw err;
@@ -165,29 +177,34 @@ export const CallProvider = ({ children }) => {
   };
 
   const handleSignal = async (data) => {
+    console.log("📨 [CALL SOCKET] RECEIVED SIGNAL - Raw data:", data);
     const { signal, fromUserID: senderId, callID: callID } = data;
     
-    console.log("📡 Nhận signal:", signal.type, "từ:", senderId);
+    console.log("📡 [CALL] Processing signal:", signal.type, "from user:", senderId, "callID:", callID);
     
     let pc = peerConnectionRef.current;
     if (!pc) {
+      console.log("🔄 [CALL] Creating new PeerConnection for incoming signal");
       await setupWebRTC({ isCaller: false, targetUserId: senderId, callID });
       pc = peerConnectionRef.current;
     }
 
     try {
       if (signal.type === 'offer') {
+        console.log("🔄 [CALL] Processing OFFER from user:", senderId);
         await setRemoteDescription(pc, { 
           type: 'offer', 
           sdp: signal.sdp 
         });
         const answer = await createAnswer(pc);
+        console.log("📤 [CALL SOCKET] Sending ANSWER back to user:", senderId);
         sendSignal(senderId, callID, { 
           type: 'answer', 
           sdp: answer.sdp  
         });
       }
       else if (signal.type === 'answer') {
+        console.log("✅ [CALL] Processing ANSWER from user:", senderId);
         await setRemoteDescription(pc, { 
           type: 'answer', 
           sdp: signal.sdp  
@@ -196,19 +213,26 @@ export const CallProvider = ({ children }) => {
         startTimer();
       }
       else if (signal.type === 'candidate') {
+        console.log("❄️ [CALL] Processing ICE candidate from user:", senderId);
         await addIceCandidate(pc, signal.candidate); 
       }
     } catch (err) {
-      console.error('Signal handling error:', err);
+      console.error('❌ [CALL] Signal handling error:', err);
     }
   };
 
-  // STOMP Subscriptions
+  // STOMP Subscriptions - CALL ONLY
   useEffect(() => {
-    if (!isConnected || !subscribe) return;
+    if (!isConnected || !subscribe) {
+      console.log("🔌 [CALL SOCKET] Socket not ready for call subscriptions");
+      return;
+    }
+
+    console.log("🔔 [CALL SOCKET] Setting up CALL subscriptions...");
 
     const unsubs = [
       subscribe('/user/queue/call.incoming', (data) => {
+        console.log("📞 [CALL SOCKET] INCOMING CALL received:", data);
         setCall(data);
         setCallType(data.callType || 'video');
         setCallStatus('ringing');
@@ -216,57 +240,73 @@ export const CallProvider = ({ children }) => {
         toast(`Cuộc gọi từ ${data.initiatorName || 'Ai đó'}`, { duration: 10000 });
       }),
 
-      subscribe('/user/queue/call.answered', () => {
+      subscribe('/user/queue/call.answered', (data) => {
+        console.log("✅ [CALL SOCKET] CALL ANSWERED received:", data);
         setCallStatus('ongoing');
         setIsReceivingCall(false);
         startTimer();
       }),
 
-      subscribe('/user/queue/call.ended', () => {
+      subscribe('/user/queue/call.ended', (data) => {
+        console.log("📵 [CALL SOCKET] CALL ENDED received:", data);
         toast.success(`Cuộc gọi kết thúc • ${formatDuration(callDuration)}`);
         cleanup();
       }),
 
-      subscribe('/user/queue/call.rejected', () => {
+      subscribe('/user/queue/call.rejected', (data) => {
+        console.log("❌ [CALL SOCKET] CALL REJECTED received:", data);
         toast.error('Cuộc gọi bị từ chối');
         cleanup();
       }),
 
       subscribe('/user/queue/call.signal', (data) => {
-        console.log('NHẬN ĐƯỢC SIGNAL WEBRTC:', data);
+        console.log('🎯 [CALL SOCKET] CALL SIGNAL received:', data);
         handleSignal(data);
       }),
 
       subscribe('/user/queue/call.error', (data) => {
-        console.error("CALL ERROR từ server:", data);
+        console.error("🚨 [CALL SOCKET] CALL ERROR received:", data);
         toast.error(data.message || 'Lỗi cuộc gọi');
         cleanup();
       })
     ];
 
+    console.log("✅ [CALL SOCKET] All call subscriptions set up");
+
     return () => {
+      console.log("🧹 [CALL SOCKET] Unsubscribing from call topics");
       unsubs.forEach(unsub => unsub?.unsubscribe?.());
     };
   }, [isConnected, subscribe]);
 
   // ===== API CHO COMPONENT =====
-  const initiateCall = async (receiverID, conversationID, type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, fromUserID, type = 'video') => {
     try {
+      console.log("🚀 [CALL] INITIATE CALL - receiver:", receiverID, "conversation:", conversationID, "fromUser:", fromUserID, "type:", type);
+      
+      // 🚨 LƯU fromUserID vào ref
+      fromUserIDRef.current = fromUserID;
+
       setIsMakingCall(true);
       setCallType(type);
 
       const res = await callService.initiateCall(receiverID, conversationID, type);
       const callData = res.call || res;
+      console.log("📞 [CALL] Call service response:", callData);
 
       setCall(callData);
       setCallStatus('ringing');
 
-      sendMessage('/call.initiate', {
+      const initiateMessage = {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
+        fromUserID: Number(fromUserID),
         type: type,
         conversationID: Number(conversationID)
-      });
+      };
+      
+      console.log("📤 [CALL SOCKET] SENDING CALL INITIATE:", initiateMessage);
+      sendMessage('/call.initiate', initiateMessage);
 
       await setupWebRTC({
         isCaller: true,
@@ -278,9 +318,9 @@ export const CallProvider = ({ children }) => {
       return callData;
 
     } catch (err) {
-      console.error("Lỗi khởi tạo cuộc gọi:", err);
+      console.error("❌ [CALL] Lỗi khởi tạo cuộc gọi:", err);
       toast.error('Không thể thực hiện cuộc gọi');
-      cleanup(); // Đảm bảo tắt camera + dọn dẹp
+      cleanup();
       setIsMakingCall(false);
       return null;
     }
@@ -289,17 +329,24 @@ export const CallProvider = ({ children }) => {
   const answerCall = async () => {
     if (!call) return;
 
+    console.log("📞 [CALL] ANSWERING CALL - callID:", call.callID, "initiatorID:", call.initiatorID);
+    
     await callService.answerCall(call.callID);
 
-    sendMessage('/call.answer', {
+    const answerMessage = {
       callID: call.callID,
       initiatorID: call.initiatorID,
       accepted: true
-    });
+    };
+    
+    console.log("📤 [CALL SOCKET] SENDING CALL ANSWER:", answerMessage);
+    sendMessage('/call.answer', answerMessage);
   };
 
   const endCall = async () => {
     if (!call) return;
+    
+    console.log("📵 [CALL] ENDING CALL - callID:", call.callID);
     await callService.endCall(call.callID);
     cleanup();
   };
@@ -307,12 +354,17 @@ export const CallProvider = ({ children }) => {
   const rejectCall = async () => {
     if (!call) return;
 
+    console.log("❌ [CALL] REJECTING CALL - callID:", call.callID, "initiatorID:", call.initiatorID);
+    
     await callService.rejectCall(call.callID);
 
-    sendMessage('/call.reject', {
+    const rejectMessage = {
       callID: call.callID,
       initiatorID: call.initiatorID,
-    });
+    };
+    
+    console.log("📤 [CALL SOCKET] SENDING CALL REJECT:", rejectMessage);
+    sendMessage('/call.reject', rejectMessage);
   };
 
   const value = {

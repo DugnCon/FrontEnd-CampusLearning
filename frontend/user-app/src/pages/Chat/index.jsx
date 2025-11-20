@@ -72,7 +72,7 @@ const Chat = () => {
   useEffect(() => {
     if (isReceivingCall && call) {
       setIncomingCall(call);
-      toast.success(`Cuộc gọi ${call.type === 'video' ? 'video' : 'thoại'} từ ${call.initiatorName || 'Ai đó'}`, {
+      toast.success(`Cuộc gọi ${call.type === 'video' ? 'video' : 'audio'} từ ${call.initiatorName || 'Ai đó'}`, {
         duration: 15000,
         icon: 'Ringing',
       });

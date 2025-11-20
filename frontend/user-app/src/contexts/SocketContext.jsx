@@ -300,7 +300,6 @@ export const SocketProvider = ({ children }) => {
 
   // 🔥 SEND - TỐI ƯU VỚI QUEUE
   const sendMessage = useCallback((destination, body) => {
-    // 🚀 THÊM: Thử gửi ngay lập tức
     if (sendMessageInternal(destination, body)) {
       console.log(`Sent to /app${destination}:`, body);
       return true;

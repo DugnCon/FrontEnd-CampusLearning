@@ -82,9 +82,6 @@ export const createPeerConnection = () => {
   return peerConnection;
 };
 
-// === CÁC HÀM KHÁC GIỮ NGUYÊN ===
-// utils/webRTC.js
-
 export const getLocalStream = async (audio = true, video = false) => {
   try {
     console.log("🎤 Requesting media: audio=", audio, "video=", video);

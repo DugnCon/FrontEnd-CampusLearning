@@ -33,12 +33,10 @@ export const CallProvider = ({ children }) => {
   const peerConnectionRef = useRef(null);
   const timerRef = useRef(null);
 
-  // LƯU fromUserID ĐÚNG LUÔN
   const fromUserIDRef = useRef(null);
   const targetUserIDRef = useRef(null);
   const currentCallIDRef = useRef(null);
 
-  // GỬI SIGNAL – BẢO ĐẢM fromUserID LUÔN CÓ
   const sendSignal = (signal) => {
     if (!isConnected) {
       console.log("Socket not connected, cannot send signal");
@@ -59,12 +57,12 @@ export const CallProvider = ({ children }) => {
 
     console.log("GỬI SIGNAL THÀNH CÔNG:", {
       to: message.toUserID,
-      from: message.fromUserID,   // BÂY GIỜ LUÔN CÓ!!!
+      from: message.fromUserID,
       callID: message.callID,
       type: signal.type
     });
 
-    sendMessage('/call.signal', message);
+    sendMessage('/app/call.signal', message);
   };
 
   const formatDuration = (sec) => {
@@ -193,7 +191,6 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // SUBSCRIPTIONS – DÙNG subscribe TỪ CONTEXT
   useEffect(() => {
     if (!isConnected || !subscribe) return;
 
@@ -224,7 +221,7 @@ export const CallProvider = ({ children }) => {
       }),
 
       subscribe('/user/queue/call.signal', (data) => {
-        console.log('NHẬN ĐƯỢC SIGNAL WEBRTC:', data);
+        console.log('Nhận được Signal WebRTC:', data);
         handleSignal(data);
       }),
 
@@ -251,7 +248,7 @@ export const CallProvider = ({ children }) => {
       setCall(callData);
       setCallStatus('ringing');
 
-      sendMessage('/call.initiate', {
+      sendMessage('/app/call.initiate', {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         fromUserID: Number(fromUserID),
@@ -278,7 +275,7 @@ export const CallProvider = ({ children }) => {
   const answerCall = async () => {
     if (!call) return;
     await callService.answerCall(call.callID);
-    sendMessage('/call.answer', { callID: call.callID, initiatorID: call.initiatorID, accepted: true });
+    sendMessage('/app/call.answer', { callID: call.callID, initiatorID: call.initiatorID, accepted: true });
   };
 
   const endCall = async () => {
@@ -290,7 +287,7 @@ export const CallProvider = ({ children }) => {
   const rejectCall = async () => {
     if (!call) return;
     await callService.rejectCall(call.callID);
-    sendMessage('/call.reject', { callID: call.callID, initiatorID: call.initiatorID });
+    sendMessage('/app/call.reject', { callID: call.callID, initiatorID: call.initiatorID });
     cleanup();
   };
 

@@ -1,6 +1,9 @@
-// src/utils/webRTC.js  ← ĐÚNG TÊN, ĐÚNG CHỖ
 
-const iceServers = [
+/**
+ * WebRTC utility functions for peer-to-peer audio/video calls
+ */
+
+const iceConfig = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   // TURN VN cực ngon (ping <40ms)
@@ -10,62 +13,133 @@ const iceServers = [
   { urls: "turn:turn.matrix.one:3478", username: "guest", credential: "guest123" },
 ];
 
-export const createPeerConnection = (onIceCandidate, onTrack) => {
-  const pc = new RTCPeerConnection({ iceServers });
-
-  pc.onicecandidate = (event) => {
-    if (event.candidate) {
-      onIceCandidate(event.candidate);
-    }
-  };
-
-  pc.ontrack = (event) => {
-    onTrack(event.streams[0]);
-  };
-
-  pc.onconnectionstatechange = () => {
-    console.log("WebRTC state:", pc.connectionState);
-    if (pc.connectionState === "failed") {
-      console.error("WebRTC kết nối thất bại!");
-    }
-  };
-
-  return pc;
+/**
+ * Creates and returns a new WebRTC peer connection
+ * @returns {RTCPeerConnection}
+ */
+export const createPeerConnection = () => {
+  try {
+    return new RTCPeerConnection(iceConfig);
+  } catch (error) {
+    console.error("Error creating peer connection:", error);
+    throw error;
+  }
 };
 
+/**
+ * Get local media stream (audio and/or video)
+ * @param {boolean} audio - Whether to include audio
+ * @param {boolean} video - Whether to include video
+ * @returns {Promise<MediaStream>}
+ */
 export const getLocalStream = async (audio = true, video = false) => {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio,
-    video: video ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+  try {
+    const constraints = {
+      audio,
+      video: video ? { width: 640, height: 480, facingMode: "user" } : false,
+    };
+    
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (error) {
+    console.error("Error getting local stream:", error);
+    throw error;
+  }
+};
+
+/**
+ * Add tracks from media stream to peer connection
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @param {MediaStream} stream - The media stream
+ */
+export const addTracksToConnection = (peerConnection, stream) => {
+  if (!peerConnection || !stream) return;
+  
+  stream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, stream);
   });
-  return stream;
 };
 
-export const addTracksToConnection = (pc, stream) => {
-  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+/**
+ * Create an offer to initiate a call
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @returns {Promise<RTCSessionDescriptionInit>}
+ */
+export const createOffer = async (peerConnection) => {
+  try {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    return offer;
+  } catch (error) {
+    console.error("Error creating offer:", error);
+    throw error;
+  }
 };
 
-export const createOffer = async (pc) => {
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  return offer;
+/**
+ * Create an answer to respond to an offer
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @returns {Promise<RTCSessionDescriptionInit>}
+ */
+export const createAnswer = async (peerConnection) => {
+  try {
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    return answer;
+  } catch (error) {
+    console.error("Error creating answer:", error);
+    throw error;
+  }
 };
 
-export const createAnswer = async (pc) => {
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  return answer;
+/**
+ * Set the remote description for a peer connection
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @param {RTCSessionDescriptionInit} description - The remote description
+ */
+export const setRemoteDescription = async (peerConnection, description) => {
+  try {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
+  } catch (error) {
+    console.error("Error setting remote description:", error);
+    throw error;
+  }
 };
 
-export const setRemoteDescription = async (pc, desc) => {
-  await pc.setRemoteDescription(new RTCSessionDescription(desc));
+/**
+ * Add an ICE candidate to the peer connection
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @param {RTCIceCandidateInit} candidate - The ICE candidate
+ */
+export const addIceCandidate = async (peerConnection, candidate) => {
+  try {
+    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch (error) {
+    console.error("Error adding ICE candidate:", error);
+    throw error;
+  }
 };
 
-export const addIceCandidate = async (pc, candidate) => {
-  await pc.addIceCandidate(new RTCIceCandidate(candidate));
-};
-
-export const cleanupConnection = (pc, stream) => {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  if (pc) pc.close();
+/**
+ * Handle ending a call and cleaning up resources
+ * @param {RTCPeerConnection} peerConnection - The peer connection
+ * @param {MediaStream} localStream - The local media stream
+ */
+export const endCall = (peerConnection, localStream) => {
+  // Stop all tracks in the local stream
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      track.stop();
+    });
+  }
+  
+  // Close and cleanup the peer connection
+  if (peerConnection) {
+    peerConnection.ontrack = null;
+    peerConnection.onicecandidate = null;
+    peerConnection.oniceconnectionstatechange = null;
+    peerConnection.onsignalingstatechange = null;
+    peerConnection.onicegatheringstatechange = null;
+    peerConnection.onnegotiationneeded = null;
+    peerConnection.close();
+  }
 };

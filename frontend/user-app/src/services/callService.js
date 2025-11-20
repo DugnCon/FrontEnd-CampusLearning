@@ -60,7 +60,7 @@ const callService = {
    * @param {string} callId - Call ID
    * @returns {Promise} - Promise with call data
    */
-  answerCall: async (callId) => {
+  answerCall: async (callID) => {
     try {
       const response = await api.post(`/calls/answer`, { callID });
       return response.data;

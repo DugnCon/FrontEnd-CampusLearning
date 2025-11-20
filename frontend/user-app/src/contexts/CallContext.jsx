@@ -209,15 +209,15 @@ export const CallProvider = ({ children }) => {
         setCallStatus('ringing');
         setIsReceivingCall(true);
         currentCallIDRef.current = data.callID;
-        targetUserIDRef.current = data.initiatorID;
-        fromUserIDRef.current = data.receiverID;
+        targetUserIDRef.current = data.receiverID;
+        fromUserIDRef.current = data.initiatorID;
         toast(`Call ${data.callType} from ${data.initiatorName}`);
       }),
 
       subscribe('/user/queue/call.answered', (data) => {
         console.log('Call answered:', data);
-        setCallStatus('connecting');
         setIsReceivingCall(false);
+        setCallStatus('connecting');
       }),
 
       subscribe('/user/queue/call.rejected', (data) => {
@@ -328,6 +328,8 @@ export const CallProvider = ({ children }) => {
           callID: call.callID,
           type: call.callType
         });
+        setCallStatus('ongoing');
+        startTimer();
       }
     } catch (err) {
       console.error('Answer call error:', err);

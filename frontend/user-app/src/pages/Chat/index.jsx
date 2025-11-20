@@ -833,7 +833,7 @@ const sendFileMessage = async (files) => {
 
       const receiverId = Number(otherParticipant.userID);
       const conversationId = Number(currentConversation.conversationID);
-      const fromUserID = Number(currentConversation.createdBy);
+      const fromUserID = Number(user?.userID);
 
       await initiateCall(receiverId, conversationId, fromUserID,'video');
       toast.success('Đang gọi video...');

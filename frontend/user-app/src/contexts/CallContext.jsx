@@ -86,6 +86,8 @@ export const CallProvider = ({ children }) => {
       signal: { type: signal.type }
     };
 
+    console.log("MESSAGE" + " " + message)
+
     if (signal.sdp) message.signal.sdp = signal.sdp;
     if (signal.candidate) message.signal.candidate = signal.candidate;
 
@@ -251,7 +253,7 @@ export const CallProvider = ({ children }) => {
     };
   }, [isConnected, subscribe, callStatus, isMakingCall, isReceivingCall, callDuration, sendMessage, user]);
 
-  const initiateCall = async (receiverID, conversationID, type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, type) => {
     if (callStatus !== 'idle') {
       toast.error('Already in call');
       return null;

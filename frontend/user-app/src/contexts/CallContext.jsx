@@ -328,10 +328,13 @@
 
       try {
         console.log('🤙 Initiating call to:', receiverID);
+        
+        const validatedType = type === 'audio' ? 'audio' : 'video';
+        
         setIsMakingCall(true);
-        setCallType(type);
+        setCallType(validatedType);
 
-        const res = await callService.initiateCall(receiverID, conversationID, type);
+        const res = await callService.initiateCall(receiverID, conversationID, validatedType);
         const callData = res.call || res;
 
         setCall(callData);
@@ -340,20 +343,18 @@
         targetUserIDRef.current = receiverID;
         fromUserIDRef.current = getCurrentUserID();
 
-        // Notify via STOMP
         sendMessage('/app/call.initiate', {
           receiverID: Number(receiverID),
           callID: Number(callData.callID),
-          type,
+          type: validatedType,
           conversationID: Number(conversationID)
         });
 
-        // Setup WebRTC
         await setupWebRTC({
           isCaller: true,
           targetUserId: receiverID,
           callID: callData.callID,
-          type
+          type: validatedType 
         });
 
         return callData;

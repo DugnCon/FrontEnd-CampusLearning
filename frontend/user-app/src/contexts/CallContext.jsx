@@ -253,7 +253,7 @@ export const CallProvider = ({ children }) => {
     };
   }, [isConnected, subscribe, callStatus, isMakingCall, isReceivingCall, callDuration, sendMessage, user]);
 
-  const initiateCall = async (receiverID, conversationID, type) => {
+  const initiateCall = async (receiverID, conversationID, type = 'video') => {
     if (callStatus !== 'idle') {
       toast.error('Already in call');
       return null;
@@ -283,7 +283,8 @@ export const CallProvider = ({ children }) => {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         type: validatedType,
-        conversationID: Number(conversationID)
+        conversationID: Number(conversationID),
+        fromUserID: getCurrentUserID()
       });
 
       await setupWebRTC({

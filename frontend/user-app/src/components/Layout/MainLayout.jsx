@@ -625,7 +625,7 @@ const MainLayout = ({ children }) => {
       console.log(`[Notifications] Fetching notifications, isAdmin: ${isAdminUser}`);
       
       // Gọi API lấy thông báo
-      const response = await fetch(`${apiUrl}/api/notifications`, {
+      const response = await fetch(`${apiUrl}/notifications`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

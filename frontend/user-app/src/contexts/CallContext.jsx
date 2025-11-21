@@ -264,7 +264,8 @@ export const CallProvider = ({ children }) => {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         type: validatedType,
-        conversationID: Number(conversationID)
+        conversationID: Number(conversationID),
+        fromUserID: Number(user?.userID)
       });
 
       await setupWebRTC({
@@ -295,7 +296,8 @@ export const CallProvider = ({ children }) => {
       sendMessage('/call.answer', {
         callID: Number(call.callID),
         initiatorID: Number(call.initiatorID),
-        accepted: true
+        accepted: true,
+        fromUserID: Number(user?.userID)
       });
 
       await callService.answerCall(call.callID);
@@ -317,7 +319,7 @@ export const CallProvider = ({ children }) => {
     if (!call) return;
     try {
       await callService.endCall(call.callID);
-      sendMessage('/call.end', { callID: Number(call.callID) });
+      sendMessage('/call.end', { callID: Number(call.callID), fromUserID: Number(user?.userID) });
     } catch (err) {
       console.error('End call error:', err);
     } finally {
@@ -329,7 +331,7 @@ export const CallProvider = ({ children }) => {
     if (!call) return;
     try {
       await callService.rejectCall(call.callID);
-      sendMessage('/call.reject', { callID: Number(call.callID) });
+      sendMessage('/call.reject', { callID: Number(call.callID), fromUserID: Number(user?.userID) });
     } catch (err) {
       console.error('Reject call error:', err);
     } finally {

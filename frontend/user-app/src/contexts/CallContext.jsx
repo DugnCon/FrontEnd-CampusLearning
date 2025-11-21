@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
 import { useSocket } from './SocketContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from './AuthContext';
 import callService from '../services/callService';
 import { toast } from 'react-hot-toast';
 import {

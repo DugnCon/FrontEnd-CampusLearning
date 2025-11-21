@@ -185,6 +185,12 @@ export const CallProvider = ({ children }) => {
     if (!isConnected) return;
 
     const unsubscribeCallIncoming = onCallEvent('incoming', (data) => {
+
+      if (data.initiatorID === user?.userID) {
+        console.log("Ignored self-incoming call"); // caller nhận incoming của chính mình → bỏ qua
+        return;
+      }
+
       if (callStatus !== 'idle') {
         sendMessage('/call.reject', { callID: Number(data.callID) });
         return;

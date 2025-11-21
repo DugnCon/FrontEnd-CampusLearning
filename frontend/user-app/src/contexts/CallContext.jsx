@@ -160,6 +160,10 @@ export const CallProvider = ({ children }) => {
     try {
       switch (signal.type) {
         case 'offer':
+          if (callStatus !== 'connecting') {
+            console.log("Ignored offer - not in connecting state");
+            return;
+          }
           await setRemoteDescription(pc, { type: 'offer', sdp: signal.sdp });
           const answer = await createAnswer(pc);
           sendSignal({ type: 'answer', sdp: answer.sdp });
@@ -290,15 +294,19 @@ export const CallProvider = ({ children }) => {
   };
 
   const answerCall = async () => {
-    if (!call || callStatus !== 'ringing') {
-      toast.error('Cannot answer');
-      return;
-    }
+    if (!call || callStatus !== 'ringing') return;
 
     setCallStatus('connecting');
     setIsReceivingCall(false);
 
     try {
+      await setupWebRTC({
+        isCaller: false,
+        targetUserId: call.initiatorID,
+        callID: call.callID,
+        type: call.callType
+      });
+
       sendMessage('/call.answer', {
         callID: Number(call.callID),
         initiatorID: Number(call.initiatorID),
@@ -307,14 +315,8 @@ export const CallProvider = ({ children }) => {
       });
 
       await callService.answerCall(call.callID);
-      if (callStatus === 'connecting') {
-        await setupWebRTC({
-          isCaller: false,
-          targetUserId: call.initiatorID,
-          callID: call.callID,
-          type: call.callType
-        });
-      }
+      setCallStatus('ongoing');
+      startTimer();
     } catch (err) {
       toast.error('Error answering');
       cleanup();

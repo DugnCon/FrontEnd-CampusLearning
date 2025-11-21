@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext';
 
 const SocketContext = createContext();
 

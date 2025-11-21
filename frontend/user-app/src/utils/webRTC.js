@@ -1,17 +1,28 @@
-
+/*-----------------------------------------------------------------
+* File: webRTC.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 /**
  * WebRTC utility functions for peer-to-peer audio/video calls
  */
 
-const iceConfig = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  // TURN VN cực ngon (ping <40ms)
-  { urls: "turn:turn.vietnamdevs.vn:3478", username: "vietnam", credential: "devs2025" },
-  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
-  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
-  { urls: "turn:turn.matrix.one:3478", username: "guest", credential: "guest123" },
-];
+// Configuration for STUN/TURN servers
+const iceConfig = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" }, // Google's public STUN server
+    { urls: "stun:stun1.l.google.com:19302" },
+    // Add TURN servers for production to handle NAT traversal issues
+    // {
+    //   urls: 'turn:your-turn-server.com:3478',
+    //   username: 'username',
+    //   credential: 'credential'
+    // }
+  ],
+  iceCandidatePoolSize: 10,
+};
 
 /**
  * Creates and returns a new WebRTC peer connection

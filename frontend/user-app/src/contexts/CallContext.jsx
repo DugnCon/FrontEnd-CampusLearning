@@ -39,7 +39,8 @@ export const CallProvider = ({ children }) => {
       return;
     }
     sendMessage('/call.signal', {
-      targetUserID,
+      fromUserID: Number(user.userID),
+      toUserID: Number(targetUserID),
       signal,
       callID,
       timestamp: Date.now()
@@ -393,6 +394,7 @@ export const CallProvider = ({ children }) => {
       
       // ✅ FIX: Đảm bảo field names khớp với backend
       sendCallMessage('initiate', {
+        fromUserID: Number(user.userID),
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         type: validatedType,
@@ -427,6 +429,7 @@ export const CallProvider = ({ children }) => {
       
       // ✅ FIX: Đảm bảo field names khớp
       sendCallMessage('answer', {
+        fromUserID: Number(user.userID),
         callID: Number(call.callID),
         initiatorID: Number(call.initiatorID),
         accepted: true
@@ -459,10 +462,11 @@ export const CallProvider = ({ children }) => {
       // Send via STOMP
       sendCallMessage('end', {
         callID: Number(call.callID),
+        fromUserID: Number(user.userID),
         duration: callDuration
       });
       
-      sendCallMessage('leave', { callID: Number(call.callID) });
+      sendCallMessage('leave', { callID: Number(call.callID), fromUserID: Number(user.userID) });
       
       endCallCleanup();
     } catch (error) {
@@ -482,7 +486,8 @@ export const CallProvider = ({ children }) => {
       
       // Send via STOMP
       sendCallMessage('reject', {
-        callID: Number(call.callID)
+        callID: Number(call.callID),
+        fromUserID: Number(user.userID)
       });
       
       endCallCleanup();

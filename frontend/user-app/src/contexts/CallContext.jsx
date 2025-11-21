@@ -1,455 +1,555 @@
 import React, { createContext, useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { useSocket } from './SocketContext';
-import { useAuth } from './AuthContext';
 import callService from '../services/callService';
 import { toast } from 'react-hot-toast';
-import {
-  createPeerConnection,
-  getLocalStream,
-  addTracksToConnection,
-  createOffer,
-  createAnswer,
-  setRemoteDescription,
-  addIceCandidate,
-  endCall as webrtcEndCall
-} from '../utils/webRTC';
 
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
-  const { isConnected, sendMessage, onCallEvent } = useSocket();
-  const { user } = useAuth();
-
+  const { stompClient, isConnected, subscribe, unsubscribe, sendMessage } = useSocket();
   const [call, setCall] = useState(null);
-  const [callStatus, setCallStatus] = useState('idle');
+  const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
   const [isReceivingCall, setIsReceivingCall] = useState(false);
   const [isMakingCall, setIsMakingCall] = useState(false);
+  const [callHistory, setCallHistory] = useState([]);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
+  const [isCallServiceAvailable, setIsCallServiceAvailable] = useState(true);
+  
+  const localVideoRef = useRef();
+  const remoteVideoRef = useRef();
+  const peerConnectionRef = useRef();
+  const callTimerRef = useRef();
+  const subscriptionsRef = useRef(new Set());
 
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const peerConnectionRef = useRef(null);
-  const timerRef = useRef(null);
-  const currentCallIDRef = useRef(null);
-  const targetUserIDRef = useRef(null);
-  const fromUserIDRef = useRef(null);
-  const callTimeoutRef = useRef(null);
+  // STOMP message sender
+  const sendCallMessage = useCallback((destination, payload) => {
+    sendMessage(`/call.${destination}`, payload);
+  }, [sendMessage]);
 
-  useEffect(() => {
-    console.log('CALL STATE CHANGE', {
-      userID: user?.userID,
-      callStatus,
-      isMakingCall,
-      isReceivingCall,
-      callID: currentCallIDRef.current,
-      targetID: targetUserIDRef.current,
-      callData: call
+  const sendCallSignal = useCallback((targetUserID, signal, callID) => {
+    sendMessage('/call.signal', {
+      targetUserID,
+      signal,
+      callID,
+      timestamp: Date.now()
     });
-  }, [callStatus, isMakingCall, isReceivingCall, call, user?.userID]);
+  }, [sendMessage]);
 
-  const formatDuration = (sec) => {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${m}:${s}`;
+  // Check for active call on load
+  useEffect(() => {
+    const checkActiveCall = async () => {
+      try {
+        const { hasActiveCall, call } = await callService.getActiveCall();
+        if (hasActiveCall) {
+          setCall(call);
+          setCallStatus('ongoing');
+          setCallType(call.Type);
+          await setupMediaAndConnection({ callID: call.CallID });
+        }
+        setIsCallServiceAvailable(true);
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Call service unavailable:', error.message || 'Unknown error');
+        }
+
+        if (error.response?.status === 404 || 
+            error.message?.includes('404') || 
+            error.message?.includes('not found')) {
+          setIsCallServiceAvailable(false);
+        }
+        
+        if (error.response?.status !== 404) {
+          // Uncomment if you want to show an error toast
+          // toast.error('Could not connect to call service');
+        }
+      }
+    };
+
+    if (isCallServiceAvailable) {
+      checkActiveCall();
+    }
+    
+    return () => {
+      stopMediaTracks();
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+      }
+    };
+  }, [isCallServiceAvailable]);
+
+  // STOMP event listeners for call handling
+  useEffect(() => {
+    if (!isConnected || !isCallServiceAvailable) return;
+
+    console.log('Setting up STOMP call subscriptions');
+
+    // Subscribe to call events
+    const subscriptions = [
+      // Incoming call handler
+      subscribe('/user/queue/call.incoming', (data) => {
+        console.log('Incoming call via STOMP:', data);
+        setCall(data);
+        setCallType(data.type);
+        setCallStatus('ringing');
+        setIsReceivingCall(true);
+      }),
+
+      // Call answered handler
+      subscribe('/user/queue/call.answered', (data) => {
+        console.log('Call answered via STOMP:', data);
+        setCallStatus('ongoing');
+        startCallTimer();
+      }),
+
+      // Call ended handler
+      subscribe('/user/queue/call.ended', (data) => {
+        console.log('Call ended via STOMP:', data);
+        toast.success(`Call ended. Duration: ${formatCallDuration(data.duration)}`);
+        endCallCleanup();
+      }),
+
+      // Call rejected handler
+      subscribe('/user/queue/call.rejected', (data) => {
+        console.log('Call rejected via STOMP:', data);
+        toast.error('Call was rejected');
+        endCallCleanup();
+      }),
+
+      // WebRTC signaling handler
+      subscribe('/user/queue/call.signal', (data) => {
+        console.log('Received signaling data via STOMP:', data);
+        handleSignalingData(data);
+      }),
+
+      // Call error handler
+      subscribe('/user/queue/call.error', (data) => {
+        console.error('Call error via STOMP:', data);
+        toast.error(data.message || 'Call error occurred');
+      })
+    ];
+
+    // Store subscription references
+    subscriptions.forEach(sub => {
+      if (sub) subscriptionsRef.current.add(sub);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log('Cleaning up STOMP call subscriptions');
+      subscriptionsRef.current.forEach(sub => {
+        try {
+          unsubscribe(sub.destination);
+        } catch (e) {
+          console.warn('Error unsubscribing:', e);
+        }
+      });
+      subscriptionsRef.current.clear();
+    };
+  }, [isConnected, isCallServiceAvailable, subscribe, unsubscribe]);
+
+  // WebRTC signaling handler với STOMP
+  const handleSignalingData = async (data) => {
+    try {
+      console.log('Processing STOMP signaling data:', data.signal?.type, data);
+      
+      if (!peerConnectionRef.current) {
+        console.log('Setting up new peer connection for incoming call/signal');
+        await setupMediaAndConnection({ 
+          isReceivingCall: true, 
+          fromUserID: data.fromUserID
+        });
+      }
+      
+      const { type, sdp, candidate } = data.signal;
+      
+      if (type === 'offer') {
+        console.log('Setting remote description (offer)');
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
+        console.log('Creating answer');
+        const answer = await peerConnectionRef.current.createAnswer();
+        console.log('Setting local description (answer)');
+        await peerConnectionRef.current.setLocalDescription(answer);
+        
+        console.log('Sending answer to:', data.fromUserID);
+        sendCallSignal(data.fromUserID, {
+          type: 'answer',
+          sdp: peerConnectionRef.current.localDescription.sdp
+        }, data.callID);
+      } else if (type === 'answer') {
+        console.log('Setting remote description (answer)');
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
+        console.log('Connection should be establishing now');
+      } else if (type === 'candidate') {
+        try {
+          console.log('Adding ICE candidate');
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Error adding received ice candidate', err);
+          }
+        }
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error handling signaling data:', error);
+      }
+      toast.error('Failed to establish connection');
+    }
   };
 
-  const startTimer = () => {
-    console.log('CALL Bắt đầu đếm giờ');
+  // Set up media streams and peer connection
+  const setupMediaAndConnection = async ({ callID, isReceivingCall, fromUserID }) => {
+    try {
+      const constraints = {
+        audio: true,
+        video: callType === 'video'
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const configuration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
+        ],
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle'
+      };
+      
+      const peerConnection = new RTCPeerConnection(configuration);
+      peerConnectionRef.current = peerConnection;
+
+      stream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, stream);
+      });
+
+      peerConnection.ontrack = (event) => {
+        console.log('Got remote track:', event.streams[0]);
+        setRemoteStream(event.streams[0]);
+        
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('Generated new ICE candidate:', event.candidate.candidate);
+          
+          sendCallSignal(fromUserID || call?.initiatorID || call?.receiverID, {
+            type: 'candidate',
+            candidate: event.candidate
+          }, callID);
+        } else {
+          console.log('ICE candidate generation complete');
+        }
+      };
+      
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state change:', peerConnection.iceConnectionState);
+      };
+      
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('ICE gathering state change:', peerConnection.iceGatheringState);
+      };
+
+      if (!isReceivingCall) {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        sendCallSignal(fromUserID || call?.receiverID, {
+          type: 'offer',
+          sdp: peerConnection.localDescription.sdp
+        }, callID);
+      }
+
+      // Join call room via STOMP
+      if (callID) {
+        sendCallMessage('join', { callID });
+      }
+
+      peerConnection.onconnectionstatechange = (event) => {
+        console.log('Connection state change:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'disconnected' || 
+            peerConnection.connectionState === 'failed') {
+          toast.error('Call connection lost');
+          endCall();
+        }
+      };
+
+      return peerConnection;
+    } catch (error) {
+      console.error('Error setting up media and connection:', error);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error('Please allow camera and microphone access');
+      } else {
+        toast.error('Failed to setup call: ' + error.message);
+      }
+      
+      throw error;
+    }
+  };
+
+  // Start call timer
+  const startCallTimer = () => {
     setCallDuration(0);
-    timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
+    callTimerRef.current = setInterval(() => {
+      setCallDuration(prev => prev + 1);
+    }, 1000);
   };
 
-  const stopTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      console.log('CALL Dừng đếm giờ');
-    }
+  // Format call duration
+  const formatCallDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const cleanup = useCallback(() => {
-    console.log('CALL CLEANUP – Dọn dẹp hoàn toàn');
-    stopTimer();
-    
-    if (callTimeoutRef.current) {
-      clearTimeout(callTimeoutRef.current);
-      callTimeoutRef.current = null;
-    }
-    
-    webrtcEndCall(peerConnectionRef.current, localStream);
+  // Clean up call resources
+  const endCallCleanup = () => {
     setCall(null);
-    setCallStatus('idle');
+    setCallStatus(null);
     setCallType(null);
     setIsReceivingCall(false);
     setIsMakingCall(false);
-    setCallDuration(0);
-    setLocalStream(null);
-    setRemoteStream(null);
-    currentCallIDRef.current = null;
-    targetUserIDRef.current = null;
-    fromUserIDRef.current = null;
-    peerConnectionRef.current = null;
-  }, [localStream]);
-
-  const sendSignal = useCallback((signal) => {
-    const currentUserID = user?.userID || fromUserIDRef.current;
-    if (!isConnected || !currentCallIDRef.current || !targetUserIDRef.current || !currentUserID) {
-      console.log('SIGNAL Không gửi được – thiếu điều kiện', { isConnected, callID: currentCallIDRef.current, target: targetUserIDRef.current, userID: currentUserID });
-      return;
-    }
-
-    const message = {
-      toUserID: Number(targetUserIDRef.current),
-      fromUserID: Number(currentUserID),
-      callID: Number(currentCallIDRef.current),
-      signal: { type: signal.type }
-    };
-    if (signal.sdp) message.signal.sdp = signal.sdp;
-    if (signal.candidate) message.signal.candidate = signal.candidate;
-
-    console.log('SIGNAL Gửi signal', message);
-    sendMessage('/call.signal', message);
-  }, [isConnected, user?.userID, sendMessage]);
-
-  const setupWebRTC = async ({ isCaller, targetUserId, callID, type }) => {
-    console.log('WebRTC Bắt đầu setupWebRTC', { isCaller, targetUserId, callID, type });
-
-    if (peerConnectionRef.current) {
-      webrtcEndCall(peerConnectionRef.current, localStream);
-    }
-
-    try {
-      const stream = await getLocalStream(true, type === 'video');
-      console.log('WebRTC Lấy local stream thành công', stream);
-      setLocalStream(stream);
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-
-      currentCallIDRef.current = callID;
-      targetUserIDRef.current = targetUserId;
-      fromUserIDRef.current = user?.userID;
-
-      const pc = createPeerConnection();
-      peerConnectionRef.current = pc;
-
-      addTracksToConnection(pc, stream);
-
-      pc.ontrack = (e) => {
-        console.log('WebRTC Nhận remote track!', e.streams[0]);
-        const remote = e.streams[0];
-        setRemoteStream(remote);
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remote;
-        }
-      };
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          console.log('ICE Gửi candidate', e.candidate.candidate.substring(0, 50) + '...');
-          sendSignal({ type: 'candidate', candidate: e.candidate });
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log('ICE iceConnectionState:', pc.iceConnectionState);
-      };
-
-      pc.onconnectionstatechange = () => {
-        console.log('WebRTC connectionState:', pc.connectionState);
-      };
-
-      if (isCaller) {
-        console.log('WebRTC Là caller → tạo offer');
-        const offer = await createOffer(pc);
-        console.log('SDP Gửi offer', offer.sdp.substring(0, 100) + '...');
-        sendSignal({ type: 'offer', sdp: offer.sdp });
-      }
-
-      return pc;
-    } catch (err) {
-      console.error('WebRTC Lỗi setupWebRTC', err);
-      toast.error('Không thể truy cập camera/micro');
-      cleanup();
-      throw err;
-    }
-  };
-
-  const handleWebRTCSignal = useCallback(async (data) => {
-    console.log('SIGNAL Nhận signal', data);
-
-    const { signal, callID } = data;
-    if (callID !== currentCallIDRef.current) {
-      console.log('SIGNAL Bỏ qua – callID không khớp', { received: callID, current: currentCallIDRef.current });
-      return;
-    }
-
-    const pc = peerConnectionRef.current;
-    if (!pc) {
-      console.log('SIGNAL Không có PeerConnection');
-      return;
-    }
-
-    try {
-      switch (signal.type) {
-        case 'offer':
-          console.log('SIGNAL Nhận offer – đang ở trạng thái:', callStatus);
-          if (callStatus !== 'connecting') {
-            console.log('SIGNAL Bỏ qua offer – không phải connecting');
-            return;
-          }
-          await setRemoteDescription(pc, { type: 'offer', sdp: signal.sdp });
-          console.log('SDP Đã set remote description (offer)');
-          const answer = await createAnswer(pc);
-          console.log('SDP Gửi answer', answer.sdp.substring(0, 100) + '...');
-          sendSignal({ type: 'answer', sdp: answer.sdp });
-          break;
-
-        case 'answer':
-          console.log('SIGNAL Nhận answer → kết nối thành công!');
-          await setRemoteDescription(pc, { type: 'answer', sdp: signal.sdp });
-          setCallStatus('ongoing');
-          startTimer();
-          toast.success('Đã kết nối!');
-          break;
-
-        case 'candidate':
-          await addIceCandidate(pc, signal.candidate);
-          console.log('ICE Đã thêm candidate');
-          break;
-
-        default:
-          console.warn('Unknown signal type:', signal.type);
-      }
-    } catch (err) {
-      console.error('SIGNAL Lỗi xử lý signal', err);
-    }
-  }, [callStatus, sendSignal]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      console.log('SOCKET Chưa kết nối – không subscribe call events');
-      return;
-    }
-
-    console.log('CALL EVENTS Đã kết nối – đăng ký các event');
-
-    const unsubscribeCallIncoming = onCallEvent('incoming', (data) => {
-      console.log('INCOMING Nhận incoming call!', data);
-
-      if (data.initiatorID === user?.userID) {
-        console.log('INCOMING Đây là cuộc gọi do chính mình khởi tạo → BỎ QUA');
-        return;
-      }
-
-      if (callStatus !== 'idle') {
-        console.log('INCOMING Đang bận → từ chối');
-        sendMessage('/call.reject', { callID: Number(data.callID) });
-        return;
-      }
-
-      console.log('INCOMING Cuộc gọi hợp lệ → đổ chuông!');
-      setCall(data);
-      setCallType(data.callType || 'video');
-      setCallStatus('ringing');
-      setIsReceivingCall(true);
-      currentCallIDRef.current = data.callID;
-      targetUserIDRef.current = data.initiatorID;
-      toast(`Cuộc gọi từ ${data.initiatorName || data.initiatorID}`);
-    });
-
-    const unsubscribeCallAnswered = onCallEvent('answered', (data) => {
-      console.log('ANSWERED Cuộc gọi được chấp nhận!', data);
-      setCallStatus('connecting');
-      setIsReceivingCall(false);
-    });
-
-    const unsubscribeCallRejected = onCallEvent('rejected', (data) => {
-      console.log('REJECTED Cuộc gọi bị từ chối', data);
-      if (isMakingCall || isReceivingCall) {
-        toast.error('Cuộc gọi bị từ chối');
-        cleanup();
-      }
-    });
-
-    const unsubscribeCallEnded = onCallEvent('ended', (data) => {
-      console.log('ENDED Cuộc gọi kết thúc', data);
-      if (callStatus === 'ongoing' || callStatus === 'connecting') {
-        toast.success(`Cuộc gọi kết thúc • ${formatDuration(callDuration)}`);
-        cleanup();
-      }
-    });
-
-    const unsubscribeCallSignal = onCallEvent('signal', handleWebRTCSignal);
-    const unsubscribeCallError = onCallEvent('error', (data) => {
-      console.error('ERROR Lỗi call:', data);
-      toast.error(data.message || 'Lỗi cuộc gọi');
-      cleanup();
-    });
-
-    return () => {
-      console.log('CALL EVENTS Dọn dẹp subscriptions');
-      unsubscribeCallIncoming();
-      unsubscribeCallAnswered();
-      unsubscribeCallRejected();
-      unsubscribeCallEnded();
-      unsubscribeCallSignal();
-      unsubscribeCallError();
-    };
-  }, [isConnected, callStatus, isMakingCall, isReceivingCall, callDuration, sendMessage, onCallEvent, user?.userID, handleWebRTCSignal, cleanup]);
-
-  useEffect(() => {
-    return () => {
-      console.log('CallProvider Unmount - cleanup tất cả');
-      cleanup();
-    };
-  }, [cleanup]);
-
-  const initiateCall = async (receiverID, conversationID, type = 'video') => {
-    console.log('CALL Bắt đầu gọi →', { receiverID, conversationID, type });
-
-    if (callStatus !== 'idle') {
-      toast.error('Đang trong cuộc gọi khác');
-      return null;
-    }
-
-    try {
-      const validatedType = type === 'audio' ? 'audio' : 'video';
-      setIsMakingCall(true);
-      setCallType(validatedType);
-
-      const res = await callService.initiateCall(receiverID, conversationID, validatedType);
-      const callData = res.call || res;
-
-      console.log('CALL Tạo call thành công:', callData);
-
-      setCallStatus('calling');
-      currentCallIDRef.current = callData.callID;
-      targetUserIDRef.current = receiverID;
-      fromUserIDRef.current = user?.userID;
-
-      sendMessage('/call.initiate', {
-        receiverID: Number(receiverID),
-        callID: Number(callData.callID),
-        type: validatedType,
-        conversationID: Number(conversationID),
-        fromUserID: Number(user?.userID)
-      });
-
-      console.log('CALL Đã gửi /call.initiate + setup WebRTC (caller)');
-
-      await setupWebRTC({
-        isCaller: true,
-        targetUserId: receiverID,
-        callID: callData.callID,
-        type: validatedType
-      });
-
-      callTimeoutRef.current = setTimeout(() => {
-        if (callStatus === 'calling') {
-          console.log('CALL Timeout - không có phản hồi');
-          toast.error('Không có phản hồi từ người nhận');
-          cleanup();
-        }
-      }, 30000);
-
-      return callData;
-    } catch (err) {
-      console.error('CALL Lỗi initiateCall', err);
-      toast.error('Không thể gọi');
-      cleanup();
-      return null;
-    } finally {
-      setIsMakingCall(false);
-    }
-  };
-
-  const answerCall = async () => {
-    if (!call || callStatus !== 'ringing') {
-      console.log('ANSWER Không thể nhận – trạng thái sai', { callStatus, call: !!call });
-      return;
-    }
-
-    console.log('ANSWER Nhận cuộc gọi!');
-
-    setCallStatus('connecting');
-    setIsReceivingCall(false);
-
-    try {
-      await setupWebRTC({
-        isCaller: false,
-        targetUserId: call.initiatorID,
-        callID: call.callID,
-        type: call.callType
-      });
-
-      sendMessage('/call.answer', {
-        callID: Number(call.callID),
-        initiatorID: Number(call.initiatorID),
-        accepted: true,
-        fromUserID: Number(user?.userID)
-      });
-
-      await callService.answerCall(call.callID);
-      console.log('ANSWER Đã chấp nhận cuộc gọi – chờ answer SDP...');
-    } catch (err) {
-      console.error('ANSWER Lỗi answerCall', err);
-      toast.error('Lỗi khi nhận cuộc gọi');
-      cleanup();
-    }
-  };
-
-  const endCall = async () => {
-    console.log('END Kết thúc cuộc gọi');
     
-    if (!currentCallIDRef.current) {
-      console.log('END Không có callID → cleanup thôi');
-      cleanup();
-      return;
+    stopMediaTracks();
+    
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
     }
-
-    try {
-      await callService.endCall(currentCallIDRef.current);
-      sendMessage('/call.end', { 
-        callID: Number(currentCallIDRef.current), 
-        fromUserID: Number(user?.userID) 
-      });
-    } catch (err) {
-      console.error('End call error:', err);
-    } finally {
-      cleanup();
+    
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
     }
   };
 
-  const rejectCall = async () => {
-    console.log('REJECT Từ chối cuộc gọi');
-    if (!call) return;
+  // Stop all media tracks
+  const stopMediaTracks = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    setRemoteStream(null);
+  };
+
+  // API: Initiate a call via STOMP
+  const initiateCall = async (receiverID, conversationID,type = 'video') => {
     try {
+      setIsMakingCall(true);
+      setCallType(type);
+      
+      const response = await callService.initiateCall(receiverID, conversationID,type);
+      setCall(response.call);
+      setCallStatus('ringing');
+      
+      // Send via STOMP
+      sendCallMessage('initiate', {
+        receiverID,
+        callID: response.call.callID,
+        type,
+        conversationID: response.call.conversationID
+      });
+      
+      await setupMediaAndConnection({ 
+        callID: response.call.callID,
+        isReceivingCall: false
+      });
+      
+      return response.call;
+    } catch (error) {
+      console.error('Error initiating call:', error);
+      toast.error(error.message || 'Failed to initiate call');
+      endCallCleanup();
+      throw error;
+    }
+  };
+
+  // API: Answer an incoming call via STOMP
+  const answerCall = async () => {
+    try {
+      if (!call) return;
+      
+      const response = await callService.answerCall(call.callID);
+      setCallStatus('ongoing');
+      setIsReceivingCall(false);
+      
+      // Send via STOMP
+      sendCallMessage('answer', {
+        callID: call.callID,
+        initiatorID: call.initiatorID,
+        accepted: true
+      });
+      
+      await setupMediaAndConnection({ 
+        callID: call.callID,
+        isReceivingCall: true,
+        fromUserID: call.initiatorID
+      });
+      
+      startCallTimer();
+      
+      return response;
+    } catch (error) {
+      console.error('Error answering call:', error);
+      toast.error(error.message || 'Failed to answer call');
+      endCallCleanup();
+      throw error;
+    }
+  };
+
+  // API: End an active call via STOMP
+  const endCall = async () => {
+    try {
+      if (!call) return;
+      
+      await callService.endCall(call.callID);
+      
+      // Send via STOMP
+      sendCallMessage('end', {
+        callID: call.callID,
+        duration: callDuration
+      });
+      
+      sendCallMessage('leave', { callID: call.callID });
+      
+      endCallCleanup();
+    } catch (error) {
+      console.error('Error ending call:', error);
+      toast.error(error.message || 'Failed to end call');
+      endCallCleanup();
+      throw error;
+    }
+  };
+
+  // API: Reject an incoming call via STOMP
+  const rejectCall = async () => {
+    try {
+      if (!call) return;
+      
       await callService.rejectCall(call.callID);
-      sendMessage('/call.reject', { callID: Number(call.callID), fromUserID: Number(user?.userID) });
-    } catch (err) {
-      console.error('Reject call error:', err);
-    } finally {
-      cleanup();
+      
+      // Send via STOMP
+      sendCallMessage('reject', {
+        callID: call.callID
+      });
+      
+      endCallCleanup();
+    } catch (error) {
+      console.error('Error rejecting call:', error);
+      toast.error(error.message || 'Failed to reject call');
+      endCallCleanup();
+      throw error;
+    }
+  };
+
+  // Toggle audio
+  const toggleAudio = () => {
+    if (localStream) {
+      const enabled = !isAudioEnabled;
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = enabled;
+      });
+      setIsAudioEnabled(enabled);
+      
+      // Notify other participants via STOMP
+      if (call) {
+        sendCallMessage('media.toggle', {
+          callID: call.callID,
+          type: 'audio',
+          enabled
+        });
+      }
+      
+      return enabled;
+    }
+    return isAudioEnabled;
+  };
+
+  // Toggle video
+  const toggleVideo = () => {
+    if (localStream) {
+      const enabled = !isVideoEnabled;
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = enabled;
+      });
+      setIsVideoEnabled(enabled);
+      
+      // Notify other participants via STOMP
+      if (call) {
+        sendCallMessage('media.toggle', {
+          callID: call.callID,
+          type: 'video',
+          enabled
+        });
+      }
+      
+      return enabled;
+    }
+    return isVideoEnabled;
+  };
+
+  // Load call history
+  const loadCallHistory = async (limit = 10, offset = 0) => {
+    try {
+      const response = await callService.getCallHistory(limit, offset);
+      setCallHistory(response.calls);
+      return response.calls;
+    } catch (error) {
+      console.error('Error loading call history:', error);
+      toast.error(error.message || 'Failed to load call history');
+      throw error;
     }
   };
 
   const value = {
-    call, callStatus, callType,
-    isReceivingCall, isMakingCall,
-    localStream, remoteStream, callDuration,
-    localVideoRef, remoteVideoRef,
-    initiateCall, answerCall, endCall, rejectCall,
-    formatDuration,
-    peerConnection: peerConnectionRef.current,
-    currentCallID: currentCallIDRef.current
+    call,
+    callStatus,
+    callType,
+    isReceivingCall,
+    isMakingCall,
+    callHistory,
+    localStream,
+    remoteStream,
+    isAudioEnabled,
+    isVideoEnabled,
+    callDuration,
+    localVideoRef,
+    remoteVideoRef,
+    initiateCall,
+    answerCall,
+    endCall,
+    rejectCall,
+    toggleAudio,
+    toggleVideo,
+    loadCallHistory,
+    formatCallDuration
   };
 
-  return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
+  return (
+    <CallContext.Provider value={value}>
+      {children}
+    </CallContext.Provider>
+  );
 };
 
-export const useCall = () => {
-  const ctx = useContext(CallContext);
-  if (!ctx) throw new Error('useCall must be used within CallProvider');
-  return ctx;
-};
+export const useCall = () => useContext(CallContext);

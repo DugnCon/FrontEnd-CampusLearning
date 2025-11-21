@@ -807,7 +807,7 @@ const sendFileMessage = async (files) => {
       const conversationId = Number(currentConversation.conversationID);
       const fromUserID = Number(currentConversation.createdBy);
 
-      await initiateCall(receiverId, conversationId, fromUserID,'audio');
+      await initiateCall(receiverId, conversationId, 'audio');
       toast.success('Đang gọi...');
     } catch (err) {
       toast.error('Không thể thực hiện cuộc gọi');

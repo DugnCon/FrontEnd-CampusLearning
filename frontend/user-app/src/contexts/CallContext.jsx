@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useRef, useContext } from 'react';
 import { useSocket } from './SocketContext';
+import { useAuth } from '../../contexts/AuthContext';
 import callService from '../services/callService';
 import { toast } from 'react-hot-toast';
 import {
@@ -16,7 +17,8 @@ import {
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
-  const { isConnected, user, sendMessage, subscribe } = useSocket();
+  const { isConnected, sendMessage, onCallEvent } = useSocket();
+  const { user } = useAuth();
 
   const [call, setCall] = useState(null);
   const [callStatus, setCallStatus] = useState('idle');
@@ -51,11 +53,10 @@ export const CallProvider = ({ children }) => {
   };
 
   const getCurrentUserID = () => {
-    return fromUserIDRef.current;
+    return user?.userID || fromUserIDRef.current;
   };
 
   const cleanup = () => {
-    console.log('CLEANUP CALL');
     stopTimer();
     webrtcEndCall(peerConnectionRef.current, localStream);
     setCall(null);
@@ -74,10 +75,7 @@ export const CallProvider = ({ children }) => {
 
   const sendSignal = (signal) => {
     const currentUserID = getCurrentUserID();
-    if (!isConnected || !currentCallIDRef.current || !targetUserIDRef.current || !currentUserID) {
-      console.warn('Cannot send signal - missing info');
-      return;
-    }
+    if (!isConnected || !currentCallIDRef.current || !targetUserIDRef.current || !currentUserID) return;
 
     const message = {
       toUserID: Number(targetUserIDRef.current),
@@ -86,12 +84,9 @@ export const CallProvider = ({ children }) => {
       signal: { type: signal.type }
     };
 
-    console.log("MESSAGE" + " " + JSON.stringify(message));
-
     if (signal.sdp) message.signal.sdp = signal.sdp;
     if (signal.candidate) message.signal.candidate = signal.candidate;
 
-    console.log('Sending signal:', signal.type, message);
     sendMessage('/call.signal', message);
   };
 
@@ -101,13 +96,13 @@ export const CallProvider = ({ children }) => {
     }
 
     try {
-      console.log('Setting up WebRTC:', { isCaller, type });
       const stream = await getLocalStream(true, type === 'video');
       setLocalStream(stream);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
       currentCallIDRef.current = callID;
       targetUserIDRef.current = targetUserId;
+      fromUserIDRef.current = user?.userID;
 
       const pc = createPeerConnection();
       peerConnectionRef.current = pc;
@@ -115,7 +110,6 @@ export const CallProvider = ({ children }) => {
       addTracksToConnection(pc, stream);
 
       pc.ontrack = (e) => {
-        console.log('Remote track received');
         const remote = e.streams[0];
         setRemoteStream(remote);
         if (remoteVideoRef.current) {
@@ -125,13 +119,11 @@ export const CallProvider = ({ children }) => {
 
       pc.onicecandidate = (e) => {
         if (e.candidate) {
-          console.log('ICE candidate generated');
           sendSignal({ type: 'candidate', candidate: e.candidate });
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'failed') {
           toast.error('Connection failed');
           cleanup();
@@ -139,7 +131,6 @@ export const CallProvider = ({ children }) => {
       };
 
       pc.onconnectionstatechange = () => {
-        console.log('Connection state:', pc.connectionState);
         if (pc.connectionState === 'failed') {
           toast.error('Connection lost');
           cleanup();
@@ -147,14 +138,12 @@ export const CallProvider = ({ children }) => {
       };
 
       if (isCaller) {
-        console.log('Creating offer as caller');
         const offer = await createOffer(pc);
         sendSignal({ type: 'offer', sdp: offer.sdp });
       }
 
       return pc;
     } catch (err) {
-      console.error('WebRTC setup failed:', err);
       toast.error('Cannot access camera/microphone');
       cleanup();
       throw err;
@@ -169,7 +158,6 @@ export const CallProvider = ({ children }) => {
     if (!pc) return;
 
     try {
-      console.log('Processing signal:', signal.type);
       switch (signal.type) {
         case 'offer':
           await setRemoteDescription(pc, { type: 'offer', sdp: signal.sdp });
@@ -193,69 +181,61 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-    useEffect(() => {
-    if (!isConnected || !subscribe || !fromUserIDRef.current) return;
+  useEffect(() => {
+    if (!isConnected) return;
 
-    const myId = fromUserIDRef.current.toString();
+    const unsubscribeCallIncoming = onCallEvent('incoming', (data) => {
+      if (callStatus !== 'idle') {
+        sendMessage('/call.reject', { callID: Number(data.callID) });
+        return;
+      }
+      setCall(data);
+      setCallType(data.callType || 'video');
+      setCallStatus('ringing');
+      setIsReceivingCall(true);
+      currentCallIDRef.current = data.callID;
+      targetUserIDRef.current = data.initiatorID;
+      fromUserIDRef.current = data.receiverID;
+      toast(`Call ${data.callType} from ${data.initiatorName}`);
+    });
 
-    console.log('Subscribing to call events for user:', myId);
-    const unsubs = [
-      subscribe(`/user/${myId}/queue/call.incoming`, (data) => {
-        console.log('Incoming call:', data);
-        if (callStatus !== 'idle') {
-          sendMessage('/call.reject', { callID: Number(data.callID) });
-          return;
-        }
-        setCall(data);
-        setCallType(data.callType || 'video');
-        setCallStatus('ringing');
-        setIsReceivingCall(true);
-        currentCallIDRef.current = data.callID;
-        targetUserIDRef.current = data.initiatorID;     // người gọi tới
-        fromUserIDRef.current = data.receiverID;        // chính mình
-        toast(`Call ${data.callType} from ${data.initiatorName}`);
-      }),
+    const unsubscribeCallAnswered = onCallEvent('answered', (data) => {
+      setCallStatus('connecting');
+      setIsReceivingCall(false);
+    });
 
-      subscribe(`/user/${myId}/queue/call.answered`, (data) => {
-        console.log('Call answered:', data);
-        setIsReceivingCall(false);
-        setCallStatus('connecting');
-      }),
-
-      subscribe(`/user/${myId}/queue/call.rejected`, (data) => {
-        console.log('Call rejected:', data);
-        if (isMakingCall || isReceivingCall) {
-          toast.error('Call rejected');
-          cleanup();
-        }
-      }),
-
-      subscribe(`/user/${myId}/queue/call.ended`, (data) => {
-        console.log('Call ended:', data);
-        if (callStatus === 'ongoing' || callStatus === 'connecting') {
-          toast.success(`Call ended • ${formatDuration(callDuration)}`);
-          cleanup();
-        }
-      }),
-
-      subscribe(`/user/${myId}/queue/call.signal`, handleWebRTCSignal),
-
-      subscribe(`/user/${myId}/queue/call.error`, (data) => {
-        console.error('Call error:', data);
-        toast.error(data.message || 'Call error');
+    const unsubscribeCallRejected = onCallEvent('rejected', (data) => {
+      if (isMakingCall || isReceivingCall) {
+        toast.error('Call rejected');
         cleanup();
-      })
-    ];
+      }
+    });
+
+    const unsubscribeCallEnded = onCallEvent('ended', (data) => {
+      if (callStatus === 'ongoing' || callStatus === 'connecting') {
+        toast.success(`Call ended • ${formatDuration(callDuration)}`);
+        cleanup();
+      }
+    });
+
+    const unsubscribeCallSignal = onCallEvent('signal', handleWebRTCSignal);
+
+    const unsubscribeCallError = onCallEvent('error', (data) => {
+      toast.error(data.message || 'Call error');
+      cleanup();
+    });
 
     return () => {
-      console.log('Unsubscribing from call events');
-      unsubs.forEach(u => {
-        if (u && typeof u === 'function') u();
-      });
+      unsubscribeCallIncoming();
+      unsubscribeCallAnswered();
+      unsubscribeCallRejected();
+      unsubscribeCallEnded();
+      unsubscribeCallSignal();
+      unsubscribeCallError();
     };
-  }, [isConnected, subscribe, callStatus, isMakingCall, isReceivingCall, callDuration, sendMessage]);
+  }, [isConnected, callStatus, isMakingCall, isReceivingCall, callDuration, sendMessage, onCallEvent]);
 
-  const initiateCall = async (receiverID, conversationID, fromUserID, type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, type = 'video') => {
     if (callStatus !== 'idle') {
       toast.error('Already in call');
       return null;
@@ -267,7 +247,6 @@ export const CallProvider = ({ children }) => {
     }
 
     try {
-      console.log('Initiating call to:', receiverID);
       const validatedType = type === 'audio' ? 'audio' : 'video';
       setIsMakingCall(true);
       setCallType(validatedType);
@@ -279,14 +258,13 @@ export const CallProvider = ({ children }) => {
       setCallStatus('ringing');
       currentCallIDRef.current = callData.callID;
       targetUserIDRef.current = receiverID;
-      fromUserIDRef.current = callData.initiatorID;
+      fromUserIDRef.current = user?.userID;
 
       sendMessage('/call.initiate', {
         receiverID: Number(receiverID),
         callID: Number(callData.callID),
         type: validatedType,
-        conversationID: Number(conversationID),
-        fromUserID: getCurrentUserID()
+        conversationID: Number(conversationID)
       });
 
       await setupWebRTC({
@@ -298,7 +276,6 @@ export const CallProvider = ({ children }) => {
 
       return callData;
     } catch (err) {
-      console.error('Initiate call error:', err);
       toast.error('Cannot call');
       cleanup();
       return null;
@@ -311,7 +288,6 @@ export const CallProvider = ({ children }) => {
       return;
     }
 
-    console.log('Answering call:', call.callID);
     setCallStatus('connecting');
     setIsReceivingCall(false);
 
@@ -330,11 +306,8 @@ export const CallProvider = ({ children }) => {
           callID: call.callID,
           type: call.callType
         });
-        setCallStatus('ongoing');
-        startTimer();
       }
     } catch (err) {
-      console.error('Answer call error:', err);
       toast.error('Error answering');
       cleanup();
     }
@@ -342,7 +315,6 @@ export const CallProvider = ({ children }) => {
 
   const endCall = async () => {
     if (!call) return;
-    console.log('Ending call:', call.callID);
     try {
       await callService.endCall(call.callID);
       sendMessage('/call.end', { callID: Number(call.callID) });
@@ -355,7 +327,6 @@ export const CallProvider = ({ children }) => {
 
   const rejectCall = async () => {
     if (!call) return;
-    console.log('Rejecting call:', call.callID);
     try {
       await callService.rejectCall(call.callID);
       sendMessage('/call.reject', { callID: Number(call.callID) });

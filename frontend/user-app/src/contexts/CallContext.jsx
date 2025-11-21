@@ -265,7 +265,7 @@ export const CallProvider = ({ children }) => {
       const callData = res.call || res;
 
       setCall(callData);
-      setCallStatus('ringing');
+      setCallStatus('calling');
       currentCallIDRef.current = callData.callID;
       targetUserIDRef.current = receiverID;
       fromUserIDRef.current = user?.userID;

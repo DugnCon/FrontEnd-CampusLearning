@@ -2,11 +2,13 @@ import React, { createContext, useState, useEffect, useRef, useContext, useCallb
 import { useSocket } from './SocketContext';
 import callService from '../services/callService';
 import { toast } from 'react-hot-toast';
+import { useAuth } from './AuthContext';
 
 export const CallContext = createContext();
 
 export const CallProvider = ({ children }) => {
   const { stompClient, isConnected, subscribe, unsubscribe, sendMessage } = useSocket();
+  const { user } = useAuth();
   const [call, setCall] = useState(null);
   const [callStatus, setCallStatus] = useState(null);
   const [callType, setCallType] = useState(null);
@@ -32,6 +34,10 @@ export const CallProvider = ({ children }) => {
   }, [sendMessage]);
 
   const sendCallSignal = useCallback((targetUserID, signal, callID) => {
+    if (!targetUserID) {
+      console.warn('Cannot send signal: targetUserID is undefined');
+      return;
+    }
     sendMessage('/call.signal', {
       targetUserID,
       signal,
@@ -208,9 +214,11 @@ export const CallProvider = ({ children }) => {
   // Set up media streams and peer connection
   const setupMediaAndConnection = async ({ callID, isReceivingCall, fromUserID }) => {
     try {
+      // ✅ FIX: Đảm bảo callType được set trước khi getUserMedia
+      const currentCallType = callType || 'video';
       const constraints = {
         audio: true,
-        video: callType === 'video'
+        video: currentCallType === 'video'
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -252,10 +260,16 @@ export const CallProvider = ({ children }) => {
         if (event.candidate) {
           console.log('Generated new ICE candidate:', event.candidate.candidate);
           
-          sendCallSignal(fromUserID || call?.initiatorID || call?.receiverID, {
-            type: 'candidate',
-            candidate: event.candidate
-          }, callID);
+          // ✅ FIX: Đảm bảo targetUserID không bị undefined
+          const targetID = fromUserID || call?.initiatorID || call?.receiverID;
+          if (targetID) {
+            sendCallSignal(targetID, {
+              type: 'candidate',
+              candidate: event.candidate
+            }, callID);
+          } else {
+            console.warn('Cannot send ICE candidate: targetUserID is undefined');
+          }
         } else {
           console.log('ICE candidate generation complete');
         }
@@ -273,10 +287,16 @@ export const CallProvider = ({ children }) => {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         
-        sendCallSignal(fromUserID || call?.receiverID, {
-          type: 'offer',
-          sdp: peerConnection.localDescription.sdp
-        }, callID);
+        // ✅ FIX: Đảm bảo targetUserID không bị undefined
+        const targetID = fromUserID || call?.receiverID;
+        if (targetID) {
+          sendCallSignal(targetID, {
+            type: 'offer',
+            sdp: peerConnection.localDescription.sdp
+          }, callID);
+        } else {
+          console.warn('Cannot send offer: targetUserID is undefined');
+        }
       }
 
       // Join call room via STOMP
@@ -329,6 +349,7 @@ export const CallProvider = ({ children }) => {
     setCallType(null);
     setIsReceivingCall(false);
     setIsMakingCall(false);
+    setCallDuration(0);
     
     stopMediaTracks();
     
@@ -346,41 +367,52 @@ export const CallProvider = ({ children }) => {
   // Stop all media tracks
   const stopMediaTracks = () => {
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+      localStream.getTracks().forEach(track => {
+        track.stop();
+      });
       setLocalStream(null);
     }
-    setRemoteStream(null);
+    if (remoteStream) {
+      setRemoteStream(null);
+    }
   };
 
   // API: Initiate a call via STOMP
-  const initiateCall = async (receiverID, conversationID,type = 'video') => {
+  const initiateCall = async (receiverID, conversationID, type = 'video') => {
     try {
+      // ✅ FIX: Validate type và set callType trước
+      const validatedType = type === 'audio' ? 'audio' : 'video';
       setIsMakingCall(true);
-      setCallType(type);
+      setCallType(validatedType);
       
-      const response = await callService.initiateCall(receiverID, conversationID,type);
-      setCall(response.call);
+      const response = await callService.initiateCall(receiverID, conversationID, validatedType);
+      const callData = response.call || response;
+      
+      setCall(callData);
       setCallStatus('ringing');
       
-      // Send via STOMP
+      // ✅ FIX: Đảm bảo field names khớp với backend
       sendCallMessage('initiate', {
-        receiverID,
-        callID: response.call.callID,
-        type,
-        conversationID: response.call.conversationID
+        receiverID: Number(receiverID),
+        callID: Number(callData.callID),
+        type: validatedType,
+        conversationID: Number(conversationID)
       });
       
       await setupMediaAndConnection({ 
-        callID: response.call.callID,
-        isReceivingCall: false
+        callID: callData.callID,
+        isReceivingCall: false,
+        fromUserID: receiverID // ✅ THÊM fromUserID
       });
       
-      return response.call;
+      return callData;
     } catch (error) {
       console.error('Error initiating call:', error);
       toast.error(error.message || 'Failed to initiate call');
       endCallCleanup();
       throw error;
+    } finally {
+      setIsMakingCall(false);
     }
   };
 
@@ -393,17 +425,17 @@ export const CallProvider = ({ children }) => {
       setCallStatus('ongoing');
       setIsReceivingCall(false);
       
-      // Send via STOMP
+      // ✅ FIX: Đảm bảo field names khớp
       sendCallMessage('answer', {
-        callID: call.callID,
-        initiatorID: call.initiatorID,
+        callID: Number(call.callID),
+        initiatorID: Number(call.initiatorID),
         accepted: true
       });
       
       await setupMediaAndConnection({ 
         callID: call.callID,
         isReceivingCall: true,
-        fromUserID: call.initiatorID
+        fromUserID: call.initiatorID // ✅ THÊM fromUserID
       });
       
       startCallTimer();
@@ -426,11 +458,11 @@ export const CallProvider = ({ children }) => {
       
       // Send via STOMP
       sendCallMessage('end', {
-        callID: call.callID,
+        callID: Number(call.callID),
         duration: callDuration
       });
       
-      sendCallMessage('leave', { callID: call.callID });
+      sendCallMessage('leave', { callID: Number(call.callID) });
       
       endCallCleanup();
     } catch (error) {
@@ -450,7 +482,7 @@ export const CallProvider = ({ children }) => {
       
       // Send via STOMP
       sendCallMessage('reject', {
-        callID: call.callID
+        callID: Number(call.callID)
       });
       
       endCallCleanup();
@@ -474,7 +506,7 @@ export const CallProvider = ({ children }) => {
       // Notify other participants via STOMP
       if (call) {
         sendCallMessage('media.toggle', {
-          callID: call.callID,
+          callID: Number(call.callID),
           type: 'audio',
           enabled
         });
@@ -497,7 +529,7 @@ export const CallProvider = ({ children }) => {
       // Notify other participants via STOMP
       if (call) {
         sendCallMessage('media.toggle', {
-          callID: call.callID,
+          callID: Number(call.callID),
           type: 'video',
           enabled
         });

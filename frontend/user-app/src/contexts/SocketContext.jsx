@@ -76,6 +76,8 @@ export const SocketProvider = ({ children }) => {
       `/user/${userID}/queue/call.error`
     ];
 
+    console.log("CALL CHANNELS" + " " + JSON.stringify(callChannels));
+
     callChannels.forEach(channel => {
       if (!subscriptionsRef.current.has(channel)) {
         subscribe(channel, (data) => {

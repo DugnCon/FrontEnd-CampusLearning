@@ -1,10 +1,4 @@
-/*-----------------------------------------------------------------
-* File: index.js
-* Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: This file is a component/module for the admin application.
-* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
------------------------------------------------------------------*/
+
 import axios from 'axios';
 import { profileAPI } from './profileApi';
 import { settingsAPI } from './settingsApi';
@@ -19,7 +13,7 @@ const getEnvVar = (key, fallback) => {
 
 // Tạo instance axios với config mặc định
 const API = axios.create({
-  baseURL: getEnvVar('VITE_API_URL', 'http://112.137.129.158:8889/api'), // Safe access with fallback
+  baseURL: getEnvVar('VITE_API_URL', '/admin/api'), // Safe access with fallback
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

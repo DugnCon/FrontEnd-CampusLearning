@@ -5,8 +5,8 @@ import { settingsAPI } from './settingsApi';
 
 // Safely access environment variables
 const getEnvVar = (key, fallback) => {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env[key] || fallback;
+  if (typeof process.env !== 'undefined' && process.env) {
+    return process.env[key] || fallback;
   }
   return fallback;
 };

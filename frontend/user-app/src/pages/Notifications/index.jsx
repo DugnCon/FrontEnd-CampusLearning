@@ -60,7 +60,7 @@ const Notifications = () => {
       const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
       const token = localStorage.getItem('token');
       
-      await fetch(`${apiUrl}/api/notifications/read-all`, {
+      await fetch(`${apiUrl}/notifications/read-all`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -80,7 +80,7 @@ const Notifications = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Thông báo</h1>
-        {notifications && notifications.some(notification => !notification.IsRead) && (
+        {notifications && notifications.some(notification => !notification.isRead) && (
           <button 
             onClick={markAllAsRead}
             disabled={markingRead}
@@ -110,20 +110,20 @@ const Notifications = () => {
                   <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
                     !notification.IsRead ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
                   }`}>
-                    {getNotificationIcon(notification.Type)}
+                    {getNotificationIcon(notification.type)}
                   </div>
                   <div className="flex-1">
-                    <p className={`font-medium ${!notification.IsRead ? 'text-gray-900' : 'text-gray-700'}`}>
-                      {notification.Title}
+                    <p className={`font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
+                      {notification.title}
                     </p>
                     <p className="text-gray-600 text-sm mt-1">
-                      {notification.Content}
+                      {notification.content}
                     </p>
                     <p className="text-gray-400 text-xs mt-2">
-                      {getTimeAgo(notification.CreatedAt)}
+                      {getTimeAgo(notification.createdAt)}
                     </p>
                   </div>
-                  {!notification.IsRead && (
+                  {!notification.isRead && (
                     <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
                   )}
                 </div>

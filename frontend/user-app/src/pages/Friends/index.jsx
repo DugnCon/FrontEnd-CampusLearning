@@ -27,7 +27,7 @@ const Friends = () => {
   const queryParams = new URLSearchParams(location.search);
   const userId = queryParams.get('userId');
 
-  const { currentUser, logout } = useAuth(); // Thêm logout từ AuthContext
+  const { currentUser, logout } = useAuth();
   const currentUserId = currentUser?.id || currentUser?.userID;
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -39,7 +39,6 @@ const Friends = () => {
   const [sentRequests, setSentRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
   const [notification, setNotification] = useState({ type: null, message: null });
   const [viewingUser, setViewingUser] = useState(null);
   const [isOwnFriends, setIsOwnFriends] = useState(true);
@@ -57,13 +56,31 @@ const Friends = () => {
   const searchTimeoutRef = useRef(null);
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
   
-  // States mới cho loading từng action
-  const [creatingConversation, setCreatingConversation] = useState(null);
-  const [acceptingRequest, setAcceptingRequest] = useState(null);
-  const [rejectingRequest, setRejectingRequest] = useState(null);
-  const [cancelingRequest, setCancelingRequest] = useState(null);
-  const [removingFriend, setRemovingFriend] = useState(null);
-  const [sendingRequest, setSendingRequest] = useState(null);
+  // States cho loading từng action
+  const [loadingStates, setLoadingStates] = useState({
+    creatingConversation: null,
+    acceptingRequest: null,
+    rejectingRequest: null,
+    cancelingRequest: null,
+    removingFriend: null,
+    sendingRequest: null
+  });
+
+  // Function để set loading state
+  const setLoadingState = (action, userId) => {
+    setLoadingStates(prev => ({
+      ...prev,
+      [action]: userId
+    }));
+  };
+
+  // Function để clear loading state
+  const clearLoadingState = (action) => {
+    setLoadingStates(prev => ({
+      ...prev,
+      [action]: null
+    }));
+  };
 
   // Function reset tất cả state
   const resetAllState = useCallback(() => {
@@ -76,12 +93,14 @@ const Friends = () => {
     setSearchTerm('');
     setActiveTab('all');
     setError(null);
-    setCreatingConversation(null);
-    setAcceptingRequest(null);
-    setRejectingRequest(null);
-    setCancelingRequest(null);
-    setRemovingFriend(null);
-    setSendingRequest(null);
+    setLoadingStates({
+      creatingConversation: null,
+      acceptingRequest: null,
+      rejectingRequest: null,
+      cancelingRequest: null,
+      removingFriend: null,
+      sendingRequest: null
+    });
     
     // Clear cache trong localStorage
     if (currentUserId) {
@@ -364,7 +383,7 @@ const Friends = () => {
 
   const acceptFriendRequest = async (userId) => {
     try {
-      setAcceptingRequest(userId);
+      setLoadingState('acceptingRequest', userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}/accept`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -382,13 +401,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể chấp nhận');
     } finally {
-      setAcceptingRequest(null);
+      clearLoadingState('acceptingRequest');
     }
   };
 
   const rejectFriendRequest = async (userId) => {
     try {
-      setRejectingRequest(userId);
+      setLoadingState('rejectingRequest', userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -401,13 +420,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể từ chối');
     } finally {
-      setRejectingRequest(null);
+      clearLoadingState('rejectingRequest');
     }
   };
 
   const cancelFriendRequest = async (userId) => {
     try {
-      setCancelingRequest(userId);
+      setLoadingState('cancelingRequest', userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}`, { 
         method: 'DELETE', 
@@ -432,13 +451,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể hủy');
     } finally {
-      setCancelingRequest(null);
+      clearLoadingState('cancelingRequest');
     }
   };
 
   const removeFriend = async (userId) => {
     try {
-      setRemovingFriend(userId);
+      setLoadingState('removingFriend', userId);
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error();
@@ -451,13 +470,13 @@ const Friends = () => {
     } catch {
       showNotification('error', 'Không thể hủy');
     } finally {
-      setRemovingFriend(null);
+      clearLoadingState('removingFriend');
     }
   };
 
   const sendFriendRequest = async (userId) => {
     try {
-      setSendingRequest(userId);
+      setLoadingState('sendingRequest', userId);
       const token = localStorage.getItem('token');
 
       console.log('GỬI LỜI MỜI:', { requesterId: currentUserId, addresseeId: userId });
@@ -513,7 +532,7 @@ const Friends = () => {
       console.error('Lỗi gửi lời mời:', err);
       showNotification('error', 'Không thể gửi lời mời');
     } finally {
-      setSendingRequest(null);
+      clearLoadingState('sendingRequest');
     }
   };
 
@@ -521,7 +540,7 @@ const Friends = () => {
   
   const navigateToChat = async (user) => {
     try {
-      setCreatingConversation(user.userID);
+      setLoadingState('creatingConversation', user.userID);
       
       const token = localStorage.getItem('token');
       
@@ -570,7 +589,7 @@ const Friends = () => {
       console.error('Lỗi tạo conversation:', error);
       showNotification('error', error.message || 'Không thể bắt đầu trò chuyện');
     } finally {
-      setCreatingConversation(null);
+      clearLoadingState('creatingConversation');
     }
   };
 
@@ -819,10 +838,10 @@ const Friends = () => {
                               <>
                                 <button 
                                   onClick={() => navigateToChat(user)} 
-                                  disabled={creatingConversation === user.userID}
+                                  disabled={loadingStates.creatingConversation === user.userID}
                                   className="flex-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  {creatingConversation === user.userID ? (
+                                  {loadingStates.creatingConversation === user.userID ? (
                                     <>
                                       <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                       Đang tạo...
@@ -836,10 +855,10 @@ const Friends = () => {
                                 </button>
                                 <button 
                                   onClick={() => removeFriend(user.userID)} 
-                                  disabled={removingFriend === user.userID}
+                                  disabled={loadingStates.removingFriend === user.userID}
                                   className="px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  {removingFriend === user.userID ? (
+                                  {loadingStates.removingFriend === user.userID ? (
                                     <ArrowPathIcon className="h-4 w-4 animate-spin" />
                                   ) : (
                                     <UserMinusIcon className="h-4 w-4" />
@@ -851,10 +870,10 @@ const Friends = () => {
                               <>
                                 <button 
                                   onClick={() => acceptFriendRequest(user.userID)} 
-                                  disabled={acceptingRequest === user.userID}
+                                  disabled={loadingStates.acceptingRequest === user.userID}
                                   className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  {acceptingRequest === user.userID ? (
+                                  {loadingStates.acceptingRequest === user.userID ? (
                                     <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                   ) : (
                                     <CheckIcon className="h-4 w-4 mr-1.5" />
@@ -863,10 +882,10 @@ const Friends = () => {
                                 </button>
                                 <button 
                                   onClick={() => rejectFriendRequest(user.userID)} 
-                                  disabled={rejectingRequest === user.userID}
+                                  disabled={loadingStates.rejectingRequest === user.userID}
                                   className="flex-1 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  {rejectingRequest === user.userID ? (
+                                  {loadingStates.rejectingRequest === user.userID ? (
                                     <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                   ) : (
                                     <XMarkIcon className="h-4 w-4 mr-1.5" />
@@ -880,10 +899,10 @@ const Friends = () => {
                                 <div className="flex items-center text-xs text-gray-400 mb-2"><ClockIcon className="h-4 w-4 mr-1" /> Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</div>
                                 <button 
                                   onClick={() => cancelFriendRequest(user.userID)} 
-                                  disabled={cancelingRequest === user.userID}
+                                  disabled={loadingStates.cancelingRequest === user.userID}
                                   className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  {cancelingRequest === user.userID ? (
+                                  {loadingStates.cancelingRequest === user.userID ? (
                                     <>
                                       <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                       Đang hủy...
@@ -906,10 +925,10 @@ const Friends = () => {
                                   </div>
                                   <button 
                                     onClick={() => cancelFriendRequest(user.userID)} 
-                                    disabled={cancelingRequest === user.userID}
+                                    disabled={loadingStates.cancelingRequest === user.userID}
                                     className="flex-1 px-3 py-2 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
                                   >
-                                    {cancelingRequest === user.userID ? (
+                                    {loadingStates.cancelingRequest === user.userID ? (
                                       <>
                                         <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                         Đang hủy...
@@ -925,10 +944,10 @@ const Friends = () => {
                               ) : (
                                 <button 
                                   onClick={() => sendFriendRequest(user.userID)} 
-                                  disabled={sendingRequest === user.userID}
+                                  disabled={loadingStates.sendingRequest === user.userID}
                                   className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                 >
-                                  {sendingRequest === user.userID ? (
+                                  {loadingStates.sendingRequest === user.userID ? (
                                     <>
                                       <ArrowPathIcon className="h-4 w-4 mr-1.5 animate-spin" />
                                       Đang gửi...
@@ -976,10 +995,10 @@ const Friends = () => {
                                     <div className="flex items-center justify-center space-x-2 text-xs text-gray-500 mb-2"><ClockIcon className="h-4 w-4" /> <span>Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</span></div>
                                     <button 
                                       onClick={() => cancelFriendRequest(user.userID)} 
-                                      disabled={cancelingRequest === user.userID}
+                                      disabled={loadingStates.cancelingRequest === user.userID}
                                       className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      {cancelingRequest === user.userID ? (
+                                      {loadingStates.cancelingRequest === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang hủy...
@@ -997,10 +1016,10 @@ const Friends = () => {
                                   <>
                                     <button 
                                       onClick={() => navigateToChat(user)} 
-                                      disabled={creatingConversation === user.userID}
+                                      disabled={loadingStates.creatingConversation === user.userID}
                                       className="w-full px-4 py-2.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      {creatingConversation === user.userID ? (
+                                      {loadingStates.creatingConversation === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang tạo...
@@ -1014,10 +1033,10 @@ const Friends = () => {
                                     </button>
                                     <button 
                                       onClick={() => removeFriend(user.userID)} 
-                                      disabled={removingFriend === user.userID}
+                                      disabled={loadingStates.removingFriend === user.userID}
                                       className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center font-medium disabled:opacity-50"
                                     >
-                                      {removingFriend === user.userID ? (
+                                      {loadingStates.removingFriend === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang xóa...
@@ -1035,10 +1054,10 @@ const Friends = () => {
                                   <>
                                     <button 
                                       onClick={() => acceptFriendRequest(user.userID)} 
-                                      disabled={acceptingRequest === user.userID}
+                                      disabled={loadingStates.acceptingRequest === user.userID}
                                       className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                     >
-                                      {acceptingRequest === user.userID ? (
+                                      {loadingStates.acceptingRequest === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang xử lý...
@@ -1052,10 +1071,10 @@ const Friends = () => {
                                     </button>
                                     <button 
                                       onClick={() => rejectFriendRequest(user.userID)} 
-                                      disabled={rejectingRequest === user.userID}
+                                      disabled={loadingStates.rejectingRequest === user.userID}
                                       className="w-full px-4 py-2.5 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center font-medium disabled:opacity-50"
                                     >
-                                      {rejectingRequest === user.userID ? (
+                                      {loadingStates.rejectingRequest === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang xử lý...
@@ -1078,10 +1097,10 @@ const Friends = () => {
                                       </div>
                                       <button 
                                         onClick={() => cancelFriendRequest(user.userID)} 
-                                        disabled={cancelingRequest === user.userID}
+                                        disabled={loadingStates.cancelingRequest === user.userID}
                                         className="w-full px-4 py-2.5 text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        {cancelingRequest === user.userID ? (
+                                        {loadingStates.cancelingRequest === user.userID ? (
                                           <>
                                             <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                             Đang hủy...
@@ -1097,10 +1116,10 @@ const Friends = () => {
                                   ) : (
                                     <button 
                                       onClick={() => sendFriendRequest(user.userID)} 
-                                      disabled={sendingRequest === user.userID}
+                                      disabled={loadingStates.sendingRequest === user.userID}
                                       className="w-full px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center font-medium disabled:opacity-50"
                                     >
-                                      {sendingRequest === user.userID ? (
+                                      {loadingStates.sendingRequest === user.userID ? (
                                         <>
                                           <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
                                           Đang gửi...

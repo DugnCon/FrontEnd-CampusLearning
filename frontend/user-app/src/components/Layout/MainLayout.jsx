@@ -639,7 +639,7 @@ const MainLayout = ({ children }) => {
       setNotifications(data.notifications || []);
       
       // Đếm số thông báo chưa đọc
-      const unread = (data.notifications || []).filter(notification => !notification.IsRead).length;
+      const unread = (data.notifications || []).filter(notification => !notification.isRead).length;
       setUnreadCount(unread);
       
       // Đánh dấu đã fetch ban đầu
@@ -758,7 +758,7 @@ const MainLayout = ({ children }) => {
       
       // Cập nhật state
       setNotifications(notifications.map(notification => 
-        notification.NotificationID === notificationId 
+        notification.notificationID === notificationId 
           ? { ...notification, IsRead: true } 
           : notification
       ));
@@ -802,19 +802,19 @@ const MainLayout = ({ children }) => {
   // Xử lý click vào thông báo
   const handleNotificationClick = (notification) => {
     // Đánh dấu là đã đọc
-    if (!notification.IsRead) {
-      markNotificationAsRead(notification.NotificationID);
+    if (!notification.isRead) {
+      markNotificationAsRead(notification.notificationID);
     }
     
     // Điều hướng dựa vào loại thông báo
-    if (notification.RelatedType === 'Posts') {
+    if (notification.relatedType === 'Posts') {
       // Navigate to the specific post
-      const postId = notification.RelatedID;
+      const postId = notification.relatedID;
       navigate(`/posts?postId=${postId}`);
     } else if (notification.RelatedType === 'Comments') {
       // Navigate to the post with comment highlight
-      const postId = notification.PostID || notification.RelatedID;
-      const commentId = notification.RelatedID;
+      const postId = notification.postID || notification.relatedID;
+      const commentId = notification.relatedID;
       navigate(`/posts?postId=${postId}&commentId=${commentId}`);
     } else if (notification.Type === 'message') {
       navigate('/chat');
@@ -1279,10 +1279,10 @@ const MainLayout = ({ children }) => {
                         {searchData[searchType].map((item, index) => {
                           // Generate unique key based on search type and item properties
                           const getItemKey = () => {
-                            if (searchType === 'users') return `user-${item.UserID || item.id || index}`;
-                            if (searchType === 'posts') return `post-${item.id || item.PostID || index}`;
-                            if (searchType === 'courses') return `course-${item.CourseID || item.id || index}`;
-                            if (searchType === 'events') return `event-${item.EventID || item.id || index}`;
+                            if (searchType === 'users') return `user-${item.userID || item.id || index}`;
+                            if (searchType === 'posts') return `post-${item.id || item.postID || index}`;
+                            if (searchType === 'courses') return `course-${item.courseID || item.id || index}`;
+                            if (searchType === 'events') return `event-${item.eventID || item.id || index}`;
                             return `search-item-${searchType}-${index}`;
                           };
 
@@ -1292,13 +1292,13 @@ const MainLayout = ({ children }) => {
                               className="px-4 py-3.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-start transition-colors duration-150"
                               onClick={() => {
                                 if (searchType === 'users') {
-                                  handleUserClick(item.UserID || item.id);
+                                  handleUserClick(item.userID || item.id);
                                 } else if (searchType === 'posts') {
-                                  navigate(`/posts?postId=${item.id || item.PostID}`);
+                                  navigate(`/posts?postId=${item.id || item.postID}`);
                                 } else if (searchType === 'courses') {
-                                  navigate(`/courses/${item.CourseID || item.id}`);
+                                  navigate(`/courses/${item.courseID || item.id}`);
                                 } else if (searchType === 'events') {
-                                  navigate(`/events/${item.EventID || item.id}`);
+                                  navigate(`/events/${item.eventID || item.id}`);
                                 }
                                 setShowSearchPanel(false);
                                 setSearchQuery('');
@@ -1458,32 +1458,32 @@ const MainLayout = ({ children }) => {
                     ) : notifications.length > 0 ? (
                       <div className="divide-y divide-gray-100 dark:divide-gray-700">
                         {notifications.map((notification) => {
-                          const NotificationIcon = getNotificationIcon(notification.Type);
+                          const NotificationIcon = getNotificationIcon(notification.type);
                           return (
                             <div 
-                              key={notification.NotificationID} 
+                              key={notification.notificationID} 
                               className={`px-4 py-3.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-start ${
-                                !notification.IsRead ? 'bg-theme-accent/50 dark:bg-theme-accent/20' : ''
+                                !notification.isRead ? 'bg-theme-accent/50 dark:bg-theme-accent/20' : ''
                               } transition-colors duration-150`}
                               onClick={() => handleNotificationClick(notification)}
                             >
                               <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
-                                !notification.IsRead ? 'bg-theme-secondary/30 text-theme-primary dark:bg-theme-secondary/20 dark:text-theme-secondary' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                !notification.isRead ? 'bg-theme-secondary/30 text-theme-primary dark:bg-theme-secondary/20 dark:text-theme-secondary' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                               }`}>
                                 <NotificationIcon className="h-6 w-6" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium ${!notification.IsRead ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                                  {notification.Title}
+                                <p className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                                  {notification.title}
                                 </p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
-                                  {notification.Content}
+                                  {notification.content}
                                 </p>
                                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                  {getTimeAgo(notification.CreatedAt)}
+                                  {getTimeAgo(notification.createdAt)}
                                 </p>
                               </div>
-                              {!notification.IsRead && (
+                              {!notification.isRead && (
                                 <span className="ml-2 h-2 w-2 bg-theme-primary rounded-full flex-shrink-0 mt-2"></span>
                               )}
                             </div>

@@ -13,11 +13,18 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [replyMessage, setReplyMessage] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
-    const [isMuted, setIsMuted] = useState(true); // 🔥 THÊM STATE CHO ÂM THANH
+    const [isMuted, setIsMuted] = useState(true);
     const progressRef = useRef(null);
-    const videoRef = useRef(null); // 🔥 THÊM REF CHO VIDEO
+    const videoRef = useRef(null);
     const navigate = useNavigate();
     const [liked, setLiked] = useState(false);
+
+    // 🔥 FIX: THÊM HÀM GET FULL MEDIA URL
+    const getFullMediaUrl = (mediaUrl) => {
+        if (!mediaUrl) return '';
+        if (mediaUrl.startsWith('http')) return mediaUrl;
+        return `https://campuslearning.site${mediaUrl}`;
+    };
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -45,10 +52,11 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         return () => clearInterval(timer);
     }, [story.storyID, story.duration, onNext]);
 
-    // 🔥 THÊM useEffect ĐỂ XỬ LÝ VIDEO
+    // 🔥 FIX: VIDEO HANDLING VỚI FULL URL
     useEffect(() => {
         if (story.mediaType === 'video' && videoRef.current) {
-            console.log('🎬 Video element ready');
+            const fullVideoUrl = getFullMediaUrl(story.mediaUrl);
+            console.log('🎬 Video URL:', fullVideoUrl);
             console.log('🔊 Muted state:', videoRef.current.muted);
             console.log('📢 Volume:', videoRef.current.volume);
             
@@ -63,9 +71,8 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
 
             return () => clearTimeout(timeout);
         }
-    }, [story.mediaType, isMuted]);
+    }, [story.mediaType, isMuted, story.mediaUrl]);
 
-    // 🔥 THÊM HÀM TOGGLE ÂM THANH
     const toggleMute = () => {
         if (videoRef.current) {
             videoRef.current.muted = !videoRef.current.muted;
@@ -74,7 +81,6 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         }
     };
 
-    // 🔥 THÊM HÀM XỬ LÝ VIDEO LOAD
     const handleVideoLoad = () => {
         console.log('🎬 Video loaded successfully');
         if (videoRef.current) {
@@ -88,10 +94,10 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         }
     };
 
-    // 🔥 THÊM HÀM XỬ LÝ VIDEO ERROR
     const handleVideoError = (e) => {
         console.error('❌ Video error:', e);
         console.log('📹 Video src:', e.target.src);
+        console.log('🔍 Full URL:', getFullMediaUrl(story.mediaUrl));
     };
 
     const handleClick = (e) => {
@@ -113,7 +119,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
             } else {
                 onClose();
             }
-        } else if (e.key === 'm' || e.key === 'M') { // 🔥 THÊM PHÍM TẮT MUTE
+        } else if (e.key === 'm' || e.key === 'M') {
             toggleMute();
         }
     };
@@ -201,25 +207,28 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
         }
     };
 
-    // Render story preview for reply modal
+    // 🔥 FIX: SỬA RENDER STORY PREVIEW VỚI FULL URL
     const renderStoryPreview = () => {
+        const fullMediaUrl = getFullMediaUrl(story.mediaUrl);
+        
         if (story.mediaType === 'image') {
             return (
                 <img 
-                    src={story.mediaUrl} 
+                    src={fullMediaUrl} 
                     alt="Story preview" 
                     className="story-reply-preview-image"
+                    crossOrigin="anonymous"
                 />
             );
         } else if (story.mediaType === 'video') {
             return (
                 <video 
-                    src={story.mediaUrl} 
+                    src={fullMediaUrl} 
                     className="story-reply-preview-video"
                     muted={isMuted}
                     autoPlay
                     loop
-                    ref={videoRef}
+                    crossOrigin="anonymous"
                 />
             );
         } else {
@@ -248,7 +257,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
             <div className="story-header">
                 <div className="story-user-info">
                     <Avatar
-                        src={story.user?.image}
+                        src={getFullMediaUrl(story.user?.image)}
                         name={story.user?.fullName}
                         size="small"
                         className="ring-2 ring-white"
@@ -256,7 +265,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                     <span className="story-username">{story.user?.fullName}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                    {/* 🔥 THÊM NÚT ÂM THANH CHO VIDEO */}
+                    {/* Audio button for video */}
                     {story.mediaType === 'video' && (
                         <button 
                             className="story-mute-btn"
@@ -293,30 +302,35 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                 />
             </div>
             
+            {/* 🔥 FIX: SỬA MEDIA RENDERING VỚI FULL URL */}
             <div className="story-content" style={{ backgroundColor: story.backgroundColor }}>
                 {story.mediaType === 'image' && (
                     <img 
-                        src={story.mediaUrl} 
+                        src={getFullMediaUrl(story.mediaUrl)} 
                         alt="Story" 
                         className="story-media"
+                        crossOrigin="anonymous"
                     />
                 )}
                 {story.mediaType === 'video' && (
                     <div className="story-video-container">
                         <video 
                             ref={videoRef}
-                            src={story.mediaUrl} 
+                            src={getFullMediaUrl(story.mediaUrl)} 
                             className="story-media"
                             autoPlay
                             loop
-                            muted={isMuted} // 🔥 SỬA: DÙNG STATE THAY VÌ MUTED CỨNG
+                            muted={isMuted}
                             playsInline
+                            crossOrigin="anonymous"
                             onLoadedData={handleVideoLoad}
                             onError={handleVideoError}
                             onPlay={() => console.log('🎬 Video started playing')}
                             onVolumeChange={() => console.log('🔊 Volume changed:', videoRef.current?.volume)}
-                        />
-                        {/* 🔥 THÊM THÔNG BÁO ÂM THANH */}
+                        >
+                            <source src={getFullMediaUrl(story.mediaUrl)} type="video/mp4" />
+                        </video>
+                        {/* Mute indicator */}
                         {isMuted && (
                             <div className="story-mute-indicator">
                                 <SpeakerXMarkIcon className="w-6 h-6" />
@@ -379,7 +393,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                                 viewers.map((viewer) => (
                                     <div key={viewer.viewID} className="story-viewer-item">
                                         <Avatar
-                                            src={viewer.viewer?.image}
+                                            src={getFullMediaUrl(viewer.viewer?.image)}
                                             name={viewer.viewer?.fullName}
                                             size="small"
                                         />
@@ -412,7 +426,7 @@ const Story = ({ story, onClose, onNext, onPrevious, onDelete, viewCount }) => {
                             {/* User Info Overlay */}
                             <div className="story-reply-user-info">
                                 <Avatar
-                                    src={story.user?.image}
+                                    src={getFullMediaUrl(story.user?.image)}
                                     name={story.user?.fullName}
                                     size="small"
                                     className="ring-2 ring-white"

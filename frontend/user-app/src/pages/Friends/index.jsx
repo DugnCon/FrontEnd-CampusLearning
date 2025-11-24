@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar } from '../../components';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/contexts/SocketContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/user/api';
 
@@ -29,6 +30,13 @@ const Friends = () => {
 
   const { currentUser, logout } = useAuth();
   const currentUserId = currentUser?.id || currentUser?.userID;
+  
+  const { 
+    isConnected, 
+    subscribe, 
+    unsubscribe, 
+    sendMessage 
+  } = useSocket();
 
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = sessionStorage.getItem('friendsActiveTab');
@@ -55,8 +63,8 @@ const Friends = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchTimeoutRef = useRef(null);
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
+  const { user } = useAuth();
   
-  // States cho loading từng action
   const [loadingStates, setLoadingStates] = useState({
     creatingConversation: null,
     acceptingRequest: null,
@@ -66,7 +74,8 @@ const Friends = () => {
     sendingRequest: null
   });
 
-  // Function để set loading state
+  const socketSubscriptionsRef = useRef(new Set());
+
   const setLoadingState = (action, userId) => {
     setLoadingStates(prev => ({
       ...prev,
@@ -74,7 +83,6 @@ const Friends = () => {
     }));
   };
 
-  // Function để clear loading state
   const clearLoadingState = (action) => {
     setLoadingStates(prev => ({
       ...prev,
@@ -82,7 +90,137 @@ const Friends = () => {
     }));
   };
 
-  // Function reset tất cả state
+  const setupSocketSubscriptions = useCallback(() => {
+    if (!isConnected || !currentUserId) return;
+
+    console.log('🔌 Setting up friend socket subscriptions...');
+
+    const friendRequestSub = subscribe('/user/queue/friend-requests', (data) => {
+      console.log('📨 Nhận lời mời kết bạn mới:', data);
+      
+      if (data.data?.type === 'FRIEND_REQUEST_RECEIVED') {
+        setPendingRequests(prev => {
+          const exists = prev.some(req => req.userID === data.data.request.userID);
+          if (exists) return prev;
+          
+          const newPending = [...prev, data.data.request];
+          setCachedData('pendingRequests', newPending);
+          return newPending;
+        });
+        
+        showNotification('info', `${data.data.request.fullName} đã gửi lời mời kết bạn`);
+      }
+    });
+
+    const friendUpdateSub = subscribe('/user/queue/friend-updates', (data) => {
+      console.log('🔄 Cập nhật trạng thái bạn bè:', data);
+      
+      switch (data.data?.type) {
+        case 'FRIEND_REQUEST_ACCEPTED':
+          setFriends(prev => {
+            const exists = prev.some(friend => friend.userID === data.data.friend.userID);
+            if (exists) return prev;
+            
+            const newFriends = [...prev, data.data.friend];
+            setCachedData('friends', newFriends);
+            return newFriends;
+          });
+          
+          setSentRequests(prev => {
+            const newSent = prev.filter(req => req.userID !== data.data.friend.userID);
+            setCachedData('sentRequests', newSent);
+            return newSent;
+          });
+          
+          showNotification('success', `${data.data.friend.fullName} đã chấp nhận lời mời kết bạn`);
+          break;
+          
+        case 'FRIEND_REQUEST_REJECTED':
+          setSentRequests(prev => {
+            const newSent = prev.filter(req => req.userID !== data.data.userId);
+            setCachedData('sentRequests', newSent);
+            return newSent;
+          });
+          
+          showNotification('info', `${data.data.userName} đã từ chối lời mời kết bạn`);
+          break;
+          
+        case 'FRIEND_REMOVED':
+          setFriends(prev => {
+            const newFriends = prev.filter(friend => friend.userID !== data.data.userId);
+            setCachedData('friends', newFriends);
+            return newFriends;
+          });
+          
+          showNotification('info', `${data.data.userName} đã hủy kết bạn`);
+          break;
+          
+        case 'FRIEND_REQUEST_CANCELLED':
+          setPendingRequests(prev => {
+            const newPending = prev.filter(req => req.userID !== data.data.userId);
+            setCachedData('pendingRequests', newPending);
+            return newPending;
+          });
+          
+          showNotification('info', `${data.data.userName} đã hủy lời mời kết bạn`);
+          break;
+      }
+    });
+
+    const onlineStatusSub = subscribe('/topic/online-users', (data) => {
+      if (data.data?.type === 'USER_STATUS_CHANGED') {
+        setFriends(prev => prev.map(friend => 
+          friend.userID === data.data.userId 
+            ? { ...friend, status: data.data.status } 
+            : friend
+        ));
+        
+        setPendingRequests(prev => prev.map(user => 
+          user.userID === data.data.userId 
+            ? { ...user, status: data.data.status } 
+            : user
+        ));
+        
+        setSentRequests(prev => prev.map(user => 
+          user.userID === data.data.userId 
+            ? { ...user, status: data.data.status } 
+            : user
+        ));
+      }
+    });
+
+    if (friendRequestSub) socketSubscriptionsRef.current.add('friend-requests');
+    if (friendUpdateSub) socketSubscriptionsRef.current.add('friend-updates');
+    if (onlineStatusSub) socketSubscriptionsRef.current.add('online-users');
+
+  }, [isConnected, currentUserId, subscribe]);
+
+  const cleanupSocketSubscriptions = useCallback(() => {
+    console.log('🧹 Cleaning up friend socket subscriptions...');
+    
+    const subscriptions = [
+      '/user/queue/friend-requests',
+      '/user/queue/friend-updates', 
+      '/topic/online-users'
+    ];
+    
+    subscriptions.forEach(destination => {
+      unsubscribe(destination);
+    });
+    
+    socketSubscriptionsRef.current.clear();
+  }, [unsubscribe]);
+
+  useEffect(() => {
+    if (isConnected && currentUserId) {
+      setupSocketSubscriptions();
+    }
+    
+    return () => {
+      cleanupSocketSubscriptions();
+    };
+  }, [isConnected, currentUserId, setupSocketSubscriptions, cleanupSocketSubscriptions]);
+
   const resetAllState = useCallback(() => {
     setFriends([]);
     setPendingRequests([]);
@@ -102,7 +240,6 @@ const Friends = () => {
       sendingRequest: null
     });
     
-    // Clear cache trong localStorage
     if (currentUserId) {
       const cacheKeys = ['friends', 'pendingRequests', 'sentRequests'];
       cacheKeys.forEach(key => {
@@ -131,7 +268,6 @@ const Friends = () => {
     }
   };
 
-  // Reset state khi currentUser thay đổi (khi logout/login)
   useEffect(() => {
     if (!currentUser) {
       resetAllState();
@@ -198,7 +334,6 @@ const Friends = () => {
       clearTimeout(timeoutId);
 
       if (response.status === 401) {
-        // Token hết hạn, logout và reset state
         logout();
         resetAllState();
         navigate('/login', { state: { message: 'Phiên đăng nhập đã hết hạn' } });
@@ -381,11 +516,132 @@ const Friends = () => {
     await fetchSuggestions();
   };
 
+  const sendFriendRequest = async (userId) => {
+    try {
+      setLoadingState('sendingRequest', userId);
+
+      if (isConnected) {
+        const success = sendMessage('/friend/request', {
+          addresseeId: userId,
+          requesterId: currentUserId,
+          timestamp: new Date().toISOString()
+        });
+
+        if (success) {
+          console.log('✅ Đã gửi lời mời qua Socket');
+          
+          const requestedUser = suggestions.find(u => u.userID === userId) || searchResults.find(u => u.userID === userId);
+          if (requestedUser) {
+            const newRequest = {
+              ...requestedUser,
+              FriendshipID: `temp-${Date.now()}`,
+              Status: 'pending',
+              CreatedAt: new Date().toISOString(),
+              isSentRequest: true
+            };
+            
+            const newSent = [...sentRequests, newRequest];
+            setSentRequests(newSent);
+            setCachedData('sentRequests', newSent);
+
+            setSearchResults(prev => prev.map(user => 
+              user.userID === userId ? { ...user, isSentRequest: true } : user
+            ));
+            
+            setSuggestions(prev => prev.map(user => 
+              user.userID === userId ? { ...user, isSentRequest: true } : user
+            ));
+          }
+
+          showNotification('success', 'Đã gửi lời mời kết bạn');
+          clearLoadingState('sendingRequest');
+          return;
+        }
+      }
+
+      console.log('📡 Socket không khả dụng, gửi qua HTTP...');
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/friendships`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ addresseeId: userId })
+      });
+
+      if (!res.ok) throw new Error();
+
+      const data = await res.json();
+      const requestedUser = suggestions.find(u => u.userID === userId) || searchResults.find(u => u.userID === userId);
+
+      if (requestedUser) {
+        const newRequest = {
+          ...requestedUser,
+          FriendshipID: data.friendship.friendshipID,
+          Status: 'pending',
+          CreatedAt: data.friendship.requestedAt,
+          isSentRequest: true
+        };
+        
+        const newSent = [...sentRequests, newRequest];
+        setSentRequests(newSent);
+        setCachedData('sentRequests', newSent);
+
+        setSearchResults(prev => prev.map(user => 
+          user.userID === userId ? { ...user, isSentRequest: true } : user
+        ));
+        
+        setSuggestions(prev => prev.map(user => 
+          user.userID === userId ? { ...user, isSentRequest: true } : user
+        ));
+      }
+
+      showNotification('success', 'Đã gửi lời mời kết bạn');
+    } catch (err) {
+      console.error('Lỗi gửi lời mời:', err);
+      showNotification('error', 'Không thể gửi lời mời');
+    } finally {
+      clearLoadingState('sendingRequest');
+    }
+  };
+
   const acceptFriendRequest = async (userId) => {
     try {
       setLoadingState('acceptingRequest', userId);
+
+      if (isConnected) {
+        const success = sendMessage('/friend/accept', {
+          friendshipId: userId,
+          accepterId: currentUserId,
+          timestamp: new Date().toISOString()
+        });
+
+        if (success) {
+          console.log('✅ Đã chấp nhận qua Socket');
+          
+          const user = pendingRequests.find(u => u.userID === userId);
+          if (user) {
+            const newFriends = [...friends, user];
+            const newPending = pendingRequests.filter(u => u.userID !== userId);
+
+            setFriends(newFriends);
+            setPendingRequests(newPending);
+            setCachedData('friends', newFriends);
+            setCachedData('pendingRequests', newPending);
+          }
+
+          showNotification('success', 'Đã chấp nhận lời mời');
+          clearLoadingState('acceptingRequest');
+          return;
+        }
+      }
+
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/friendships/${userId}/accept`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/friendships/${userId}/accept`, { 
+        method: 'PUT', 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       if (!res.ok) throw new Error();
 
       const user = pendingRequests.find(u => u.userID === userId);
@@ -408,8 +664,32 @@ const Friends = () => {
   const rejectFriendRequest = async (userId) => {
     try {
       setLoadingState('rejectingRequest', userId);
+
+      if (isConnected) {
+        const success = sendMessage('/friend/reject', {
+          friendshipId: userId,
+          rejecterId: currentUserId,
+          timestamp: new Date().toISOString()
+        });
+
+        if (success) {
+          console.log('✅ Đã từ chối qua Socket');
+          
+          const newPending = pendingRequests.filter(u => u.userID !== userId);
+          setPendingRequests(newPending);
+          setCachedData('pendingRequests', newPending);
+
+          showNotification('success', 'Đã từ chối');
+          clearLoadingState('rejectingRequest');
+          return;
+        }
+      }
+
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/friendships/${userId}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/friendships/${userId}/reject`, { 
+        method: 'PUT', 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       if (!res.ok) throw new Error();
 
       const newPending = pendingRequests.filter(u => u.userID !== userId);
@@ -427,6 +707,35 @@ const Friends = () => {
   const cancelFriendRequest = async (userId) => {
     try {
       setLoadingState('cancelingRequest', userId);
+
+      if (isConnected) {
+        const success = sendMessage('/friend/cancel', {
+          friendshipId: userId,
+          cancellerId: currentUserId,
+          timestamp: new Date().toISOString()
+        });
+
+        if (success) {
+          console.log('✅ Đã hủy lời mời qua Socket');
+          
+          const newSent = sentRequests.filter(u => u.userID !== userId);
+          setSentRequests(newSent);
+          setCachedData('sentRequests', newSent);
+
+          setSearchResults(prev => prev.map(user => 
+            user.userID === userId ? { ...user, isSentRequest: false } : user
+          ));
+          
+          setSuggestions(prev => prev.map(user => 
+            user.userID === userId ? { ...user, isSentRequest: false } : user
+          ));
+
+          showNotification('success', 'Đã hủy lời mời');
+          clearLoadingState('cancelingRequest');
+          return;
+        }
+      }
+
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/friendships/${userId}`, { 
         method: 'DELETE', 
@@ -458,8 +767,32 @@ const Friends = () => {
   const removeFriend = async (userId) => {
     try {
       setLoadingState('removingFriend', userId);
+
+      if (isConnected) {
+        const success = sendMessage('/friend/remove', {
+          friendshipId: userId,
+          removerId: currentUserId,
+          timestamp: new Date().toISOString()
+        });
+
+        if (success) {
+          console.log('✅ Đã hủy kết bạn qua Socket');
+          
+          const newFriends = friends.filter(u => u.userID !== userId);
+          setFriends(newFriends);
+          setCachedData('friends', newFriends);
+
+          showNotification('success', 'Đã hủy kết bạn');
+          clearLoadingState('removingFriend');
+          return;
+        }
+      }
+
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/friendships/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/friendships/${userId}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       if (!res.ok) throw new Error();
 
       const newFriends = friends.filter(u => u.userID !== userId);
@@ -471,68 +804,6 @@ const Friends = () => {
       showNotification('error', 'Không thể hủy');
     } finally {
       clearLoadingState('removingFriend');
-    }
-  };
-
-  const sendFriendRequest = async (userId) => {
-    try {
-      setLoadingState('sendingRequest', userId);
-      const token = localStorage.getItem('token');
-
-      console.log('GỬI LỜI MỜI:', { requesterId: currentUserId, addresseeId: userId });
-
-      const res = await fetch(`${API_URL}/friendships`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ addresseeId: userId })
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        console.error('Lỗi API:', err);
-        throw new Error();
-      }
-
-      const data = await res.json();
-      const requestedUser = suggestions.find(u => u.userID === userId) || searchResults.find(u => u.userID === userId);
-
-      if (requestedUser) {
-        const newRequest = {
-          ...requestedUser,
-          FriendshipID: data.friendship.friendshipID,
-          Status: 'pending',
-          CreatedAt: data.friendship.requestedAt,
-          isSentRequest: true
-        };
-        
-        const newSent = [...sentRequests, newRequest];
-        setSentRequests(newSent);
-        setCachedData('sentRequests', newSent);
-
-        setSearchResults(prev => prev.map(user => 
-          user.userID === userId ? { ...user, isSentRequest: true } : user
-        ));
-        
-        setSuggestions(prev => prev.map(user => 
-          user.userID === userId ? { ...user, isSentRequest: true } : user
-        ));
-      }
-
-      setTimeout(async () => {
-        const updated = await fetchSentRequestsOnly();
-        setSentRequests(updated);
-        setCachedData('sentRequests', updated);
-      }, 800);
-
-      showNotification('success', 'Đã gửi lời mời');
-    } catch (err) {
-      console.error('Lỗi gửi lời mời:', err);
-      showNotification('error', 'Không thể gửi lời mời');
-    } finally {
-      clearLoadingState('sendingRequest');
     }
   };
 
@@ -665,15 +936,26 @@ const Friends = () => {
     sessionStorage.setItem('friendsActiveTab', activeTab);
   }, [activeTab]);
 
-  // Thêm cleanup khi component unmount
   useEffect(() => {
     return () => {
-      // Cleanup search timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
   }, []);
+
+  const renderSocketStatus = () => {
+  if (!isOwnFriends) return null;
+
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[70] animate-fadeDown">
+      <div className="flex items-center gap-2 px-4 py-1.5 bg-black/70 backdrop-blur-xl rounded-full text-white text-xs font-semibold shadow-2xl border border-white/20">
+        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
+        {isConnected ? 'Đã kết nối' : 'Kết nối lại...'}
+      </div>
+    </div>
+  );
+};
 
   if (loading && friends.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0) {
     return (
@@ -698,6 +980,8 @@ const Friends = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-50/50" style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}>
+      {renderSocketStatus()}
+      
       {!isOnline && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm shadow-md border border-red-100 z-50 flex items-center">
           <ExclamationCircleIcon className="h-5 w-5 mr-2" />
@@ -815,7 +1099,6 @@ const Friends = () => {
 
             {!showTabLoading && !showSentLoading && filteredUsers.length > 0 && (
               <>
-                {/* Mobile View */}
                 <div className="grid grid-cols-1 gap-3 sm:hidden px-2">
                   {filteredUsers.map(user => (
                     <div key={user.userID} className="bg-white rounded-xl p-4 border flex items-center gap-4">
@@ -968,7 +1251,6 @@ const Friends = () => {
                   ))}
                 </div>
 
-                {/* Desktop View */}
                 <div className={`hidden sm:grid ${activeTab === 'sent' ? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'} gap-4 md:gap-6`}>
                   {filteredUsers.map(user => (
                     <div key={user.userID} className={`bg-white rounded-xl ${activeTab === 'sent' ? 'p-5 md:p-6' : 'p-4 md:p-5'} border hover:shadow-md transition-all group`}>

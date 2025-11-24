@@ -945,12 +945,11 @@ const Posts = () => {
 
   // Hiển thị trạng thái kết nối WebSocket - GIỐNG CHAT
   const renderConnectionStatus = () => (
-    <div className={`fixed top-4 right-4 px-3 py-1 rounded-full text-xs font-medium z-50 ${
-      isConnected 
-        ? 'bg-green-100 text-green-800 border border-green-300' 
-        : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-    }`}>
-      {isConnected ? '🟢 Đã kết nối' : '🟡 Đang kết nối...'}
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[70] animate-fadeDown">
+      <div className="flex items-center gap-2 px-4 py-1.5 bg-black/70 backdrop-blur-xl rounded-full text-white text-xs font-semibold shadow-2xl border border-white/20">
+        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
+        {isConnected ? 'Đã kết nối' : 'Kết nối lại...'}
+      </div>
     </div>
   );
 

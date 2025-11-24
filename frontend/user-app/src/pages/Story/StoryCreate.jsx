@@ -15,6 +15,7 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
   const [fontStyle, setFontStyle] = useState('font-sans');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
 
   const backgroundColors = [
@@ -27,6 +28,70 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
     { value: 'font-mono', label: 'Minimal', className: 'font-mono' },
     { value: 'font-bold', label: 'Bold', className: 'font-bold' }
   ];
+
+  // 🔥 HÀM UPLOAD VIDEO CHUNK
+  const handleVideoChunkUpload = async (file, token) => {
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB per chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+
+    console.log(`🎬 Starting video chunk upload: ${file.name}`);
+    console.log(`📊 File size: ${file.size} bytes, Total chunks: ${totalChunks}`);
+
+    // Upload từng chunk
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append('video', chunk);
+      formData.append('chunkIndex', chunkIndex.toString());
+      formData.append('totalChunks', totalChunks.toString());
+      formData.append('fileName', file.name);
+
+      try {
+        const uploadResponse = await fetch(`${API_BASE_URL}/stories/video-chunk`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(`Lỗi upload chunk ${chunkIndex + 1}: ${errorData.message || 'Unknown error'}`);
+        }
+
+        const result = await uploadResponse.json();
+        
+        if (!result.success) {
+          throw new Error(`Chunk ${chunkIndex + 1} failed: ${result.message}`);
+        }
+
+        // Cập nhật tiến trình
+        const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+        setUploadProgress(progress);
+        
+        console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} uploaded (${progress}%)`);
+
+      } catch (err) {
+        console.error(`❌ Chunk ${chunkIndex + 1} upload failed:`, err);
+        throw new Error(`Upload chunk ${chunkIndex + 1} thất bại: ${err.message}`);
+      }
+    }
+
+    console.log('🎉 Video upload completed!');
+    
+    // Trả về kết quả giả định (BE sẽ trả về URL thực tế)
+    return {
+      success: true,
+      message: 'Video uploaded successfully',
+      videoUrl: `/uploads/${Date.now()}-${file.name}`,
+      mediaType: 'video'
+    };
+  };
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -41,19 +106,23 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File không được vượt quá 10MB');
+    // Kiểm tra kích thước file
+    const maxSize = storyType === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(`File không được vượt quá ${maxSize / (1024 * 1024)}MB`);
       return;
     }
 
     setSelectedFile(file);
     setError(null);
+    setUploadProgress(0);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setUploadProgress(0);
 
     try {
       const token = localStorage.getItem('token');
@@ -61,60 +130,81 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
         throw new Error('Vui lòng đăng nhập');
       }
 
-      const formData = new FormData();
-      
+      let responseData;
+
       if (storyType === 'text') {
+        // 🔥 API CŨ CHO TEXT
         if (!textContent.trim()) {
           throw new Error('Vui lòng nhập nội dung');
         }
+
+        const formData = new FormData();
         formData.append('textContent', textContent);
         formData.append('backgroundColor', backgroundColor);
         formData.append('fontStyle', fontStyle);
         formData.append('mediaType', 'text');
-      } else {
-        if (!selectedFile) {
-          throw new Error('Vui lòng chọn file');
+
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+        const response = await fetch(`${API_BASE_URL}/stories`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Không thể tạo story');
         }
+
+        responseData = await response.json();
+
+      } else if (storyType === 'image') {
+        // 🔥 API CŨ CHO ẢNH
+        const formData = new FormData();
         formData.append('mediaFile', selectedFile);
-        formData.append('mediaType', storyType);
+        formData.append('mediaType', 'image');
+
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+        const response = await fetch(`${API_BASE_URL}/stories`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Không thể tạo story');
+        }
+
+        responseData = await response.json();
+
+      } else if (storyType === 'video') {
+        // 🔥 API MỚI CHO VIDEO CHUNK
+        responseData = await handleVideoChunkUpload(selectedFile, token);
       }
 
-      const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
-
-      const response = await fetch(`${API_BASE_URL}/stories`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Không thể tạo story');
-      }
-
-      const data = await response.json();
-      
       // 🔥 QUAN TRỌNG: Gọi callback trước khi reload
       if (onStoryCreated) {
-        onStoryCreated(data);
+        onStoryCreated(responseData);
       }
 
       // 🔥 TỰ ĐỘNG RELOAD TRANG
       setTimeout(() => {
         window.location.reload();
-      }, 500); // Delay 0.5s để người dùng thấy thành công
+      }, 500);
 
     } catch (err) {
       console.error('Create story error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
-
-  // ... (giữ nguyên các hàm khác: openFilePicker, removeSelectedFile, renderPreview)
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -123,6 +213,7 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
   const removeSelectedFile = () => {
     setSelectedFile(null);
     setStoryType('text');
+    setUploadProgress(0);
   };
 
   const renderPreview = () => {
@@ -145,18 +236,29 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
             src={previewUrl}
             alt="Preview"
             className="w-full h-full object-cover"
+            onLoad={() => URL.revokeObjectURL(previewUrl)}
           />
         </div>
       );
     } else if (storyType === 'video' && selectedFile) {
       const previewUrl = URL.createObjectURL(selectedFile);
       return (
-        <div className="w-full aspect-[9/16] max-h-[70vh] rounded-2xl overflow-hidden shadow-lg">
+        <div className="w-full aspect-[9/16] max-h-[70vh] rounded-2xl overflow-hidden shadow-lg relative">
           <video
             src={previewUrl}
             className="w-full h-full object-cover"
             controls
+            onLoadStart={() => URL.revokeObjectURL(previewUrl)}
           />
+          {/* Progress bar for video upload */}
+          {loading && storyType === 'video' && (
+            <div className="absolute bottom-4 left-4 right-4 bg-black/50 rounded-full overflow-hidden">
+              <div 
+                className="h-2 bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       );
     }
@@ -208,6 +310,25 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
                   <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
                   <p className="text-red-700 text-sm font-medium">{error}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Upload Progress for Video */}
+            {loading && storyType === 'video' && uploadProgress > 0 && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-700">Đang upload video...</span>
+                  <span className="text-sm font-medium text-blue-700">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  Đang xử lý video chunk... ({Math.round(selectedFile?.size / (1024 * 1024))}MB)
+                </p>
               </div>
             )}
 
@@ -362,7 +483,8 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
                           {selectedFile.name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                          {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • 
+                          {storyType === 'video' ? ' Video (chunk upload)' : ' Ảnh'}
                         </p>
                       </div>
                     </div>
@@ -399,7 +521,7 @@ const StoryCreate = ({ onStoryCreated, onClose }) => {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                  Đang đăng...
+                  {storyType === 'video' ? `Uploading... ${uploadProgress}%` : 'Đang đăng...'}
                 </>
               ) : (
                 <>

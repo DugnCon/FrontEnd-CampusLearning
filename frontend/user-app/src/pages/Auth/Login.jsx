@@ -1917,7 +1917,7 @@ const Login = () => {
                         // Use the current origin as redirect URI by default
                         // This should match exactly what's registered in Google Cloud Console
                         const redirectUri = encodeURIComponent(
-                          'https://campuslearning.site/oauth2/redirect' || 
+                          import.meta.env.VITE_GOOGLE_REDIRECT_URI || 
                           window.location.origin
                         );
                         

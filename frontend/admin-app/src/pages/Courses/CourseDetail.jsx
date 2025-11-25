@@ -41,6 +41,7 @@ import MainCard from '../../components/MainCard';
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { confirm } = Modal;
+const API_BASE_URL = process.env.VITE_API_URL || '/admin/api';
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -412,7 +413,7 @@ const CourseDetail = () => {
               <div>
                 <Image
                   width={180}
-                  src={`http://localhost:8081${course.ImageUrl || '/uploads/default.png'}`}
+                  src={`${API_BASE_URL}${course.ImageUrl || '/uploads/default.png'}`}
                   fallback="https://via.placeholder.com/300x180?text=Image+Not+Found"
                   style={{ borderRadius: 8 }}
                 />

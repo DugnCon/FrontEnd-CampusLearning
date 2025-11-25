@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -21,7 +20,8 @@ import {
   CircularProgress,
   Divider,
   Tooltip,
-  Chip
+  Chip,
+  LinearProgress
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -147,24 +147,38 @@ const CreateCourse = () => {
   const [objectiveInput, setObjectiveInput] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
   const navigate = useNavigate();
   const { addNotification } = useNotification();
+
+  // Cleanup blob URLs
+  useEffect(() => {
+    return () => {
+      if (videoPreview) {
+        URL.revokeObjectURL(videoPreview);
+      }
+      modules.forEach(module => {
+        if (module.imagePreview && module.imagePreview.startsWith('blob:')) {
+          URL.revokeObjectURL(module.imagePreview);
+        }
+      });
+    };
+  }, [videoPreview, modules]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCourseData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Xử lý thay đổi thông tin module
   const handleModuleChange = (index, field, value) => {
     const updatedModules = [...modules];
     updatedModules[index][field] = value;
     setModules(updatedModules);
   };
 
-  // Thêm module mới
   const handleAddModule = () => {
     setModules([...modules, { 
       title: '', 
@@ -175,14 +189,12 @@ const CreateCourse = () => {
     }]);
   };
 
-  // Xóa module
   const handleRemoveModule = (index) => {
     const updatedModules = [...modules];
     updatedModules.splice(index, 1);
     setModules(updatedModules);
   };
 
-  // Di chuyển module lên
   const handleMoveUp = (index) => {
     if (index === 0) return;
     const updatedModules = [...modules];
@@ -192,7 +204,6 @@ const CreateCourse = () => {
     setModules(updatedModules);
   };
 
-  // Di chuyển module xuống
   const handleMoveDown = (index) => {
     if (index === modules.length - 1) return;
     const updatedModules = [...modules];
@@ -202,17 +213,14 @@ const CreateCourse = () => {
     setModules(updatedModules);
   };
 
-  // Sử dụng template module mặc định
   const handleUseDefaultModules = () => {
     setModules([...defaultModules]);
   };
   
-  // Xử lý upload hình ảnh khóa học
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Kiểm tra định dạng file
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       addNotification('Chỉ chấp nhận file hình ảnh: jpg, png, gif, webp', 'error');
@@ -221,40 +229,133 @@ const CreateCourse = () => {
     
     setCourseImage(file);
     
-    // Tạo preview
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
+    reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
     
-    // Xóa lỗi nếu có
     setValidationErrors(prev => ({ ...prev, image: false }));
   };
   
-  // Xử lý upload video khóa học
   const handleVideoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Kiểm tra định dạng file
     const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
     if (!allowedTypes.includes(file.type)) {
       addNotification('Chỉ chấp nhận file video: mp4, webm, mov, avi', 'error');
       return;
     }
     
-    setCourseVideo(file);
+    // Cleanup previous video preview
+    if (videoPreview) {
+      URL.revokeObjectURL(videoPreview);
+    }
     
-    // Tạo preview URL
+    setCourseVideo(file);
     const videoURL = URL.createObjectURL(file);
     setVideoPreview(videoURL);
-    
-    // Xóa lỗi nếu có
+    setUploadProgress(0);
     setValidationErrors(prev => ({ ...prev, video: false }));
   };
+
+  // === PHẦN VIDEO CHUNK ĐÃ ĐƯỢC TỐI ƯU HOÀN TOÀN ===
+const uploadVideoInChunks = async (courseId, file) => {
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    const TOTAL_CHUNKS = Math.ceil(file.size / CHUNK_SIZE);
+
+    setIsUploadingVideo(true);
+    setUploadProgress(0);
+
+    console.log('🚀 Starting optimized chunk upload:');
+    console.log('   - File:', file.name);
+    console.log('   - Size:', (file.size / (1024 * 1024)).toFixed(2), 'MB');
+    console.log('   - Total chunks:', TOTAL_CHUNKS);
+
+    // Hàm upload chunk với retry
+    const uploadChunkWithRetry = async (chunkIndex, retries = 3) => {
+        try {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append('video', chunk);
+            formData.append('chunkIndex', chunkIndex.toString());
+            formData.append('totalChunks', TOTAL_CHUNKS.toString());
+            formData.append('fileName', file.name);
+
+            console.log(`📦 Uploading chunk ${chunkIndex + 1}/${TOTAL_CHUNKS}`);
+
+            const response = await api.post(`/courses/${courseId}/video-chunk`, formData, {
+                headers: { 
+                    'Content-Type': 'multipart/form-data'
+                },
+                timeout: 30000
+            });
+
+            console.log(`✅ Chunk ${chunkIndex + 1} response:`, response.data);
+            return response;
+            
+        } catch (error) {
+            console.error(`❌ Chunk ${chunkIndex + 1} failed:`, error.message);
+            
+            if (retries > 0) {
+                console.log(`🔄 Retrying chunk ${chunkIndex + 1}, attempts left: ${retries}`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return uploadChunkWithRetry(chunkIndex, retries - 1);
+            }
+            
+            throw new Error(`Failed to upload chunk ${chunkIndex + 1}: ${error.message}`);
+        }
+    };
+
+    try {
+        let finalVideoUrl = null;
+
+        // Upload tuần tự
+        for (let i = 0; i < TOTAL_CHUNKS; i++) {
+            const response = await uploadChunkWithRetry(i);
+            
+            // Update progress
+            const progress = Math.round(((i + 1) / TOTAL_CHUNKS) * 100);
+            setUploadProgress(progress);
+            console.log(`📊 Upload progress: ${progress}%`);
+
+            // 🔥 QUAN TRỌNG: Kiểm tra nếu response có videoUrl -> upload completed
+            if (response.data.videoUrl) {
+                finalVideoUrl = response.data.videoUrl;
+                console.log('🎉 Video upload completed in chunk API!');
+                console.log('   - Video URL:', finalVideoUrl);
+                addNotification('Video đã được tải lên thành công', 'success');
+                break; // Dừng vòng lặp vì đã xong
+            }
+        }
+
+        // Nếu không có videoUrl sau khi upload tất cả chunks -> có lỗi
+        if (!finalVideoUrl) {
+            throw new Error('Upload completed but no video URL received');
+        }
+
+        return finalVideoUrl;
+
+    } catch (error) {
+        console.error('💥 Video upload process failed:', error);
+        
+        let errorMessage = 'Upload video thất bại: ';
+        if (error.response?.data?.message) {
+            errorMessage += error.response.data.message;
+        } else {
+            errorMessage += error.message;
+        }
+        
+        addNotification(errorMessage, 'error');
+        throw new Error(errorMessage);
+    } finally {
+        setIsUploadingVideo(false);
+        setUploadProgress(0);
+    }
+  };
   
-  // Thêm yêu cầu khóa học
   const handleAddRequirement = () => {
     if (!requirementInput.trim()) return;
     setCourseData(prev => ({
@@ -264,7 +365,6 @@ const CreateCourse = () => {
     setRequirementInput('');
   };
   
-  // Xóa yêu cầu khóa học
   const handleRemoveRequirement = (index) => {
     setCourseData(prev => ({
       ...prev,
@@ -272,7 +372,6 @@ const CreateCourse = () => {
     }));
   };
   
-  // Thêm mục tiêu khóa học
   const handleAddObjective = () => {
     if (!objectiveInput.trim()) return;
     setCourseData(prev => ({
@@ -282,7 +381,6 @@ const CreateCourse = () => {
     setObjectiveInput('');
   };
   
-  // Xóa mục tiêu khóa học
   const handleRemoveObjective = (index) => {
     setCourseData(prev => ({
       ...prev,
@@ -290,182 +388,147 @@ const CreateCourse = () => {
     }));
   };
 
-  // Xử lý thay đổi link video cho module
   const handleModuleVideoUrlChange = (index, e) => {
     const updatedModules = [...modules];
     updatedModules[index].videoUrl = e.target.value;
     setModules(updatedModules);
-    
-    // Xóa lỗi nếu có
     if (e.target.value) {
       const updatedErrors = {...validationErrors};
       delete updatedErrors[`module_${index}_media`];
       setValidationErrors(updatedErrors);
     }
   };
-  
-  // Xử lý upload hình ảnh cho module
+
   const handleModuleImageUpload = (index, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    // Kiểm tra định dạng file
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       addNotification('Chỉ chấp nhận file hình ảnh: jpg, png, gif, webp', 'error');
       return;
     }
-    
     const updatedModules = [...modules];
     updatedModules[index].image = file;
-    
-    // Tạo preview
     const reader = new FileReader();
     reader.onloadend = () => {
       updatedModules[index].imagePreview = reader.result;
       setModules([...updatedModules]);
     };
     reader.readAsDataURL(file);
-    
-    // Xóa lỗi nếu có
     const updatedErrors = {...validationErrors};
     delete updatedErrors[`module_${index}_media`];
     setValidationErrors(updatedErrors);
   };
 
-  // Xác thực dữ liệu
   const validateData = () => {
     const errors = {};
-    
-    // Kiểm tra thông tin cơ bản
     if (!courseData.title) errors.title = true;
     if (!courseData.description) errors.description = true;
     if (!courseData.duration) errors.duration = true;
     if (!courseData.price) errors.price = true;
-    
-    // Kiểm tra ảnh và video cho khóa học
     if (!courseImage) errors.image = true;
     if (!courseVideo) errors.video = true;
-    
-    // Kiểm tra modules
-    if (modules.length === 0) {
-      errors.modules = 'Khóa học cần ít nhất một module';
-    } else {
-      // Kiểm tra từng module có tiêu đề không
+    if (modules.length === 0) errors.modules = 'Khóa học cần ít nhất một module';
+    else {
       const invalidModules = modules.filter(m => !m.title.trim());
-      if (invalidModules.length > 0) {
-        errors.modules = 'Một số module chưa có tiêu đề';
-      }
-      
-      // Kiểm tra module có ít nhất một loại media (video URL HOẶC hình ảnh)
+      if (invalidModules.length > 0) errors.modules = 'Một số module chưa có tiêu đề';
       const modulesWithoutMedia = modules.filter(m => !m.videoUrl && !m.image);
       if (modulesWithoutMedia.length > 0) {
-        if (!errors.modules) {
-          errors.modules = 'Một số module chưa có link video bài giảng hoặc hình ảnh';
-        }
-        
-        // Đánh dấu các module thiếu media
+        if (!errors.modules) errors.modules = 'Một số module chưa có link video bài giảng hoặc hình ảnh';
         modules.forEach((module, index) => {
-          if (!module.videoUrl && !module.image) {
-            errors[`module_${index}_media`] = true;
-          }
+          if (!module.videoUrl && !module.image) errors[`module_${index}_media`] = true;
         });
       }
     }
-    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Kiểm tra dữ liệu
-    if (!validateData()) {
-      addNotification('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
+      e.preventDefault();
+      if (!validateData()) {
+          addNotification('Vui lòng điền đầy đủ thông tin bắt buộc', 'error');
+          return;
+      }
+      
+      setLoading(true);
+      setError('');
 
-    try {
-      // Generate slug from title with timestamp to ensure uniqueness
-      const timestamp = new Date().getTime().toString().slice(-6);
-      const uniqueSlug = generateSlug(courseData.title) + '-' + timestamp;
-      
-      // Tạo khóa học
-      const formData = {
-        ...courseData,
-        requirements: courseData.requirements.join('||'),
-        objectives: courseData.objectives.join('||'),
-        slug: uniqueSlug
-      };
-      
-      console.log('Sending course data with slug:', formData.slug);
-      
-      const response = await api.post('/courses', formData);
-      const courseId = response.data.courseId;
-      
-      // Upload hình ảnh
-      if (courseImage) {
-        const imageFormData = new FormData();
-        imageFormData.append('image', courseImage);
-        await api.post(`/courses/${courseId}/image`, imageFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
-      
-      // Upload video
-      if (courseVideo) {
-        const videoFormData = new FormData();
-        videoFormData.append('video', courseVideo);
-        await api.post(`/courses/${courseId}/video`, videoFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
-      
-      // Tạo các module cho khóa học
-      if (modules.length > 0) {
-        for (let i = 0; i < modules.length; i++) {
-          const module = modules[i];
-          if (module.title) {
-            const moduleResponse = await api.post(`/courses/${courseId}/modules`, {
-              title: module.title,
-              description: module.description,
-              orderIndex: i + 1
-            });
-            
-            const moduleId = moduleResponse.data.moduleId;
-            
-            // Lưu link video cho module nếu có
-            if (module.videoUrl) {
-              await api.post(`/modules/${moduleId}/video-url`, {
-                videoUrl: module.videoUrl
-              });
-            }
-            
-            // Upload hình ảnh cho module nếu có
-            if (module.image) {
+      try {
+          const timestamp = new Date().getTime().toString().slice(-6);
+          const uniqueSlug = generateSlug(courseData.title) + '-' + timestamp;
+          
+          const formData = {
+              ...courseData,
+              requirements: courseData.requirements.join('||'),
+              objectives: courseData.objectives.join('||'),
+              slug: uniqueSlug
+          };
+          
+          console.log('📝 Creating course with slug:', formData.slug);
+          
+          const response = await api.post('/courses', formData);
+          const courseId = response.data.courseId;
+          
+          console.log('✅ Course created with ID:', courseId);
+          
+          // Upload hình ảnh
+          if (courseImage) {
+              console.log('🖼️ Uploading course image...');
               const imageFormData = new FormData();
-              imageFormData.append('image', module.image);
-              await api.post(`/modules/${moduleId}/image`, imageFormData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+              imageFormData.append('image', courseImage);
+              await api.post(`/courses/${courseId}/image`, imageFormData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
               });
-            }
+              console.log('✅ Course image uploaded');
           }
-        }
+          
+          // === UPLOAD VIDEO VỚI LOGIC MỚI (KHÔNG CẦN FINALIZE) ===
+          if (courseVideo) {
+              console.log('🎬 Starting optimized video upload...');
+              await uploadVideoInChunks(courseId, courseVideo);
+              // Video đã tự động được lưu trong database qua service
+          }
+          
+          // Tạo module
+          if (modules.length > 0) {
+              console.log('📚 Creating modules...');
+              for (let i = 0; i < modules.length; i++) {
+                  const module = modules[i];
+                  if (module.title) {
+                      console.log(`   Creating module ${i + 1}: ${module.title}`);
+                      const moduleResponse = await api.post(`/courses/${courseId}/modules`, {
+                          title: module.title,
+                          description: module.description,
+                          orderIndex: i + 1
+                      });
+                      
+                      const moduleId = moduleResponse.data.moduleId;
+                      
+                      if (module.videoUrl) {
+                          await api.post(`/modules/${moduleId}/video-url`, { videoUrl: module.videoUrl });
+                      }
+                      
+                      if (module.image) {
+                          const imageFormData = new FormData();
+                          imageFormData.append('image', module.image);
+                          await api.post(`/modules/${moduleId}/image`, imageFormData, {
+                              headers: { 'Content-Type': 'multipart/form-data' }
+                          });
+                      }
+                  }
+              }
+          }
+          
+          addNotification('Khóa học đã được tạo thành công', 'success');
+          navigate(`/courses/edit/${courseId}`);
+      } catch (err) {
+          console.error('❌ Error creating course:', err);
+          setError(err.response?.data?.message || 'Lỗi khi tạo khóa học');
+          addNotification('Không thể tạo khóa học', 'error');
+      } finally {
+          setLoading(false);
       }
-      
-      addNotification('Khóa học đã được tạo thành công', 'success');
-      navigate(`/courses/edit/${courseId}`);
-    } catch (err) {
-      console.error('Error creating course:', err);
-      setError(err.response?.data?.message || 'Lỗi khi tạo khóa học');
-      addNotification('Không thể tạo khóa học', 'error');
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -704,8 +767,9 @@ const CreateCourse = () => {
                   variant="outlined"
                   component="label"
                   startIcon={<VideoLibraryIcon />}
+                  disabled={isUploadingVideo}
                 >
-                  Tải lên video
+                  {isUploadingVideo ? 'Đang tải lên...' : 'Tải lên video'}
                   <input
                     type="file"
                     hidden
@@ -714,8 +778,25 @@ const CreateCourse = () => {
                   />
                 </Button>
               </Box>
+
+              {/* Video Upload Progress */}
+              {isUploadingVideo && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    Đang tải lên video... {uploadProgress}%
+                  </Typography>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={uploadProgress} 
+                    sx={{ height: 8, borderRadius: 4 }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Vui lòng không đóng trình duyệt trong quá trình tải lên
+                  </Typography>
+                </Box>
+              )}
               
-              {videoPreview && (
+              {videoPreview && !isUploadingVideo && (
                 <Box sx={{ width: '100%', borderRadius: 1, overflow: 'hidden' }}>
                   <video 
                     src={videoPreview} 
@@ -1018,7 +1099,7 @@ const CreateCourse = () => {
           variant="contained"
           color="primary"
           size="large"
-          disabled={loading}
+          disabled={loading || isUploadingVideo}
         >
           {loading ? <CircularProgress size={24} /> : 'Tạo khóa học'}
         </Button>

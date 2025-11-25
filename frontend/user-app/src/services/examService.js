@@ -40,13 +40,13 @@ const examService = {
   // Get all available exams
   getAllExams: async () => {
     console.log('Getting all available exams');
-    return api.get('/api/exams/all');
+    return api.get('/exams/all');
   },
 
   // Get all exams for a course
   getCourseExams: (courseId) => {
     console.log(`Getting exams for course ${courseId}`);
-    return api.get(`/api/exams/course/${courseId}`);
+    return api.get(`/exams/course/${courseId}`);
   },
 
   // Get a specific exam
@@ -55,14 +55,14 @@ const examService = {
     const id = isNaN(numericId) ? examId : numericId;
     console.log(`Getting exam details for exam ${id} (type: ${typeof id})`);
     
-    return api.get(`/api/exams/${id}`).catch(error => {
+    return api.get(`/exams/${id}`).catch(error => {
       console.error(`Error getting exam ${id}:`, error);
       // Thêm xử lý lỗi cụ thể 
       if (error.response && error.response.status === 500) {
         console.log('Server error getting exam, retrying with a different approach...');
         
         // Thử phương pháp khác: lấy dữ liệu từ danh sách bài thi của người dùng
-        return api.get('/api/exams/user')
+        return api.get('/exams/user')
           .then(response => {
             if (response.data && response.data.exams) {
               const userExams = response.data.exams;
@@ -208,26 +208,26 @@ const examService = {
   },
 
   // Create a new exam (instructor only)
-  createExam: (examData) => api.post('/api/exams', examData),
+  createExam: (examData) => api.post('/exams', examData),
 
   // Update an exam (instructor only)
-  updateExam: (examId, examData) => api.put(`/api/exams/${examId}`, examData),
+  updateExam: (examId, examData) => api.put(`/exams/${examId}`, examData),
 
   // Delete an exam (instructor only)
-  deleteExam: (examId) => api.delete(`/api/exams/${examId}`),
+  deleteExam: (examId) => api.delete(`/exams/${examId}`),
 
   // Add a question to an exam (instructor only)
-  addExamQuestion: (examId, questionData) => api.post(`/api/exams/${examId}/questions`, questionData),
+  addExamQuestion: (examId, questionData) => api.post(`/exams/${examId}/questions`, questionData),
 
   // Update a question (instructor only)
   updateExamQuestion: (examId, questionId, questionData) => 
-    api.put(`/api/exams/${examId}/questions/${questionId}`, questionData),
+    api.put(`/exams/${examId}/questions/${questionId}`, questionData),
 
   // Delete a question (instructor only)
-  deleteExamQuestion: (examId, questionId) => api.delete(`/api/exams/${examId}/questions/${questionId}`),
+  deleteExamQuestion: (examId, questionId) => api.delete(`/exams/${examId}/questions/${questionId}`),
 
   // Register for an exam
-  registerForExam: (examId) => api.post(`/api/exams/${examId}/register`),
+  registerForExam: (examId) => api.post(`/exams/${examId}/register`),
 
   /**
    * Start an exam attempt with proper database field handling

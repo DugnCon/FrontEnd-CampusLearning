@@ -12,7 +12,7 @@ const securityKeyService = {
   // SSH Key methods
   getSSHKeys: async (token) => {
     try {
-      const response = await axios.get(`${API_URL}/api/users/ssh-keys`, {
+      const response = await axios.get(`${API_URL}/users/ssh-keys`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -52,7 +52,7 @@ const securityKeyService = {
   // GPG Key methods
   getGPGKeys: async (token) => {
     try {
-      const response = await axios.get(`${API_URL}/api/users/gpg-keys`, {
+      const response = await axios.get(`${API_URL}/users/gpg-keys`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -65,7 +65,7 @@ const securityKeyService = {
   addGPGKey: async (token, { title, key }) => {
     try {
       const response = await axios.post(
-        `${API_URL}/api/users/gpg-keys`, 
+        `${API_URL}/users/gpg-keys`, 
         { title, key },
         { headers: { Authorization: `Bearer ${token}` }}
       );
@@ -79,7 +79,7 @@ const securityKeyService = {
   deleteGPGKey: async (token, keyId) => {
     try {
       const response = await axios.delete(
-        `${API_URL}/api/users/gpg-keys/${keyId}`, 
+        `${API_URL}/users/gpg-keys/${keyId}`, 
         { headers: { Authorization: `Bearer ${token}` }}
       );
       return response.data;

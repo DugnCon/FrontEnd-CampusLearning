@@ -14,7 +14,7 @@ const getAuthToken = () => {
 
 export const getEventDetail = async (eventId) => {
   const token = getAuthToken();
-  return await axios.get(`${API_URL}/api/events/${eventId}`, {
+  return await axios.get(`${API_URL}/events/${eventId}`, {
     headers: {
       Authorization: `Bearer ${token}`
     }
@@ -28,7 +28,7 @@ export const registerForEvent = async (eventId, userData = {}) => {
   }
   
   console.log('Fallback registerForEvent called with:', eventId);
-  return await axios.post(`${API_URL}/api/events/${eventId}/register`, userData, {
+  return await axios.post(`${API_URL}/events/${eventId}/register`, userData, {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -43,7 +43,7 @@ export const cancelEventRegistration = async (eventId) => {
   }
   
   console.log('Fallback cancelEventRegistration called with:', eventId);
-  return await axios.delete(`${API_URL}/api/events/${eventId}/register`, {
+  return await axios.delete(`${API_URL}/events/${eventId}/register`, {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -58,7 +58,7 @@ export const checkEventRegistration = async (eventId) => {
   }
   
   try {
-    const response = await axios.get(`${API_URL}/api/events/${eventId}/registration-status`, {
+    const response = await axios.get(`${API_URL}/events/${eventId}/registration-status`, {
       headers: {
         Authorization: `Bearer ${token}`
       }

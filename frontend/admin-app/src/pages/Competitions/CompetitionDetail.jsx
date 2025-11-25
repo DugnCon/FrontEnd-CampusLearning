@@ -32,6 +32,7 @@ const CompetitionDetail = () => {
   const [activeTab, setActiveTab] = useState('1');
   const [statusLoading, setStatusLoading] = useState(false);
   const [selectedProblemId, setSelectedProblemId] = useState(null);
+  const API_BASE_URL = process.env.VITE_API_URL || '/admin/app';
 
   useEffect(() => {
     fetchCompetitionData();
@@ -452,7 +453,7 @@ const CompetitionDetail = () => {
               </div>
               {competition.coverImageURL && (
                 <Image
-                  src={competition.coverImageURL}
+                  src={`${API_BASE_URL}${competition.coverImageURL}`}
                   alt={competition.title}
                   width={80}
                   height={80}

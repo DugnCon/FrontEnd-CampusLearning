@@ -13,7 +13,7 @@ const CompetitionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null);
-  const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api'
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
   useEffect(() => {
     const fetchCompetitions = async () => {
@@ -393,4 +393,4 @@ const CompetitionsPage = () => {
   );
 };
 
-export default CompetitionsPage; 
+export default CompetitionsPage;

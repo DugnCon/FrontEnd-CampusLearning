@@ -15,6 +15,8 @@ const formatPrice = (price) => {
   return isNaN(numericPrice) ? 0 : numericPrice;
 };
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+
 // Hàm helper để kiểm tra khóa học IT
 const isITCourse = (course) => {
   // Ưu tiên sử dụng CourseType nếu có
@@ -118,7 +120,6 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
   const courseType = isITCourse(course) ? 'it' : 'regular';
   const dispatch = useDispatch();
   const { isAuthenticated } = useAuth();
-  const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
   const handleCourseClick = () => {
     onNavigate();

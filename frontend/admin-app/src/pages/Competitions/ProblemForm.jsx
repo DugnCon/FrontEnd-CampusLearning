@@ -283,7 +283,7 @@ const ProblemForm = () => {
 
   const uploadProps = {
     name: 'image',
-    action: `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081'}/api/upload`,
+    action: `${process.env.VITE_API_URL || '/admin/api'}/upload`,
     headers: {
       authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('admin_token')}`,
     },

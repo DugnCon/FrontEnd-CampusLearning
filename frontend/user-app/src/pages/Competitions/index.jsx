@@ -13,6 +13,7 @@ const CompetitionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null);
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api'
 
   useEffect(() => {
     const fetchCompetitions = async () => {
@@ -331,7 +332,7 @@ const CompetitionsPage = () => {
                 >
                   <div className="aspect-w-16 aspect-h-9 overflow-hidden">
                     <img
-                      src={competition.thumbnailUrl || 'https://via.placeholder.com/600x400?text=Competition'}
+                      src={competition.thumbnailUrl ? `${API_BASE_URL}${competition.thumbnailUrl}` : 'https://via.placeholder.com/600x400?text=Competition'}
                       alt={competition.title}
                       className="w-full h-48 object-cover"
                       loading="lazy"

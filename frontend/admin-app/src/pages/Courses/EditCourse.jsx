@@ -48,6 +48,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
+const API_BASE_URL = process.env.VITE_API_URL || '/admin/api';
 
 const levelOptions = [
   { value: 'beginner', label: 'Sơ cấp' },
@@ -645,7 +646,7 @@ const EditCourse = () => {
                 {courseData.imageUrl ? (
                   <div style={{ marginTop: 8, marginBottom: 16 }}>
                     <Image
-                      src={`http://localhost:8081${courseData.imageUrl}`}
+                      src={`${API_BASE_URL}${courseData.imageUrl}`}
                       alt={courseData.title}
                       style={{ maxWidth: '100%', borderRadius: 8 }}
                     />
@@ -688,7 +689,7 @@ const EditCourse = () => {
                 <div style={{ marginTop: 8, marginBottom: 16 }}>
                   {courseData.videoUrl.endsWith('.mp4') ? (
                     <video
-                      src={`http://localhost:8081${courseData.videoUrl}`}
+                      src={`${API_BASE_URL}${courseData.videoUrl}`}
                       controls
                       style={{ width: '100%', borderRadius: 8 }}
                     />

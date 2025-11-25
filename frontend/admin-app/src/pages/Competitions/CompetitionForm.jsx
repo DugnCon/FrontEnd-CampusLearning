@@ -146,9 +146,10 @@ const CompetitionForm = () => {
       // Xử lý URL trả về từ backend
       const responseUrl = info.file.response.url;
       // Nếu backend trả về relative path, build full URL
+      const API_BASE_URL = process.env.VITE_API_URL || '/admin/api';
       const fullUrl = responseUrl.startsWith('http') 
         ? responseUrl 
-        : `http://localhost:8081${responseUrl}`;
+        : `${API_BASE_URL}${responseUrl}`;
       
       setThumbnailUrl(fullUrl);
       message.success(`${info.file.name} tải lên thành công`);
@@ -162,9 +163,10 @@ const CompetitionForm = () => {
       // Xử lý URL trả về từ backend
       const responseUrl = info.file.response.url;
       // Nếu backend trả về relative path, build full URL
-      const fullUrl = responseUrl.startsWith('http') 
-        ? responseUrl 
-        : `http://localhost:8081${responseUrl}`;
+      const API_BASE_URL = process.env.VITE_API_URL || '/admin/api';
+      const fullUrl = responseUrl.startsWith('http')
+        ? responseUrl  
+        : `${API_BASE_URL}${responseUrl}`;
       
       setCoverImageURL(fullUrl);
       message.success(`${info.file.name} tải lên thành công`);

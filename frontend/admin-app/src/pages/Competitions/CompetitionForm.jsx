@@ -32,7 +32,7 @@ const CompetitionForm = () => {
   const [isEditMode, setIsEditMode] = useState(false);
 
   // SỬA LẠI: Dùng process.env cho Create React App
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://112.137.129.158:8889/api';
+  const API_BASE_URL = process.env.VITE_API_URL || '/admin/api';
   
   useEffect(() => {
     fetchInstructors();

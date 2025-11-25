@@ -13,7 +13,7 @@ const getEnvVar = (key, fallback) => {
 
 // Tạo instance axios với config mặc định
 const API = axios.create({
-  baseURL: getEnvVar('VITE_API_URL', 'http://localhost:8081'/*'/admin/api'*/), // Safe access with fallback
+  baseURL: getEnvVar('VITE_API_URL', /*'http://localhost:8081'*/'/admin/api'), // Safe access with fallback
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

@@ -411,7 +411,7 @@ const CompetitionForm = () => {
                   listType="picture"
                   maxCount={1}
                   onChange={handleThumbnailChange}
-                  action={`${API_BASE_URL}/upload`}
+                  action="/upload"
                 >
                   <Button icon={<UploadOutlined />}>Tải lên ảnh thu nhỏ</Button>
                 </Upload>
@@ -433,7 +433,7 @@ const CompetitionForm = () => {
                   listType="picture"
                   maxCount={1}
                   onChange={handleCoverImageChange}
-                  action={`${API_BASE_URL}/upload`}
+                  listTyp="/upload"
                 >
                   <Button icon={<UploadOutlined />}>Tải lên ảnh bìa</Button>
                 </Upload>

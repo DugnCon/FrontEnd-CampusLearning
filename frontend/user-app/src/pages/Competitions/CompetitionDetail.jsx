@@ -22,6 +22,7 @@ const CompetitionDetail = () => {
   const [justRegistered, setJustRegistered] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); // Add a refresh key state
   const [isMobile, setIsMobile] = useState(false);
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
 
   // Function to refresh competition data
   const refreshCompetitionData = async () => {
@@ -851,14 +852,18 @@ const CompetitionDetail = () => {
       {/* Cover image */}
       <div className="relative w-full h-64 md:h-80 rounded-xl overflow-hidden mb-6">
         <img
-          src={competition.coverImageURL || 'https://placehold.co/1200x400?text=Competition+Cover'}
-          alt={competition.title}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://placehold.co/1200x400?text=No+Image';
-          }}
-        />
+  src={
+    competition.coverImageURL
+      ? `${API_BASE_URL}${competition.coverImageURL}`
+      : 'https://placehold.co/1200x400?text=Competition+Cover'
+        }
+        alt={competition.title}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          e.target.onerror = null;
+          e.target.src = 'https://placehold.co/1200x400?text=No+Image';
+        }}
+      />
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
           <div className="p-6 text-white w-full">
             <div className="flex items-center justify-between">

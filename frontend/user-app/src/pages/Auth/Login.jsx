@@ -1912,7 +1912,7 @@ const Login = () => {
                         setError('');
                         
                         // Get configuration from environment or use defaults
-                        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+                        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
                         
                         // Use the current origin as redirect URI by default
                         // This should match exactly what's registered in Google Cloud Console

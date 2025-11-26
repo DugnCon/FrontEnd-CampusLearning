@@ -8,7 +8,7 @@
 /**
  * Helper functions to connect with code-server
  */
-const BASE_URL = 'http://code.campuslearning.site' || 'http://localhost:8100';
+const BASE_URL = 'https://code.campuslearning.site' || 'http://localhost:8100';
 // Polyfill for browser if it doesn't exist
 if (typeof window !== 'undefined') {
   // Global browser polyfill

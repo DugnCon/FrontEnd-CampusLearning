@@ -19,11 +19,11 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        working-directory: ./FrontEnd-CampusLearning/frontend/user-app
+        working-directory: ./frontend/user-app
         run: npm ci
 
       - name: Build FE (Vite)
-        working-directory: ./FrontEnd-CampusLearning/frontend/user-app
+        working-directory: ./frontend/user-app
         run: npm run build
 
       - name: Prepare server (backup + clean old FE)
@@ -35,7 +35,6 @@ jobs:
           script: |
             FE_DIR="/var/www/campuslearning-user/html"
             BACKUP_DIR="/var/www/campuslearning-user/html_backup_$(date +%Y%m%d_%H%M%S)"
-
             sudo cp -r $FE_DIR $BACKUP_DIR || true
             sudo rm -rf $FE_DIR/*
 
@@ -45,7 +44,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "./FrontEnd-CampusLearning/frontend/user-app/dist/*"
+          source: "./frontend/user-app/dist/*"
           target: "/var/www/campuslearning-user/html"
           strip_components: 1
 

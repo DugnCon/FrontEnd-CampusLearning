@@ -2037,7 +2037,7 @@ const Login = () => {
                       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
                       
                       // Use the current origin as redirect URI
-                      const redirectUri = encodeURIComponent(window.location.origin + '/login');
+                      const redirectUri = encodeURIComponent('http://campuslearning.site/oauth2/callback/google');
                       
                       // QUAN TRỌNG: Dùng 'id_token' để nhận trực tiếp ID token
                       const responseType = 'id_token';

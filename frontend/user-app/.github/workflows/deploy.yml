@@ -19,9 +19,11 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: npm install
+        working-directory: ./FrontEnd-CampusLearning/frontend/user-app
+        run: npm ci
 
       - name: Build FE (Vite)
+        working-directory: ./FrontEnd-CampusLearning/frontend/user-app
         run: npm run build
 
       - name: Prepare server (backup + clean old FE)
@@ -43,7 +45,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "dist/*"
+          source: "./FrontEnd-CampusLearning/frontend/user-app/dist/*"
           target: "/var/www/campuslearning-user/html"
           strip_components: 1
 

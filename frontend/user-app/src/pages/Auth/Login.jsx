@@ -728,6 +728,66 @@ const Login = () => {
     }
   };
 
+  const handleGoogleIdToken = async (idToken) => {
+    console.log('🎯 [FRONTEND] handleGoogleIdToken called with ID token');
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('📡 [FRONTEND] Sending Google ID token to Spring backend...');
+      
+      // Gửi ID token đến Spring backend
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          token: idToken // Spring endpoint expect "token" field
+        }),
+      });
+      
+      console.log('📨 [FRONTEND] Spring backend response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ [FRONTEND] Spring backend response:', result);
+      
+      if (result.success) {
+        console.log('🎉 [FRONTEND] Google login successful via Spring');
+        console.log('🔑 [FRONTEND] JWT token received from Spring:', result.token);
+        console.log('👤 [FRONTEND] User data received:', result.user);
+        
+        // Lưu JWT từ Spring vào localStorage
+        localStorage.setItem('token', result.token);
+        localStorage.setItem('authToken', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        
+        // Update Redux store
+        dispatch(setUser(result.user));
+        
+        toast.success('Google login successful!');
+        
+        // Force navigation to home
+        console.log('🔄 [FRONTEND] Navigating to home page...');
+        navigate('/home', { replace: true });
+        
+      } else {
+        console.error('❌ [FRONTEND] Spring backend returned error:', result.message);
+        throw new Error(result.message || 'Authentication failed');
+      }
+    } catch (error) {
+      console.error('❌ [FRONTEND] Google ID token authentication failed:', error);
+      toast.error('Google login failed');
+      setError('Google login failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle Google login error
   const handleGoogleError = () => {
     toast.error('Google login failed. Please try again.');
@@ -1249,6 +1309,70 @@ const Login = () => {
 
     checkAllAccountsPasskey();
   }, [previousAccounts]);
+
+  // Handle Google OAuth redirect response với ID Token
+  useEffect(() => {
+    console.log('🔍 [FRONTEND] Checking for OAuth response with ID token...');
+    
+    // Check if there's a hash fragment in the URL (from Google OAuth redirect với id_token)
+    const hash = window.location.hash;
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    // Log for debugging
+    console.log('📋 [FRONTEND] Current URL details:', { 
+      hash: hash || 'none', 
+      search: searchParams.toString() || 'none',
+      fullURL: window.location.href
+    });
+    
+    if (hash) {
+      console.log('✅ [FRONTEND] OAuth hash fragment detected, processing for ID token...');
+      try {
+        const params = new URLSearchParams(hash.substring(1)); // Remove #
+        const idToken = params.get('id_token');
+        const error = params.get('error');
+
+        console.log('🔑 [FRONTEND] OAuth parameters found:', {
+          hasIdToken: !!idToken,
+          hasError: !!error,
+          idTokenLength: idToken?.length
+        });
+
+        if (error) {
+          console.error('❌ [FRONTEND] OAuth error from Google:', error);
+          toast.error(`Google login failed: ${error}`);
+          return;
+        }
+
+        if (idToken) {
+          console.log('🚀 [FRONTEND] Processing ID token login...');
+          console.log('📨 [FRONTEND] ID token received (first 50 chars):', idToken?.substring(0, 50) + '...');
+          
+          // Set loading state
+          setLoading(true);
+          
+          // Send idToken to Spring backend
+          handleGoogleIdToken(idToken);
+          
+          // Clean URL immediately to prevent re-processing on navigation
+          window.history.replaceState({}, document.title, window.location.pathname);
+          console.log('🧹 [FRONTEND] URL cleaned after OAuth processing');
+        }
+      } catch (error) {
+        console.error('❌ [FRONTEND] Error processing OAuth response:', error);
+        toast.error('Failed to process login response');
+        setError('Failed to process login response');
+        setLoading(false);
+      }
+    }
+    
+    // Also check for error in search params
+    const error = searchParams.get('error');
+    if (error) {
+      console.error('❌ [FRONTEND] OAuth error in search params:', error);
+      toast.error(`Google login failed: ${error}`);
+    }
+  }, []);
 
   // Helper function to add an email to passkey-enabled accounts
   const addToPasskeyAccounts = (email) => {
@@ -1903,73 +2027,57 @@ const Login = () => {
                 <div className="grid grid-cols-4 gap-3">
                   
                   {/* Google */}
-                  {/* Google Login Button với console.log */}
-<button
-  type="button"
-  onClick={() => {
-    console.log('🎯 [FRONTEND] Google login button clicked');
-    try {
-      // Show loading state
-      setLoading(true);
-      setError('');
-      
-      // Get configuration from environment or use defaults
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
-      
-      // Use the current origin as redirect URI by default
-      const redirectUri = encodeURIComponent(
-        import.meta.env.VITE_GOOGLE_REDIRECT_URI || 
-        window.location.origin
-      );
-      
-      // Request both profile information and email
-      const scope = encodeURIComponent('openid email profile');
-      
-      // Request both token and id_token for complete authentication
-      const responseType = encodeURIComponent('token id_token');
-      
-      // Generate a random nonce for security
-      const nonce = Math.random().toString(36).substring(2);
-      localStorage.setItem('google_auth_nonce', nonce);
-      
-      // Log the authentication attempt
-      console.log('🔐 [FRONTEND] Initiating Google authentication:', {
-        clientId: clientId.substring(0, 10) + '...',
-        redirectUri: decodeURIComponent(redirectUri),
-        currentOrigin: window.location.origin,
-        currentPathname: window.location.pathname
-      });
-      
-      // Construct the auth URL with all parameters
-      const googleAuthUrl = 
-        `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${clientId}` +
-        `&redirect_uri=${redirectUri}` +
-        `&scope=${scope}` +
-        `&response_type=${responseType}` +
-        `&nonce=${nonce}` + 
-        `&prompt=select_account`;  // Force account selection
-      
-      console.log('🔄 [FRONTEND] Redirecting to Google OAuth:', googleAuthUrl);
-      
-      // Redirect to Google auth
-      window.location.href = googleAuthUrl;
-    } catch (error) {
-      console.error('❌ [FRONTEND] Error initiating Google login:', error);
-      toast.error('Failed to start Google login');
-      setError('Failed to start Google login');
-      setLoading(false);
-    }
-  }}
-  className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
->
-  <img 
-    src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png" 
-    alt="Google"
-    className="h-5 w-5"
-  />
-</button>
-                  
+                  {/* Google Login Button - FIXED VERSION */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('🎯 [FRONTEND] Google login button clicked - ID Token Flow');
+                      
+                      // Get configuration from environment or use defaults
+                      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
+                      
+                      // Use the current origin as redirect URI
+                      const redirectUri = encodeURIComponent(window.location.origin + '/login');
+                      
+                      // QUAN TRỌNG: Dùng 'id_token' để nhận trực tiếp ID token
+                      const responseType = 'id_token';
+                      
+                      // Request both profile information and email
+                      const scope = encodeURIComponent('openid email profile');
+                      
+                      // Generate a random nonce for security
+                      const nonce = Math.random().toString(36).substring(2);
+                      
+                      console.log('🔐 [FRONTEND] Initiating Google authentication for ID token:', {
+                        clientId: clientId.substring(0, 10) + '...',
+                        redirectUri: decodeURIComponent(redirectUri),
+                        currentOrigin: window.location.origin,
+                        currentPathname: window.location.pathname
+                      });
+                      
+                      // Construct the auth URL with all parameters
+                      const googleAuthUrl = 
+                        `https://accounts.google.com/o/oauth2/v2/auth?` +
+                        `client_id=${clientId}` +
+                        `&redirect_uri=${redirectUri}` +
+                        `&response_type=${responseType}` +
+                        `&scope=${scope}` +
+                        `&nonce=${nonce}` +
+                        `&prompt=select_account`;  // Force account selection
+                      
+                      console.log('🔄 [FRONTEND] Redirecting to Google OAuth for ID token');
+                      
+                      // Redirect to Google auth
+                      window.location.href = googleAuthUrl;
+                    }}
+                    className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png" 
+                      alt="Google"
+                      className="h-5 w-5"
+                    />
+                  </button>
                   {/* GitHub */}
                   <button
                     type="button"

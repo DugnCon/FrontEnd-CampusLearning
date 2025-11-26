@@ -845,21 +845,6 @@ const Login = () => {
   const [selectedAccountLoading, setSelectedAccountLoading] = useState(false);
   const [selectedAccountError, setSelectedAccountError] = useState('');
 
-  // ĐỌC JWT TỪ URL KHI SPRING REDIRECT VỀ ?jwt=...
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const jwt = params.get('jwt');
-    if (jwt) {
-      localStorage.setItem('token', jwt);
-      localStorage.setItem('authToken', jwt);
-      localStorage.setItem('access_token', jwt);
-      // Xóa param khỏi URL
-      window.history.replaceState({}, '', '/');
-      toast.success('Đăng nhập Google thành công!');
-      navigate('/home', { replace: true });
-    }
-  }, [navigate]);
-
   // Add handler for choosing a previous account
   const handleAccountClick = async (account) => {
     try {
@@ -1920,12 +1905,61 @@ const Login = () => {
                   {/* Google */}
                   <button
                     type="button"
-                    onClick={() => window.location.href = "/oauth2/authorization/google"}
-                    disabled={loading}
-                    className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white hover:bg-gray-50 transition-all disabled:opacity-50"
+                    onClick={() => {
+                      try {
+                        // Show loading state
+                        setLoading(true);
+                        setError('');
+                        
+                        // Get configuration from environment or use defaults
+                        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687543650693-istlhoe28vq9adl28v5lc9ojkhgo47mj.apps.googleusercontent.com';
+                        
+                        // Use the current origin as redirect URI by default
+                        // This should match exactly what's registered in Google Cloud Console
+                        const redirectUri = encodeURIComponent(
+                          import.meta.env.VITE_GOOGLE_REDIRECT_URI || 
+                          window.location.origin
+                        );
+                        
+                        // Request both profile information and email
+                        const scope = encodeURIComponent('openid email profile');
+                        
+                        // Request both token and id_token for complete authentication
+                        const responseType = encodeURIComponent('token id_token');
+                        
+                        // Generate a random nonce for security
+                        const nonce = Math.random().toString(36).substring(2);
+                        localStorage.setItem('google_auth_nonce', nonce);
+                        
+                        // Log the authentication attempt
+                        console.log('Initiating Google authentication:', {
+                          clientId: clientId.substring(0, 10) + '...',
+                          redirectUri: decodeURIComponent(redirectUri),
+                        });
+                        
+                        // Construct the auth URL with all parameters
+                        const googleAuthUrl = 
+                          `https://accounts.google.com/o/oauth2/v2/auth?` +
+                          `client_id=${clientId}` +
+                          `&redirect_uri=${redirectUri}` +
+                          `&scope=${scope}` +
+                          `&response_type=${responseType}` +
+                          `&nonce=${nonce}` + 
+                          `&prompt=select_account`;  // Force account selection
+                        
+                        // Redirect to Google auth
+                        window.location.href = googleAuthUrl;
+                      } catch (error) {
+                        console.error('Error initiating Google login:', error);
+                        toast.error('Failed to start Google login');
+                        setError('Failed to start Google login');
+                        setLoading(false);
+                      }
+                    }}
+                    className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
                   >
-                    <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png"
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png" 
                       alt="Google"
                       className="h-5 w-5"
                     />

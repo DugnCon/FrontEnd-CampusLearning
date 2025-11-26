@@ -46,7 +46,7 @@ If you're asked to generate test cases for an algorithm problem, provide 5-10 di
 
 // Gemini API configuration
 const GEMINI_API_KEY = 'AIzaSyARFCoKXttPWW36Te6_jJHkNxASuJKpFwE';
-const GEMINI_MODEL = 'gemini-2.5-flash-latest';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 /**

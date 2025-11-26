@@ -1,0 +1,57 @@
+name: Deploy Vite React FE
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    name: Build & Deploy FE
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build FE (Vite)
+        run: npm run build
+
+      - name: Prepare server (backup + clean old FE)
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            FE_DIR="/var/www/campuslearning-user/html"
+            BACKUP_DIR="/var/www/campuslearning-user/html_backup_$(date +%Y%m%d_%H%M%S)"
+
+            sudo cp -r $FE_DIR $BACKUP_DIR || true
+            sudo rm -rf $FE_DIR/*
+
+      - name: Upload new build (dist)
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "dist/*"
+          target: "/var/www/campuslearning-user/html"
+          strip_components: 1
+
+      - name: Restart Nginx
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            sudo systemctl restart nginx

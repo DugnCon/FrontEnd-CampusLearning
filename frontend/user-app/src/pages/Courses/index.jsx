@@ -848,11 +848,11 @@ const Courses = () => {
                 {/* Carousel Container */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="relative w-full h-full px-8">
-                    {/* Main center image */}
+                  {/* Main center image */}
                     <div className="absolute inset-0 z-20 flex items-center justify-center">
                       <div className="relative w-[60%] h-[75%] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/40 transform transition-all duration-700 ease-out hover:scale-105">
                         <img 
-                          src={`${API_BASE_URL}${courseImages[currentImageIndex].url}`}
+                          src={courseImages[currentImageIndex].url}
                           alt={courseImages[currentImageIndex].title}
                           className="w-full h-full object-cover transition-all duration-700 ease-out"
                         />
@@ -865,51 +865,51 @@ const Courses = () => {
                         </div>
                       </div>
                     </div>
-
+                    
                     {/* Left side image */}
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-[45%] h-[55%] transition-all duration-700 ease-out">
                       <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl opacity-60 transform scale-80 blur-[1.5px] hover:opacity-80 hover:scale-85 transition-all duration-500">
                         <img 
-                          src={`${API_BASE_URL}${courseImages[(currentImageIndex - 1 + courseImages.length) % courseImages.length].url}`}
+                          src={courseImages[(currentImageIndex - 1 + courseImages.length) % courseImages.length].url}
                           alt={courseImages[(currentImageIndex - 1 + courseImages.length) % courseImages.length].title}
                           className="w-full h-full object-cover transition-all duration-700"
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/30"></div>
                       </div>
                     </div>
-
+                    
                     {/* Right side image */}
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-[45%] h-[55%] transition-all duration-700 ease-out">
                       <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl opacity-60 transform scale-80 blur-[1.5px] hover:opacity-80 hover:scale-85 transition-all duration-500">
                         <img 
-                          src={`${API_BASE_URL}${courseImages[(currentImageIndex + 1) % courseImages.length].url}`}
+                          src={courseImages[(currentImageIndex + 1) % courseImages.length].url}
                           alt={courseImages[(currentImageIndex + 1) % courseImages.length].title}
                           className="w-full h-full object-cover transition-all duration-700"
                         />
                         <div className="absolute inset-0 bg-gradient-to-l from-transparent to-black/30"></div>
                       </div>
                     </div>
-
+                    
                     {/* Additional side images for extended view */}
                     <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-5 w-[30%] h-[40%] transition-all duration-700 ease-out">
                       <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg opacity-30 transform scale-60 blur-[2px]">
                         <img 
-                          src={`${API_BASE_URL}${courseImages[(currentImageIndex - 2 + courseImages.length) % courseImages.length].url}`}
+                          src={courseImages[(currentImageIndex - 2 + courseImages.length) % courseImages.length].url}
                           alt={courseImages[(currentImageIndex - 2 + courseImages.length) % courseImages.length].title}
                           className="w-full h-full object-cover transition-all duration-700"
                         />
                       </div>
                     </div>
-
+                    
                     <div className="absolute -right-4 top-1/2 -translate-y-1/2 z-5 w-[30%] h-[40%] transition-all duration-700 ease-out">
                       <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg opacity-30 transform scale-60 blur-[2px]">
                         <img 
-                          src={`${API_BASE_URL}${courseImages[(currentImageIndex + 2) % courseImages.length].url}`}
+                          src={courseImages[(currentImageIndex + 2) % courseImages.length].url}
                           alt={courseImages[(currentImageIndex + 2) % courseImages.length].title}
                           className="w-full h-full object-cover transition-all duration-700"
                         />
                       </div>
-                    </div>  
+                    </div>
                   </div>
                 </div>
                 {/* Enhanced Navigation buttons */}

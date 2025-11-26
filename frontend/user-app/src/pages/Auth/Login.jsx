@@ -2043,7 +2043,7 @@ const Login = () => {
                       const responseType = 'id_token';
                       
                       // Request both profile information and email
-                      const scope = encodeURIComponent('openid email profile');
+                      const scope = encodeURIComponent(window.location.origin);
                       
                       // Generate a random nonce for security
                       const nonce = Math.random().toString(36).substring(2);

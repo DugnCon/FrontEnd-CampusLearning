@@ -1,11 +1,11 @@
-name: Deploy User App
+name: Deploy Admin App
 
 on:
   push:
     branches: ["main"]
     paths:
-      - '!frontend/user-app/**'    # ko chạy khi user-app thay đổi
-      - 'frontend/admin-app/**'  # chạy khi admin-app thay đổi
+      - '!frontend/user-app/**'   
+      - 'frontend/admin-app/**'  
 
 jobs:
   deploy:

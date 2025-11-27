@@ -14,7 +14,6 @@ export const SocketProvider = ({ children }) => {
   const subscriptionsRef = useRef(new Map());
   const clientRef = useRef(null);
 
-  // 🚀 THÊM: Message queue và connection tracking
   const messageQueueRef = useRef([]);
   const isConnectingRef = useRef(false);
   const connectionTimeoutRef = useRef(null);
@@ -23,7 +22,6 @@ export const SocketProvider = ({ children }) => {
   const MAX_RETRY_ATTEMPTS = 5;
   const reconnectDelay = useRef(1000);
 
-  // 🔥 XÁC ĐỊNH URL DỰA TRÊN MÔI TRƯỜNG
   const getSocketUrl = useCallback(() => {
     const LOCAL_URL = import.meta.env.VITE_SOCKET_URL;
     const localUrl = `https://api.campuslearning.site/ws`;
@@ -32,7 +30,6 @@ export const SocketProvider = ({ children }) => {
     return localUrl;
   }, []);
 
-  // 🔥 TẠO SOCKJS FACTORY – HOẠT ĐỘNG VỚI CẢ HTTPS & HTTP
   const createSockJSFactory = useCallback(() => {
     const url = getSocketUrl();
     return () => {
@@ -41,7 +38,6 @@ export const SocketProvider = ({ children }) => {
     };
   }, [getSocketUrl]);
 
-  // 🚀 THÊM: Process message queue khi kết nối
   const processMessageQueue = useCallback(() => {
     if (messageQueueRef.current.length === 0 || !stompClient || !isConnected) return;
 
@@ -55,7 +51,6 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // Chỉ giữ lại những message gửi thất bại
     messageQueueRef.current = messageQueueRef.current.filter(msg => 
       !successfulMessages.some(success => 
         success.destination === msg.destination && 
@@ -66,7 +61,6 @@ export const SocketProvider = ({ children }) => {
     console.log(`✅ Sent ${successfulMessages.length} queued messages`);
   }, [stompClient, isConnected]);
 
-  // 🚀 THÊM: Send message internal (không log)
   const sendMessageInternal = useCallback((destination, body) => {
     if (!stompClient || !isConnected) return false;
 
@@ -85,7 +79,6 @@ export const SocketProvider = ({ children }) => {
     }
   }, [stompClient, isConnected]);
 
-  // 🚀 THÊM: Auto-subscribe các channel quan trọng
   const autoSubscribeImportantChannels = useCallback(() => {
     const importantChannels = [
       '/user/queue/conversations',
@@ -101,11 +94,9 @@ export const SocketProvider = ({ children }) => {
     });
   }, []);
 
-  // 🔥 CLEANUP KHI UNMOUNT
   const cleanup = useCallback(() => {
     console.log('Cleaning up socket...');
-    
-    // 🚀 THÊM: Clear timeout
+
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
     }
@@ -114,7 +105,7 @@ export const SocketProvider = ({ children }) => {
       try {
         sub.unsubscribe();
         console.log(`Unsubscribed from ${dest}`);
-      } catch (e) { /* ignore */ }
+      } catch (e) {  }
     });
     subscriptionsRef.current.clear();
 

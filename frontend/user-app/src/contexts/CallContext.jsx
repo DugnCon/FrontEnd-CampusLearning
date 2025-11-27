@@ -346,7 +346,6 @@ export const CallProvider = ({ children }) => {
     }
   };
 
-  // Stop all media tracks
   const stopMediaTracks = () => {
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -355,7 +354,6 @@ export const CallProvider = ({ children }) => {
     setRemoteStream(null);
   };
 
-  // API: Initiate a call
   const initiateCall = async (receiverId, conversationID,type = 'video') => {
     try {
       setIsMakingCall(true);

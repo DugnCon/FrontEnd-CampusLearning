@@ -57,7 +57,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "./frontend/user-app/dist/*"
           target: "/var/www/campuslearning-user/html"
-          strip_components: 1
+          strip_components: 3
 
       - name: Restart Nginx
         uses: appleboy/ssh-action@v0.1.8

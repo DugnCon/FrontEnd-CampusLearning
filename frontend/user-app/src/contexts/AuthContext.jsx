@@ -141,7 +141,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // === GOOGLE LOGIN ===
   const loginWithGoogle = async (token) => {
     try {
       setAuthError(null);
@@ -198,7 +197,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // --- LOGOUT ---
   const logout = async () => {
     const token = localStorage.getItem('token');
     if (token) {

@@ -233,7 +233,12 @@ const CreateCourse = () => {
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
     
-    setValidationErrors(prev => ({ ...prev, image: false }));
+    // Xóa lỗi media khi có ảnh hoặc video
+    setValidationErrors(prev => ({ 
+      ...prev, 
+      image: false,
+      media: false 
+    }));
   };
   
   const handleVideoUpload = (e) => {
@@ -255,7 +260,13 @@ const CreateCourse = () => {
     const videoURL = URL.createObjectURL(file);
     setVideoPreview(videoURL);
     setUploadProgress(0);
-    setValidationErrors(prev => ({ ...prev, video: false }));
+    
+    // Xóa lỗi media khi có ảnh hoặc video
+    setValidationErrors(prev => ({ 
+      ...prev, 
+      video: false,
+      media: false 
+    }));
   };
 
   // === PHẦN VIDEO CHUNK ĐÃ ĐƯỢC TỐI ƯU HOÀN TOÀN ===
@@ -426,12 +437,18 @@ const uploadVideoInChunks = async (courseId, file) => {
     if (!courseData.description) errors.description = true;
     if (!courseData.duration) errors.duration = true;
     if (!courseData.price) errors.price = true;
-    if (!courseImage) errors.image = true;
-    if (!courseVideo) errors.video = true;
+    
+    // 🚨 QUAN TRỌNG: CHỈ CẦN ẢNH HOẶC VIDEO, KHÔNG BẮT BUỘC CẢ 2
+    if (!courseImage && !courseVideo) {
+      errors.media = 'Cần có ít nhất hình ảnh hoặc video giới thiệu';
+    }
+    
     if (modules.length === 0) errors.modules = 'Khóa học cần ít nhất một module';
     else {
       const invalidModules = modules.filter(m => !m.title.trim());
       if (invalidModules.length > 0) errors.modules = 'Một số module chưa có tiêu đề';
+      
+      // 🚨 QUAN TRỌNG: Module chỉ cần videoUrl HOẶC image
       const modulesWithoutMedia = modules.filter(m => !m.videoUrl && !m.image);
       if (modulesWithoutMedia.length > 0) {
         if (!errors.modules) errors.modules = 'Một số module chưa có link video bài giảng hoặc hình ảnh';
@@ -552,7 +569,8 @@ const uploadVideoInChunks = async (courseId, file) => {
           <strong>Lưu ý:</strong> Để đăng tải khóa học, bạn cần đảm bảo các yêu cầu sau:
         </Typography>
         <ul>
-          <li>Có hình ảnh đại diện và video giới thiệu khóa học</li>
+          {/* 🚨 SỬA: Cập nhật thông báo chỉ cần ảnh HOẶC video */}
+          <li>Có hình ảnh đại diện <strong>HOẶC</strong> video giới thiệu khóa học</li>
           <li>Mỗi bài học (lesson) sẽ cần có video bài giảng hoặc hình ảnh riêng biệt</li>
           <li>Các bài tập coding sẽ cần có file testkey đi kèm</li>
           <li>Đánh dấu các bài học cho phép xem thử để học viên có thể xem trước</li>
@@ -695,23 +713,23 @@ const uploadVideoInChunks = async (courseId, file) => {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Hình ảnh và Video</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Hình ảnh đại diện và video giới thiệu khóa học là bắt buộc để đăng tải khóa học.
+          {/* 🚨 SỬA: Cập nhật mô tả chỉ cần ảnh HOẶC video */}
+          Hình ảnh đại diện <strong>HOẶC</strong> video giới thiệu khóa học là bắt buộc để đăng tải khóa học.
         </Typography>
+        
+        {/* 🚨 THÊM: Hiển thị lỗi media nếu không có cả ảnh và video */}
+        {validationErrors.media && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {validationErrors.media}
+          </Alert>
+        )}
         
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Box sx={{ border: 1, borderColor: validationErrors.image ? 'error.main' : 'divider', borderRadius: 1, p: 2 }}>
+            <Box sx={{ border: 1, borderColor: validationErrors.media ? 'error.main' : 'divider', borderRadius: 1, p: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Hình ảnh đại diện
-                {validationErrors.image && (
-                  <Chip 
-                    label="Bắt buộc" 
-                    size="small" 
-                    color="error"
-                    icon={<WarningIcon />}
-                    sx={{ ml: 1 }}
-                  />
-                )}
+                {/* 🚨 SỬA: Xóa chip "Bắt buộc" vì chỉ cần ảnh HOẶC video */}
               </Typography>
               
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -748,18 +766,10 @@ const uploadVideoInChunks = async (courseId, file) => {
           </Grid>
           
           <Grid item xs={12} md={6}>
-            <Box sx={{ border: 1, borderColor: validationErrors.video ? 'error.main' : 'divider', borderRadius: 1, p: 2 }}>
+            <Box sx={{ border: 1, borderColor: validationErrors.media ? 'error.main' : 'divider', borderRadius: 1, p: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Video giới thiệu
-                {validationErrors.video && (
-                  <Chip 
-                    label="Bắt buộc" 
-                    size="small" 
-                    color="error"
-                    icon={<WarningIcon />}
-                    sx={{ ml: 1 }}
-                  />
-                )}
+                {/* 🚨 SỬA: Xóa chip "Bắt buộc" vì chỉ cần ảnh HOẶC video */}
               </Typography>
               
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>

@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Get the API URL from environment variables or use the default
-const apiUrl = process.env.VITE_API_URL || '/admin/api';
-//const apiUrl = 'http://localhost:8081';
+//const apiUrl = process.env.VITE_API_URL || '/admin/api';
+const apiUrl = 'http://localhost:8081';
 
 const adminApi = axios.create({
   baseURL: apiUrl,

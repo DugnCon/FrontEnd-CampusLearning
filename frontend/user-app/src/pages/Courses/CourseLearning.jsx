@@ -475,7 +475,10 @@ const CourseLearning = () => {
   
   // Request video summary directly from Gemini API
   const requestVideoSummary = async () => {
-    if (!currentLesson) return;
+    if (!currentLesson || !course) {
+      toast.error('Không thể tạo tóm tắt. Thiếu thông tin bài học hoặc khóa học.');
+      return;
+    }
     
     setIsSummarizing(true);
     setVideoSummary(null);
@@ -483,7 +486,7 @@ const CourseLearning = () => {
     try {
       // Get video context from lesson
       const videoContext = currentLesson.content || currentLesson.description || 
-                          `Video about ${currentLesson.title} from ${course.title}`;
+                          `Video về ${currentLesson.title} từ khóa học ${course.title}`;
       
       // Create prompt for Gemini - explicitly requesting Markdown format
       const prompt = `
@@ -511,6 +514,11 @@ const CourseLearning = () => {
       
       console.log("Calling Gemini API with URL:", GEMINI_API_URL);
       
+      // Validate API key
+      if (!GEMINI_API_KEY) {
+        throw new Error('Không tìm thấy API key cho Gemini');
+      }
+      
       // Call Gemini API directly
       const response = await axios.post(GEMINI_API_URL, {
         contents: [
@@ -527,23 +535,68 @@ const CourseLearning = () => {
       }, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000 // 30 seconds timeout
       });
       
       console.log("Gemini API response:", response.data);
       
+      // Detailed logging for debugging
+      console.log('Gemini API response structure:', {
+        hasData: !!response.data,
+        hasCandidates: !!response.data?.candidates,
+        candidatesLength: response.data?.candidates?.length,
+        firstCandidate: response.data?.candidates?.[0],
+        hasContent: !!response.data?.candidates?.[0]?.content,
+        hasParts: !!response.data?.candidates?.[0]?.content?.parts,
+        partsLength: response.data?.candidates?.[0]?.content?.parts?.length
+      });
+      
+      // Safe extraction of summary text using optional chaining
       if (response.data && response.data.candidates && response.data.candidates.length > 0) {
-        // Extract the summary text from Gemini response
-        const summaryText = response.data.candidates[0].content.parts[0].text;
-        setVideoSummary(summaryText);
+        const summaryText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (summaryText && typeof summaryText === 'string') {
+          setVideoSummary(summaryText);
+          toast.success('Đã tạo tóm tắt video thành công!');
+        } else {
+          console.error("Invalid summary text format:", summaryText);
+          toast.error('Không thể tạo tóm tắt video. Định dạng phản hồi không hợp lệ.');
+        }
       } else {
         console.error("Unexpected Gemini API response format:", response.data);
-        toast.error('Không thể tạo tóm tắt video. Vui lòng thử lại sau.');
+        toast.error('Không thể tạo tóm tắt video. Phản hồi từ API không hợp lệ.');
       }
     } catch (error) {
       console.error('Error summarizing with Gemini API:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      toast.error('Lỗi khi tạo tóm tắt video. Vui lòng thử lại sau.');
+      
+      // Detailed error logging
+      if (error.response) {
+        // Server responded with error status
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        console.error('Error response headers:', error.response.headers);
+        
+        if (error.response.status === 400) {
+          toast.error('Lỗi yêu cầu API. Vui lòng kiểm tra lại prompt.');
+        } else if (error.response.status === 401) {
+          toast.error('Lỗi xác thực API. Vui lòng kiểm tra API key.');
+        } else if (error.response.status === 403) {
+          toast.error('Không có quyền truy cập API. Vui lòng kiểm tra cấu hình.');
+        } else if (error.response.status === 429) {
+          toast.error('Quá nhiều yêu cầu. Vui lòng thử lại sau.');
+        } else {
+          toast.error(`Lỗi server: ${error.response.status}. Vui lòng thử lại sau.`);
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response received:', error.request);
+        toast.error('Không nhận được phản hồi từ server. Vui lòng kiểm tra kết nối mạng.');
+      } else {
+        // Something else happened
+        console.error('Error message:', error.message);
+        toast.error(`Lỗi khi tạo tóm tắt video: ${error.message}`);
+      }
     } finally {
       setIsSummarizing(false);
     }
@@ -686,7 +739,7 @@ const CourseLearning = () => {
         {/* Sidebar */}
         <aside 
           className={`bg-white w-80 border-r border-gray-200 flex-shrink-0 transition-all duration-300 transform ${
-            (isSidebarOpen && !isFullScreen) ? 'translate-x-0' : '-translate-x-full'
+            (isSidebarOpen && !isFullScreen) ? 'translate-x-0' : '-translate-x-100'
           } md:relative md:translate-x-0 ${isFullScreen ? 'hidden md:hidden' : ''} absolute z-10 h-full`}
         >
           <div className="flex flex-col h-full">

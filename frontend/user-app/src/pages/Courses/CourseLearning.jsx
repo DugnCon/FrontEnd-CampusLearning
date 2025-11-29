@@ -31,8 +31,8 @@ const markdownStyles = {
 };
 
 // Gemini API configuration
-const GEMINI_API_KEY = "AIzaSyDLh0Md76lI4wZLgDrO9jAQemim6czJQE0";
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const CourseLearning = () => {

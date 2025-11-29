@@ -45,7 +45,7 @@ For example, if the problem is to sum two numbers:
 If you're asked to generate test cases for an algorithm problem, provide 5-10 diverse test cases that adequately test the solution.`;
 
 // Gemini API configuration
-const GEMINI_API_KEY = 'AIzaSyARFCoKXttPWW36Te6_jJHkNxASuJKpFwE';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 

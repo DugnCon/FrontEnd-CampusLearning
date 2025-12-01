@@ -411,7 +411,8 @@ const CompetitionForm = () => {
     listType="picture"
     maxCount={1}
     onChange={handleThumbnailChange}
-    action={`${API_BASE_URL}/upload`}
+    //action={`${API_BASE_URL}/upload`}
+    action="/upload"
     headers={{
       Authorization: `Bearer ${localStorage.getItem('token')}`
     }}
@@ -436,7 +437,8 @@ const CompetitionForm = () => {
     listType="picture"
     maxCount={1}
     onChange={handleCoverImageChange}
-    action={`${API_BASE_URL}/upload`}
+    //action={`${API_BASE_URL}/upload`}
+    action="/upload"
     headers={{
       Authorization: `Bearer ${localStorage.getItem('token')}`
     }}

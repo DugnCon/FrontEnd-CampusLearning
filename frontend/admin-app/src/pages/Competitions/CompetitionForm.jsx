@@ -396,48 +396,54 @@ const CompetitionForm = () => {
               </Form.Item>
               
               <Form.Item
-                label="Ảnh thu nhỏ"
-                name="thumbnailUrl"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) {
-                    return e;
-                  }
-                  return e && e.fileList;
-                }}
-              >
-                <Upload
-                  name="file"
-                  listType="picture"
-                  maxCount={1}
-                  onChange={handleThumbnailChange}
-                  action="/upload"
-                >
-                  <Button icon={<UploadOutlined />}>Tải lên ảnh thu nhỏ</Button>
-                </Upload>
-              </Form.Item>
-              
-              <Form.Item
-                label="Ảnh bìa"
-                name="coverImageURL"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => {
-                  if (Array.isArray(e)) {
-                    return e;
-                  }
-                  return e && e.fileList;
-                }}
-              >
-                <Upload
-                  name="file"
-                  listType="picture"
-                  maxCount={1}
-                  onChange={handleCoverImageChange}
-                  listTyp="/upload"
-                >
-                  <Button icon={<UploadOutlined />}>Tải lên ảnh bìa</Button>
-                </Upload>
-              </Form.Item>
+  label="Ảnh thu nhỏ"
+  name="thumbnailUrl"
+  valuePropName="fileList"
+  getValueFromEvent={(e) => {
+    if (Array.isArray(e)) {
+      return e;
+    }
+    return e && e.fileList;
+  }}
+>
+  <Upload
+    name="file"
+    listType="picture"
+    maxCount={1}
+    onChange={handleThumbnailChange}
+    action={`${API_BASE_URL}/upload`}
+    headers={{
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }}
+  >
+    <Button icon={<UploadOutlined />}>Tải lên ảnh thu nhỏ</Button>
+  </Upload>
+</Form.Item>
+
+<Form.Item
+  label="Ảnh bìa"
+  name="coverImageURL"
+  valuePropName="fileList"
+  getValueFromEvent={(e) => {
+    if (Array.isArray(e)) {
+      return e;
+    }
+    return e && e.fileList;
+  }}
+>
+  <Upload
+    name="file"
+    listType="picture"
+    maxCount={1}
+    onChange={handleCoverImageChange}
+    action={`${API_BASE_URL}/upload`}
+    headers={{
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }}
+  >
+    <Button icon={<UploadOutlined />}>Tải lên ảnh bìa</Button>
+  </Upload>
+</Form.Item>
             </Col>
           </Row>
           

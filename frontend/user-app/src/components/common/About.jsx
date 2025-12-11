@@ -23,7 +23,7 @@ const About = () => {
           onClick={scrollToAbout}
           className="flex items-center mx-auto space-x-2 text-white bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full hover:bg-white/30 transition-all duration-200"
         >
-          <span>Về Chúng Tôi</span>
+          <span>Về Bên Chúng Tôi</span>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
@@ -43,7 +43,7 @@ const About = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Về Chúng Tôi</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               CampusLearning là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
-              mang đến cơ hội tiếp cận kiến thức công nghệ chất lượng cao cho mọi người. Chúng tôi tự hào 
+              mang đến cơ hội tiếp cận kiến thức công nghệ chất lượng cao cho mọi người. Chúng tôi vô cùng tự hào 
               là đối tác đào tạo tin cậy của nhiều doanh nghiệp công nghệ hàng đầu trong và ngoài nước.
             </p>
           </motion.div>

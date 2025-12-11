@@ -19,9 +19,10 @@ const processRequestsQueue = (token) => {
 };
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
-
+//const BASE_URL = 'http://localhost:8000';
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/user/api',
+  //baseURL: 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json'
   },

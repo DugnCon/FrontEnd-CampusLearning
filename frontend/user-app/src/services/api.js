@@ -17,14 +17,11 @@ const api = axios.create({
   }
 });
 
-// Add request interceptor to include auth token in all requests
 api.interceptors.request.use(
   (config) => {
-    // Try both possible token keys to ensure backward compatibility
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
-      console.log('Token added to request:', token.substring(0, 20) + '...');
     } else {
       console.log('No token available for request');
     }

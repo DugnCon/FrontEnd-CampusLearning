@@ -422,6 +422,7 @@ const MainLayout = ({ children }) => {
 
   const executeSearch = async (query, type, searchKey) => {
     const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
+      //const apiUrl = 'http://localhost:8080';
     
     // Create abort controller for this search
     const abortController = new AbortController();
@@ -493,6 +494,7 @@ const MainLayout = ({ children }) => {
 
   const executeAlternativeSearch = async (query, type, signal) => {
     const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
+      //const apiUrl = 'http://localhost:8080';
     
     let endpoint = '';
     let dataKey = '';
@@ -622,6 +624,7 @@ const MainLayout = ({ children }) => {
     
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
+      //const apiUrl = 'http://localhost:8080';
       console.log(`[Notifications] Fetching notifications, isAdmin: ${isAdminUser}`);
       
       // Gọi API lấy thông báo
@@ -748,6 +751,7 @@ const MainLayout = ({ children }) => {
   const markNotificationAsRead = async (notificationId) => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
+      //const apiUrl = 'http://localhost:8080';
       
       await fetch(`${apiUrl}/notifications/${notificationId}/read`, {
         method: 'PUT',
@@ -774,6 +778,7 @@ const MainLayout = ({ children }) => {
   const markAllAsRead = async () => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '/user/api';
+      //const apiUrl = 'http://localhost:8080';
       
       await fetch(`${apiUrl}/notifications/read-all`, {
         method: 'PUT',

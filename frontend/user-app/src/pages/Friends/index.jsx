@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '/user/api';
+//const API_URL = 'http://localhost:8080';
 
 const Friends = () => {
   const navigate = useNavigate();

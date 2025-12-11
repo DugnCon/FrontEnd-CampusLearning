@@ -215,45 +215,43 @@ const findDuplicates = (arr) => {
 
 // === HANDLE REAL-TIME MESSAGES === (SỬA - ĐƠN GIẢN)
 const handleRealTimeMessage = useCallback((data) => {
-    console.log('📨 Received real message:', data);
+  if (data.type !== 'NEW_MESSAGE' && data.type !== 'MESSAGE_SENT') return;
 
-    if (data.type !== 'NEW_MESSAGE') return;
+  const messageData = data.data;
+  const messageId = messageData?.messageID;
 
-    const messageData = data.data;
-    const messageId = messageData.messageID;
+  if (!messageId) {
+    console.warn('Tin nhắn không có messageID:', messageData);
+    return;
+  }
 
-    if (!messageId) return;
-
-    setMessages(prev => {
-        // CHỈ chống trùng đơn giản
-        const alreadyExists = prev.some(msg => msg.messageID === messageId);
-        if (alreadyExists) {
-            console.log('⏩ Message already exists, skipping:', messageId);
-            return prev;
-        }
-        
-        console.log('➕ Adding new real message:', messageId);
-        return [...prev, { 
-            ...messageData, 
-            status: 'sent'
-        }];
-    });
-
-    // Update last message
-    if (data.conversationId === currentConversation?.conversationID) {
-        setConversations(prev =>
-            prev.map(conv =>
-                conv.conversationID === data.conversationId
-                    ? {
-                          ...conv,
-                          lastMessageContent: messageData.content,
-                          lastMessageTime: messageData.createdAt,
-                          lastMessageSender: messageData.senderName || messageData.senderUsername
-                      }
-                    : conv
-            )
-        );
+  setMessages(prev => {
+    // Kiểm tra trùng ID
+    const exists = prev.some(msg => msg.messageID === messageId);
+    if (exists) {
+      console.log(`Duplicate message ignored: ${messageId}`);
+      return prev;
     }
+
+    console.log(`Adding new message: ${messageId}`);
+    return [...prev, { ...messageData, status: 'sent' }];
+  });
+
+  // Update last message in sidebar
+  if (data.conversationId === currentConversation?.conversationID) {
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.conversationID === data.conversationId
+          ? {
+              ...conv,
+              lastMessageContent: messageData.content || '[Hình ảnh]',
+              lastMessageTime: messageData.createdAt,
+              lastMessageSender: messageData.senderName || messageData.senderUsername
+            }
+          : conv
+      )
+    );
+  }
 }, [currentConversation]);
   // === HANDLE MESSAGE UPDATED ===
   const handleMessageUpdated = useCallback((data) => {
@@ -335,15 +333,32 @@ const handleRealTimeMessage = useCallback((data) => {
   };
 
   const loadMessages = async (conversationId) => {
-    try {
-      const response = await chatApi.getMessages(conversationId);
-      setMessages(response.success ? (response.data || []) : []);
-    } catch (error) {
-      console.error('Load messages error:', error);
+  try {
+    const response = await chatApi.getMessages(conversationId);
+    if (response.success && Array.isArray(response.data)) {
+      // Tạo Set chứa tất cả messageID hiện có trong state
+      const existingIds = new Set(messages.map(m => m.messageID).filter(Boolean));
+      
+      // Lọc ra những tin nhắn chưa có trong state
+      const newMessages = response.data.filter(msg => 
+        msg.messageID && !existingIds.has(msg.messageID)
+      );
+
+      // Nếu có tin nhắn mới → thêm vào
+      if (newMessages.length > 0) {
+        setMessages(prev => [...prev, ...newMessages]);
+      } else {
+        console.log('Tất cả tin nhắn đã được load rồi, không thêm nữa');
+      }
+    } else {
       setMessages([]);
-      toast.error('Không thể tải tin nhắn');
     }
-  };
+  } catch (error) {
+    console.error('Load messages error:', error);
+    setMessages([]);
+    toast.error('Không thể tải tin nhắn');
+  }
+};
 
   const selectConversation = (conversation) => {
     setCurrentConversation(conversation);

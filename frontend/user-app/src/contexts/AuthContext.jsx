@@ -13,6 +13,7 @@ const AuthContext = createContext();
 
 // Cấu hình base URL
 const BASE_URL = import.meta.env.VITE_API_URL || '/user/api';
+//const BASE_URL = 'http://localhost:8080';
 
 export function AuthProvider({ children }) {
   const initialUser = (() => {

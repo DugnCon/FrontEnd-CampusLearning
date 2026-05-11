@@ -30,7 +30,7 @@ A unified repository containing all frontend applications and backend services f
 
 ```bash
 # 1. Clone the repo
-$ git clone https://github.com/DucQuyen199/Campus-Learning.git
+$ git clone https://github.com/DugnCon/Campus-Learning.git
 $ cd campuslearning
 
 # 2. Install workspace tools (pnpm recommended)
